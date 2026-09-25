@@ -61,9 +61,11 @@ def llm_enabled() -> bool:
     return bool(current_app.config.get("ANTHROPIC_API_KEY"))
 
 
-def complete(system: str, messages: list[dict], max_tokens: int = 900, temperature: float = 0.4,
+def complete(system: str, messages: list[dict], max_tokens: int = 900, temperature: float | None = None,
              purpose: str = "") -> str:
-    """messages: [{"role": "user"|"assistant", "content": str}, ...]"""
+    """messages: [{"role": "user"|"assistant", "content": str}, ...]
+
+    `temperature` wird bewusst nicht gesendet: aktuelle Anthropic-SDKs/Modelle lehnen den Parameter ab."""
     if not llm_enabled():
         raise LLMUnavailable("ANTHROPIC_API_KEY fehlt")
     import anthropic
@@ -86,7 +88,6 @@ def complete(system: str, messages: list[dict], max_tokens: int = 900, temperatu
         resp = client.messages.create(
             model=current_app.config["ANTHROPIC_MODEL"],
             max_tokens=max_tokens,
-            temperature=temperature,
             system=AI_ACT_RULES + system,
             messages=clean,
         )
