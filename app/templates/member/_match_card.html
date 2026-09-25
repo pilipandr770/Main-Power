@@ -1,0 +1,33 @@
+{% from "partials/_macros.html" import loop_svg %}
+{% set o = m.other %}
+<article class="match">
+  <div class="bond" aria-hidden="true"><span class="av">{{ current_user.initials }}</span>{{ loop_svg() }}<span class="av them">{{ o.initials }}</span></div>
+  <div>
+    <div class="row between">
+      <h3><a href="{{ url_for('member.member_detail', user_id=o.id) }}">{{ o.first_name }} {{ o.last_name[:1] }}.</a></h3>
+      <span class="score" title="Übereinstimmung von Bedarf und Angebot">{{ m.score|fit }}</span>
+    </div>
+    <div class="muted small">{{ o.profile.headline }}{% if o.profile.industry %} · {{ o.profile.industry }}{% endif %}</div>
+    <p class="reason">{{ m.reason }}</p>
+    {% if m.opener %}<p class="opener">Gesprächseinstieg: {{ m.opener }}</p>{% endif %}
+    {% if not compact %}
+    <div class="row mt-m">
+      {% set ir = existing.get(o.id) if existing else None %}
+      {% if ir and ir.status in ('pending', 'accepted') %}
+        <span class="tag {{ 'ok' if ir.status == 'accepted' else 'warn' }}">{{ 'Verbunden' if ir.status == 'accepted' else 'Anfrage gesendet' }}</span>
+      {% else %}
+      <details>
+        <summary class="btn btn-sm">Kontakt anfragen</summary>
+        <form method="post" action="{{ url_for('member.request_intro', user_id=o.id) }}" class="mt-m">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="msg-{{ o.id }}">Kurze Nachricht an {{ o.first_name }}<span class="hint">Optional. Kontaktdaten werden erst nach Zustimmung geteilt.</span></label>
+          <textarea id="msg-{{ o.id }}" name="message" rows="3" maxlength="1000">Hallo {{ o.first_name }}, Aiko hat uns vorgeschlagen — ich würde mich gern kurz mit dir austauschen.</textarea>
+          <button class="btn btn-sm mt-s" type="submit">Anfrage senden</button>
+        </form>
+      </details>
+      {% endif %}
+      <form method="post" action="{{ url_for('member.dismiss_match', other_id=o.id) }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Nicht passend</button></form>
+    </div>
+    {% endif %}
+  </div>
+</article>

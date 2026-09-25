@@ -1,0 +1,49 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea %}
+{% block page_title %}{{ u.full_name }} bearbeiten{% endblock %}
+{% block content %}
+{% set v = form if form else None %}
+<div class="page-head"><div><h1>{{ u.full_name }} bearbeiten</h1><p class="muted mb-0">Einwilligungen (Matching, Verzeichnis) kann nur die Person selbst ändern.</p></div>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('admin.user_detail', user_id=u.id) }}">Abbrechen</a></div>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset><legend>Konto</legend>
+    <div class="grid grid-2">
+      {{ input("first_name", "Vorname", v.first_name if v else u.first_name, errors=errors, required=True) }}
+      {{ input("last_name", "Nachname", v.last_name if v else u.last_name) }}
+    </div>
+    <div class="grid grid-2">
+      {{ input("email", "E-Mail", v.email if v else u.email, type="email", errors=errors, required=True) }}
+      {{ input("phone", "Telefon", v.phone if v else u.phone, type="tel") }}
+    </div>
+  </fieldset>
+  <fieldset><legend>Profil</legend>
+    {{ textarea("q_focus", "Was macht die Person?", v.q_focus if v else p.q_focus) }}
+    {{ textarea("q_challenge", "Größte Herausforderung", v.q_challenge if v else p.q_challenge) }}
+    {{ textarea("q_can_help", "Kann helfen mit", v.q_can_help if v else p.q_can_help) }}
+    {{ textarea("q_looking_for", "Sucht konkret", v.q_looking_for if v else p.q_looking_for) }}
+    {{ input("headline", "Rolle", v.headline if v else p.headline) }}
+    <div class="grid grid-2">
+      {{ input("company", "Unternehmen", v.company if v else p.company) }}
+      {{ input("industry", "Branche", v.industry if v else p.industry) }}
+    </div>
+    <div class="grid grid-2">
+      {{ input("city", "Ort", v.city if v else p.city) }}
+      {{ input("expertise", "Expertise", v.expertise if v else p.expertise, hint="Kommagetrennt") }}
+    </div>
+    {{ textarea("bio", "Kurzvorstellung", v.bio if v else p.bio, rows=3) }}
+    <div class="grid grid-2">
+      {{ input("linkedin_url", "LinkedIn", p.linkedin_url) }}
+      {{ input("xing_url", "Xing", p.xing_url) }}
+      {{ input("instagram_url", "Instagram", p.instagram_url) }}
+      {{ input("website_url", "Website", p.website_url) }}
+    </div>
+  </fieldset>
+  <fieldset><legend>Bevorzugte Formate</legend>
+    {% for key, f in formats.items() if key != 'community' %}
+    <label class="check"><input type="checkbox" name="formats" value="{{ key }}"{% if key in p.formats_list %} checked{% endif %}><span>{{ f.name }}</span></label>
+    {% endfor %}
+  </fieldset>
+  <button class="btn" type="submit">Speichern</button>
+</form>
+{% endblock %}

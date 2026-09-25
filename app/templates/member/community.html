@@ -1,0 +1,34 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}Community-Chat{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Community-Chat</h1><p class="muted mb-0">{{ group_title }} — ein geschlossener Telegram-Chat nur für verifizierte Mitglieder.</p></div></div>
+{% if not tg %}
+  <div class="empty">Der Community-Chat wird gerade eingerichtet. Bis dahin erreichst du das Team unter <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</div>
+{% else %}
+<ol class="steps maxw">
+  <li>
+    <h3>Telegram verbinden</h3>
+    {% if current_user.telegram_user_id %}
+      <p><span class="tag ok">Verbunden{% if current_user.telegram_username %} als @{{ current_user.telegram_username }}{% endif %}</span></p>
+      <form method="post" action="{{ url_for('member.community_unlink') }}" data-confirm="Telegram trennen? Du verlässt damit auch den Community-Chat."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Trennen</button></form>
+    {% else %}
+      <p class="muted">Öffnet Telegram. Tippe dort auf „Start“ — damit wissen wir, dass das Telegram-Konto zu dir gehört.</p>
+      <form method="post" action="{{ url_for('member.community_link') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Mit Telegram verbinden</button></form>
+      <p class="small muted mt-s">Danach diese Seite neu laden.</p>
+    {% endif %}
+  </li>
+  <li>
+    <h3>Chat betreten</h3>
+    {% if not group %}<p class="muted">Die Gruppe wird gerade eingerichtet.</p>
+    {% elif current_user.telegram_user_id %}
+      <p class="muted">Du erhältst einen persönlichen Einladungslink, gültig für 24 Stunden und nur für dich.</p>
+      <form method="post" action="{{ url_for('member.community_join') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Community-Chat betreten</button></form>
+    {% else %}<p class="muted">Zuerst Schritt 1 abschließen.</p>{% endif %}
+  </li>
+  <li>
+    <h3>Aiko in Telegram</h3>
+    <p class="muted">Schreib dem Bot direkt — Aiko antwortet mit dem Wissen aus deinem Profil, auch unterwegs.</p>
+  </li>
+</ol>
+{% endif %}
+{% endblock %}

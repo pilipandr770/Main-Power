@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import logo, flashes %}
+{% block title %}{% block page_title %}{% endblock %} — Main Power{% endblock %}
+{% block body %}
+{% set ep = request.endpoint or '' %}
+<div class="mobile-bar">{{ logo() }}<button class="btn btn-ghost btn-sm" data-rail-toggle aria-expanded="false">Menü</button></div>
+<div class="app">
+  <aside class="rail" aria-label="Mitgliederbereich">
+    {{ logo() }}
+    <nav>
+      <a href="{{ url_for('member.dashboard') }}" class="{{ 'on' if ep == 'member.dashboard' }}">Übersicht</a>
+      <a href="{{ url_for('member.matches') }}" class="{{ 'on' if ep == 'member.matches' }}">Meine Matches</a>
+      <a href="{{ url_for('member.aiko_page') }}" class="{{ 'on' if ep == 'member.aiko_page' }}">Aiko fragen</a>
+      <a href="{{ url_for('member.events') }}" class="{{ 'on' if ep.startswith('member.event') }}">Termine</a>
+      <a href="{{ url_for('member.contacts') }}" class="{{ 'on' if ep == 'member.contacts' }}">Kontakte{% if pending_intros %}<span class="badge">{{ pending_intros }}</span>{% endif %}</a>
+      <a href="{{ url_for('member.directory') }}" class="{{ 'on' if ep in ('member.directory','member.member_detail') }}">Mitglieder</a>
+      <a href="{{ url_for('member.community') }}" class="{{ 'on' if ep == 'member.community' }}">Community-Chat</a>
+      <a href="{{ url_for('member.services') }}" class="{{ 'on' if ep.startswith('member.service') }}">Leistungen</a>
+      <div class="navlabel">Konto</div>
+      <a href="{{ url_for('member.profile') }}" class="{{ 'on' if ep == 'member.profile' }}">Mein Profil</a>
+      <a href="{{ url_for('member.privacy') }}" class="{{ 'on' if ep == 'member.privacy' }}">Privatsphäre</a>
+      {% if current_user.is_admin %}<a href="{{ url_for('admin.dashboard') }}">Adminbereich</a>{% endif %}
+    </nav>
+    <div class="me">
+      <b>{{ current_user.full_name }}</b><br>
+      <span class="muted small">{{ current_user.email }}</span>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="mt-s"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Abmelden</button></form>
+    </div>
+  </aside>
+  <main class="main" id="inhalt">
+    {{ flashes() }}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}{{ ev.title }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ ev.title }}</h1><p class="muted mb-0">{{ ev|event_date }} · {{ ev.location or 'Ort offen' }} · {{ ev.price_cents|money }} · {{ ev.active_registrations|length }}{% if ev.capacity %}/{{ ev.capacity }}{% endif %} Anmeldungen</p></div>
+<div class="row">
+  <a class="btn btn-sm" href="{{ url_for('admin.event_matching', event_id=ev.id) }}">Matching für diesen Termin</a>
+  <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_csv', event_id=ev.id) }}">CSV</a>
+  <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_edit', event_id=ev.id) }}">Bearbeiten</a>
+  {% if ev.status != 'cancelled' %}<form method="post" action="{{ url_for('admin.event_status', event_id=ev.id, status='cancelled') }}" data-confirm="Termin absagen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm">Absagen</button></form>{% endif %}
+</div></div>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>Rolle</th><th>Notiz</th><th>Angemeldet</th><th>Status</th></tr></thead><tbody>
+{% for r in regs %}
+<tr>
+  <td><a href="{{ url_for('admin.user_detail', user_id=r.user.id) }}">{{ r.user.full_name }}</a><br><span class="small muted">{{ r.user.email }}</span></td>
+  <td class="small">{{ r.user.profile.headline if r.user.profile }}</td>
+  <td class="small">{{ r.note }}</td>
+  <td class="nowrap small">{{ r.created_at|dt }}</td>
+  <td><form method="post" action="{{ url_for('admin.registration_update', event_id=ev.id, reg_id=r.id) }}" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select name="status" aria-label="Status">{% for s, l in [('registered','angemeldet'),('reserved','reserviert, zahlt vor Ort'),('pending_payment','Zahlung offen'),('paid','bezahlt'),('cancelled','storniert')] %}<option value="{{ s }}"{% if r.status == s %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    <button class="btn btn-ghost btn-sm">OK</button></form></td>
+</tr>
+{% else %}<tr><td colspan="5" class="muted">Noch keine Anmeldungen.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if tg %}
+<section class="panel mt-l maxw">
+  <h2>Im Community-Chat ankündigen</h2>
+  <form method="post" action="{{ url_for('admin.event_announce', event_id=ev.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="ann">Text<span class="hint">Leer lassen für die automatische Ankündigung mit Anmeldelink.</span></label>
+    <textarea id="ann" name="text" rows="4"></textarea>
+    <button class="btn btn-sm mt-s">In Telegram posten</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

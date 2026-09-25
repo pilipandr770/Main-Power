@@ -1,0 +1,9 @@
+{% extends "public/_layout.html" %}
+{% block title %}{{ code }} — Main Power{% endblock %}
+{% block content %}
+<section class="hero"><div class="wrap">
+  <h1>{{ msg }}</h1>
+  <p class="lead">Fehlercode {{ code }}.</p>
+  <a class="btn mt-m" href="{{ url_for('public.index') }}">Zur Startseite</a>
+</div></section>
+{% endblock %}

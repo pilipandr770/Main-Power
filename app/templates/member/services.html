@@ -1,0 +1,15 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}Leistungen{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Leistungen aus dem Ökosystem</h1><p class="muted mb-0">Geprüfte Partner:innen der Community — mit Konditionen für Mitglieder.</p></div></div>
+<div class="grid grid-2">
+{% for s in items %}
+  <article class="panel">
+    <h3><a href="{{ url_for('member.service_detail', slug=s.slug) }}">{{ s.title }}</a></h3>
+    <p class="muted">{{ s.summary }}</p>
+    {% if s.member_benefit %}<p class="small"><span class="tag ember">{{ s.member_benefit }}</span></p>{% endif %}
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('member.service_detail', slug=s.slug) }}">Details und Anfrage</a>
+  </article>
+{% else %}<div class="empty">Noch keine Leistungen veröffentlicht.</div>{% endfor %}
+</div>
+{% endblock %}

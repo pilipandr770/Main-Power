@@ -1,0 +1,29 @@
+{% extends "auth/_layout.html" %}
+{% from "partials/_macros.html" import input, check %}
+{% block title %}Mitglied werden — Main Power{% endblock %}
+{% block content %}
+<h1>Mitglied werden</h1>
+<p class="muted">Kostenlos. Danach füllst du dein Profil in vier Fragen aus.</p>
+<form method="post" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="grid grid-2">
+    {{ input("first_name", "Vorname", form.get("first_name"), errors=errors, required=True, autocomplete="given-name") }}
+    {{ input("last_name", "Nachname", form.get("last_name"), errors=errors, autocomplete="family-name") }}
+  </div>
+  {{ input("email", "E-Mail", form.get("email"), type="email", errors=errors, required=True, autocomplete="email") }}
+  {{ input("phone", "Telefon", form.get("phone"), type="tel", hint="Optional. Wird nur mit Kontakten geteilt, denen du zustimmst.", autocomplete="tel") }}
+  {{ input("password", "Passwort", type="password", errors=errors, required=True, hint="Mindestens 10 Zeichen.", autocomplete="new-password") }}
+  <fieldset>
+    <legend>Einwilligungen</legend>
+    {{ check("consent_values", "Ich akzeptiere die Werte und Struktur von Main Power und werde mich respektvoll und konstruktiv in die Gemeinschaft einbringen.", form.get("consent_values"), errors) }}
+    {{ check("consent_privacy", "Ich habe die Datenschutzhinweise gelesen und stimme der Verarbeitung meiner Daten zur Kontoführung zu.", form.get("consent_privacy"), errors) }}
+    <p class="small"><a href="{{ url_for('public.privacy') }}" target="_blank">Datenschutzhinweise lesen</a></p>
+    {{ check("consent_matching", "Optional: Mein Profil darf für KI-gestütztes Matching und persönliche Empfehlungen genutzt werden.", form.get("consent_matching")) }}
+    {{ check("consent_directory", "Optional: Mein Profil ist für andere Mitglieder im Verzeichnis sichtbar (ohne Kontaktdaten).", form.get("consent_directory")) }}
+    {{ check("consent_newsletter", "Optional: Informiert mich per E-Mail über neue Termine.", form.get("consent_newsletter")) }}
+    <p class="small muted">Alle Einwilligungen kannst du jederzeit unter „Privatsphäre“ widerrufen.</p>
+  </fieldset>
+  <button class="btn" type="submit">Konto anlegen</button>
+  <p class="mt-m muted">Schon Mitglied? <a href="{{ url_for('auth.login') }}">Anmelden</a></p>
+</form>
+{% endblock %}

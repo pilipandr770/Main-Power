@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import logo, flashes %}
+{% block body %}
+<div class="auth">
+  <div class="auth-side" aria-hidden="true"><blockquote>Menschen zusammenbringen. Energie geben. Verbindungen entstehen lassen.</blockquote></div>
+  <main class="auth-main">
+    <div class="mb-l">{{ logo() }}</div>
+    {{ flashes() }}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

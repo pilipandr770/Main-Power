@@ -1,0 +1,35 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check %}
+{% block page_title %}Einstellungen{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Einstellungen</h1></div>
+<div class="split">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset><legend>Community</legend>
+      {{ check("member_events_require_approval", "Von Mitgliedern vorgeschlagene Treffen erst nach Freigabe veröffentlichen", v.member_events_require_approval == '1') }}
+      {{ input("announcement", "Hinweis in der Mitglieder-Übersicht", v.announcement, hint="Leer = kein Hinweis") }}
+      {{ input("telegram_group_title", "Name des Community-Chats", v.telegram_group_title) }}
+    </fieldset>
+    <fieldset><legend>Aiko</legend>
+      {{ textarea("aiko_extra_instructions", "Zusätzliche Anweisungen", v.aiko_extra_instructions, rows=6, hint="Wird an Aikos Systemanweisung angehängt, z. B. aktuelle Aktionen oder Tonalität. Die KI-VO-/DSGVO-Grundregeln stehen fest im Code und haben immer Vorrang.") }}
+    </fieldset>
+    <button class="btn" type="submit">Speichern</button>
+  </form>
+  <aside class="stack">
+    <div class="panel">
+      <h3>Integrationen</h3>
+      <p class="small mb-0">KI (Anthropic): <b>{{ 'aktiv' if ai_on else 'Demo-Modus' }}</b> · Modell {{ cfg.ANTHROPIC_MODEL }}</p>
+      <p class="small mb-0">Embeddings: <b>{{ cfg.EMBEDDING_PROVIDER }}</b></p>
+      <p class="small mb-0">Telegram-Bot: <b>{{ 'aktiv' if tg else 'nicht konfiguriert' }}</b>{% if tg %} · Gruppe: <b>{{ 'ja' if group else 'fehlt' }}</b>{% endif %}</p>
+      <p class="small mb-0">Stripe: <b>{{ 'aktiv' if stripe_on else 'aus' }}</b></p>
+      <p class="small muted mt-s">Schlüssel werden in der .env-Datei auf dem Server gesetzt, nicht hier.</p>
+    </div>
+    <div class="panel">
+      <h3>Matching neu berechnen</h3>
+      <p class="small muted">Nötig nach einem Wechsel des Embedding-Anbieters.</p>
+      <form method="post" action="{{ url_for('admin.reembed') }}" data-confirm="Alle Profile neu berechnen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Neu berechnen</button></form>
+    </div>
+  </aside>
+</div>
+{% endblock %}

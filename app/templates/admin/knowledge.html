@@ -1,0 +1,32 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Wissen für Aiko{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Wissen für Aiko</h1><p class="muted mb-0">Fragen und Antworten, die Aiko kennt. „Öffentlich“ erscheint auch auf der Startseite und im Chat für Besucher:innen.</p></div></div>
+{% for k in items %}
+<details class="faq">
+  <summary>{{ k.question }} {% if not k.active %}<span class="tag">aus</span>{% elif not k.public %}<span class="tag">nur Mitglieder</span>{% endif %}</summary>
+  <form method="post" class="mt-m">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ k.id }}">
+    <div class="field"><label>Frage</label><input type="text" name="question" value="{{ k.question }}"></div>
+    <div class="field"><label>Antwort</label><textarea name="answer" rows="4">{{ k.answer }}</textarea></div>
+    <div class="row">
+      <label class="check"><input type="checkbox" name="public" value="1"{% if k.public %} checked{% endif %}><span>Öffentlich</span></label>
+      <label class="check"><input type="checkbox" name="active" value="1"{% if k.active %} checked{% endif %}><span>Aktiv</span></label>
+      <label class="sr-only" for="sort-{{ k.id }}">Reihenfolge</label><input id="sort-{{ k.id }}" type="number" name="sort" value="{{ k.sort }}" class="w-20">
+    </div>
+    <div class="row"><button class="btn btn-sm">Speichern</button><button class="btn btn-danger btn-sm" name="delete" value="1">Löschen</button></div>
+  </form>
+</details>
+{% endfor %}
+<section class="panel mt-l maxw">
+  <h2>Neuer Eintrag</h2>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="nq">Frage</label><input id="nq" type="text" name="question"></div>
+    <div class="field"><label for="na">Antwort</label><textarea id="na" name="answer" rows="4"></textarea></div>
+    <label class="check"><input type="checkbox" name="public" value="1" checked><span>Öffentlich</span></label>
+    <input type="hidden" name="active" value="1"><input type="hidden" name="sort" value="{{ items|length }}">
+    <button class="btn btn-sm">Hinzufügen</button>
+  </form>
+</section>
+{% endblock %}

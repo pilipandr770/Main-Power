@@ -1,0 +1,50 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}Privatsphäre{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Privatsphäre und Konto</h1><p class="muted mb-0">Du entscheidest, was mit deinen Daten passiert. Jede Änderung wird protokolliert.</p></div></div>
+<div class="split">
+  <section>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <fieldset>
+        <legend>Einwilligungen</legend>
+        <label class="check"><input type="checkbox" name="matching" value="1"{% if p.allow_matching %} checked{% endif %}><span><b>KI-Matching und persönliche Empfehlungen</b><br><span class="muted small">Dein Profil wird mit anderen verglichen; du erscheinst als Vorschlag bei passenden Mitgliedern (ohne Kontaktdaten).</span></span></label>
+        <label class="check"><input type="checkbox" name="directory" value="1"{% if p.visible_in_directory %} checked{% endif %}><span><b>Im Mitgliederverzeichnis sichtbar</b><br><span class="muted small">Name, Rolle und Profiltexte — ohne E-Mail, Telefon und Links.</span></span></label>
+        <label class="check"><input type="checkbox" name="newsletter" value="1"{% if newsletter %} checked{% endif %}><span><b>Termin-Infos per E-Mail</b></span></label>
+        <button class="btn btn-sm" type="submit">Speichern</button>
+      </fieldset>
+    </form>
+    <fieldset>
+      <legend>Einwilligungsverlauf</legend>
+      <div class="table-wrap"><table><thead><tr><th>Zeit</th><th>Einwilligung</th><th>Status</th></tr></thead><tbody>
+      {% for c in current_user.consents[:20] %}<tr><td class="nowrap">{{ c.created_at|dt }}</td><td>{{ c.kind }}</td><td>{{ 'erteilt' if c.granted else 'widerrufen' }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </fieldset>
+  </section>
+  <section>
+    <fieldset>
+      <legend>Meine Daten</legend>
+      <p class="muted small">Alle gespeicherten Daten als JSON-Datei (Art. 15 und 20 DSGVO).</p>
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('member.export') }}">Daten herunterladen</a>
+    </fieldset>
+    <fieldset>
+      <legend>Passwort ändern</legend>
+      <form method="post" action="{{ url_for('member.change_password') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field"><label for="cur">Aktuelles Passwort</label><input id="cur" type="password" name="current" autocomplete="current-password" required></div>
+        <div class="field"><label for="new">Neues Passwort</label><input id="new" type="password" name="new" autocomplete="new-password" minlength="10" required></div>
+        <button class="btn btn-sm" type="submit">Passwort ändern</button>
+      </form>
+    </fieldset>
+    <fieldset>
+      <legend>Konto löschen</legend>
+      <p class="muted small">Löscht Konto, Profil, Anmeldungen, Kontaktanfragen und Chatverlauf endgültig.</p>
+      <form method="post" action="{{ url_for('member.delete_account') }}" data-confirm="Konto endgültig löschen? Das lässt sich nicht rückgängig machen.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field"><label for="delpw">Passwort zur Bestätigung</label><input id="delpw" type="password" name="password" autocomplete="current-password" required></div>
+        <button class="btn btn-danger btn-sm" type="submit">Konto löschen</button>
+      </form>
+    </fieldset>
+  </section>
+</div>
+{% endblock %}

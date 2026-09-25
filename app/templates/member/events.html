@@ -1,0 +1,16 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import event_row %}
+{% block page_title %}Termine{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Termine</h1><p class="muted mb-0">Alle Formate, ein Kalender.</p></div><a class="btn" href="{{ url_for('member.event_create') }}">Treffen vorschlagen</a></div>
+<nav class="filters" aria-label="Nach Format filtern">
+  <a class="tag{% if not active %} on{% endif %}" href="{{ url_for('member.events') }}">Alle</a>
+  {% for k, f in FORMATS.items() %}<a class="tag{% if active == k %} on{% endif %}" href="{{ url_for('member.events', format=k) }}">{{ f.short }}</a>{% endfor %}
+</nav>
+{% for ev in own_pending %}{{ event_row(ev, url_for('member.event_detail', event_id=ev.id)) }}{% endfor %}
+{% for ev in events %}
+  {% set r = mine.get(ev.id) %}
+  {% set badge %}{% if r and r.status in ('registered','paid','reserved') %}<span class="tag ok">Angemeldet</span>{% elif r and r.status == 'pending_payment' %}<span class="tag warn">Zahlung offen</span>{% endif %}{% endset %}
+  {{ event_row(ev, url_for('member.event_detail', event_id=ev.id), badge) }}
+{% else %}<div class="empty">Für diese Auswahl sind gerade keine Termine veröffentlicht.</div>{% endfor %}
+{% endblock %}

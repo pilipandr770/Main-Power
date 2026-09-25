@@ -1,0 +1,23 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}{{ s.title }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('member.services') }}">Leistungen</a></p><h1>{{ s.title }}</h1><p class="muted mb-0">{{ s.provider_name }}</p></div></div>
+<div class="split">
+  <section class="stack">
+    <p class="big">{{ s.summary }}</p>
+    <p class="pre">{{ s.description }}</p>
+    {% if s.benefits_list %}<h3>Was du davon hast</h3><ul>{% for b in s.benefits_list %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+    {% if s.price_hint %}<p><b>Preis:</b> {{ s.price_hint }}</p>{% endif %}
+  </section>
+  <aside class="panel">
+    {% if s.member_benefit %}<span class="tag ember">{{ s.member_benefit }}</span>{% endif %}
+    <h3 class="mt-m">Unverbindlich anfragen</h3>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="message">Worum geht es?<span class="hint">Deine Profildaten (Name, E-Mail, Rolle) werden mit der Anfrage übermittelt.</span></label>
+      <textarea id="message" name="message" rows="5" maxlength="2000" required></textarea>
+      <button class="btn mt-s" type="submit">Anfrage senden</button>
+    </form>
+  </aside>
+</div>
+{% endblock %}

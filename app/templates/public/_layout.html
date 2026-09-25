@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import logo, flashes %}
+{% block body %}
+<a class="sr-only" href="#inhalt">Zum Inhalt springen</a>
+<header class="site-head">
+  <div class="wrap">
+    {{ logo("Community Frankfurt") }}
+    <nav class="site-nav" aria-label="Hauptnavigation">
+      <a class="hide-m" href="{{ url_for('public.index') }}#formate">Formate</a>
+      <a class="hide-m" href="{{ url_for('public.events') }}">Termine</a>
+      <a class="hide-m" href="{{ url_for('public.index') }}#fragen">Fragen</a>
+      {% if current_user.is_authenticated %}
+        <a class="btn btn-sm" href="{{ url_for('admin.dashboard' if current_user.is_admin else 'member.dashboard') }}">Mein Bereich</a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}">Anmelden</a>
+        <a class="btn btn-sm" href="{{ url_for('auth.register') }}">Mitglied werden</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+<main id="inhalt">
+  <div class="wrap">{{ flashes() }}</div>
+  {% block content %}{% endblock %}
+</main>
+<footer class="site-foot">
+  <div class="wrap row between">
+    <div>
+      <b class="bone">Geladen bleiben.</b><br>
+      © {{ 2026 }} Main Power Community · Frankfurt am Main
+    </div>
+    <div class="row">
+      <a href="{{ cfg.IMPRESSUM_URL }}">Impressum</a>
+      <a href="{{ url_for('public.privacy') }}">Datenschutz</a>
+      <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>
+      <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>
+      <a href="https://instagram.com/mainpowercommunity" rel="noopener">Instagram</a>
+    </div>
+  </div>
+</footer>
+{% include "partials/_aiko_widget.html" %}
+{% endblock %}

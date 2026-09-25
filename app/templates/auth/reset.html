@@ -1,0 +1,12 @@
+{% extends "auth/_layout.html" %}
+{% from "partials/_macros.html" import input %}
+{% block title %}Neues Passwort — Main Power{% endblock %}
+{% block content %}
+<h1>Neues Passwort</h1>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if error %}<div class="flash error mb-m">{{ error }}</div>{% endif %}
+  {{ input("password", "Neues Passwort", type="password", required=True, hint="Mindestens 10 Zeichen.", autocomplete="new-password") }}
+  <button class="btn" type="submit">Passwort speichern</button>
+</form>
+{% endblock %}

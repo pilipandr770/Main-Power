@@ -1,0 +1,9 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Kontaktanfragen{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Kontaktanfragen</h1><p class="muted mb-0">Welche Verbindungen die Plattform erzeugt. Inhalte der Nachrichten sind privat und werden hier nicht angezeigt.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Von</th><th>An</th><th>Status</th><th>Erstellt</th><th>Beantwortet</th></tr></thead><tbody>
+{% for i in items %}<tr><td>{{ i.from_user.full_name }}</td><td>{{ i.to_user.full_name }}</td><td><span class="tag {{ 'ok' if i.status == 'accepted' else '' }}">{{ i.status }}</span></td><td class="nowrap small">{{ i.created_at|dt }}</td><td class="nowrap small">{{ i.responded_at|dt }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Noch keine Anfragen.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check %}
+{% block page_title %}Leistung{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ s.title or 'Neue Leistung' }}</h1></div>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input("title", "Titel", s.title, required=True) }}
+  {{ input("slug", "Kurzname für die Adresse", s.slug, hint="z. B. ki-chatbots — leer lassen für automatisch") }}
+  {{ textarea("summary", "Kurzbeschreibung", s.summary, rows=2) }}
+  {{ textarea("description", "Beschreibung", s.description, rows=6) }}
+  {{ textarea("benefits", "Vorteile", s.benefits, rows=4, hint="Eine Zeile pro Vorteil") }}
+  {{ input("member_benefit", "Vorteil für Mitglieder", s.member_benefit) }}
+  {{ input("price_hint", "Preisangabe", s.price_hint) }}
+  <div class="grid grid-2">
+    {{ input("provider_name", "Anbieter", s.provider_name) }}
+    {{ input("provider_email", "E-Mail für Anfragen", s.provider_email, type="email") }}
+  </div>
+  {{ input("sort", "Reihenfolge", s.sort or 0, type="number") }}
+  {{ check("active", "Aktiv (für Mitglieder sichtbar)", s.active) }}
+  <button class="btn" type="submit">Leistung speichern</button>
+</form>
+{% endblock %}

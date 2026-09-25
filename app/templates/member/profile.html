@@ -1,0 +1,49 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, width_class %}
+{% block page_title %}Mein Profil{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ 'Erzähl uns von dir' if welcome else 'Mein Profil' }}</h1><p class="muted mb-0">Nur für die Community. Kontaktdaten sieht niemand ohne deine Zustimmung.</p></div>
+<div class="small muted">Vollständigkeit {{ p.completeness }} %<div class="progress mt-s"><span class="{{ width_class(p.completeness) }}"></span></div></div></div>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>Die vier Fragen aus dem Hub</legend>
+    <p class="muted small">Diese Antworten sind die Grundlage für dein Matching. Schreib so, wie du dich in der Vorstellungsrunde vorstellen würdest.</p>
+    {{ textarea("q_focus", "Was machst du?", p.q_focus, hint="Dein Tätigkeitsbereich in ein, zwei Sätzen.", placeholder="z. B. Ich berate Mittelständler beim Markteintritt in der Türkei.") }}
+    {{ textarea("q_challenge", "Was ist gerade deine größte berufliche Herausforderung?", p.q_challenge, placeholder="z. B. Verlässliche Vertriebspartner im Ausland finden.") }}
+    {{ textarea("q_can_help", "Womit kannst du anderen helfen?", p.q_can_help, placeholder="z. B. Zoll, Exportrecht, Kontakte in Istanbul.") }}
+    {{ textarea("q_looking_for", "Wonach suchst du konkret?", p.q_looking_for, placeholder="z. B. Eine Anwältin für internationales Vertragsrecht.") }}
+  </fieldset>
+  <fieldset>
+    <legend>Über dich</legend>
+    <div class="grid grid-2">
+      {{ input("first_name", "Vorname", current_user.first_name, required=True) }}
+      {{ input("last_name", "Nachname", current_user.last_name) }}
+    </div>
+    {{ input("headline", "Rolle", p.headline, hint="z. B. Steuerberaterin, eigene Kanzlei") }}
+    <div class="grid grid-2">
+      {{ input("company", "Unternehmen", p.company) }}
+      {{ input("industry", "Branche", p.industry) }}
+    </div>
+    <div class="grid grid-2">
+      {{ input("city", "Ort", p.city) }}
+      {{ input("phone", "Telefon", current_user.phone, type="tel", hint="Nur für angenommene Kontakte sichtbar.") }}
+    </div>
+    {{ input("expertise", "Stichworte zu deiner Expertise", p.expertise, hint="Kommagetrennt, z. B. Arbeitsrecht, Kündigung, KMU") }}
+    {{ textarea("bio", "Kurzvorstellung", p.bio, rows=4) }}
+    <label>Welche Formate interessieren dich?</label>
+    <div class="row mb-m">{% for k, f in FORMATS.items() %}<label class="check"><input type="checkbox" name="formats" value="{{ k }}"{% if k in p.formats_list %} checked{% endif %}><span>{{ f.short }}</span></label>{% endfor %}</div>
+  </fieldset>
+  <fieldset>
+    <legend>Deine Profile im Netz</legend>
+    <p class="muted small">Optional. Wir lesen diese Seiten nicht automatisch aus. Die Links sehen nur Menschen, deren Kontaktanfrage du angenommen hast.</p>
+    <div class="grid grid-2">
+      {{ input("linkedin_url", "LinkedIn", p.linkedin_url, type="url", placeholder="https://www.linkedin.com/in/…") }}
+      {{ input("xing_url", "Xing", p.xing_url, type="url") }}
+      {{ input("instagram_url", "Instagram", p.instagram_url, type="url") }}
+      {{ input("website_url", "Website", p.website_url, type="url") }}
+    </div>
+  </fieldset>
+  <button class="btn" type="submit">Profil speichern</button>
+</form>
+{% endblock %}

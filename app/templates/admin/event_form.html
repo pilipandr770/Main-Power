@@ -1,0 +1,28 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check %}
+{% block page_title %}{{ 'Termin bearbeiten' if ev.id else 'Neuer Termin' }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ 'Termin bearbeiten' if ev.id else 'Neuer Termin' }}</h1></div>
+{% if ev.source == 'sync' %}<div class="flash info mb-m">Dieser Termin stammt aus dem Kalender von main-power.org. Titel, Zeit und Beschreibung werden beim nächsten Sync überschrieben — Ort, Kapazität und Online-Link bleiben erhalten, wenn sie dort leer sind.</div>{% endif %}
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input("title", "Titel", ev.title, errors=errors, required=True) }}
+  <div class="field"><label for="f-format">Format</label><select id="f-format" name="format">{% for k, f in FORMATS.items() %}<option value="{{ k }}"{% if ev.format == k %} selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
+  {{ textarea("description", "Beschreibung", ev.description, rows=5) }}
+  <div class="grid grid-3">
+    {{ input("date", "Datum", local.strftime('%Y-%m-%d') if local else '', type="date", errors=errors, required=True) }}
+    {{ input("time", "Beginn", local.strftime('%H:%M') if local else '', type="time") }}
+    {{ input("end_time", "Ende", local_end.strftime('%H:%M') if local_end else '', type="time") }}
+  </div>
+  {{ check("all_day", "Ganztägig / ohne feste Uhrzeit", ev.all_day) }}
+  {{ check("time_pending", "Uhrzeit folgt noch", ev.time_pending) }}
+  {{ input("location", "Ort", ev.location) }}
+  {{ input("online_url", "Online-Link", ev.online_url, type="url", hint="Nur für angemeldete Teilnehmende sichtbar — niemals öffentlich.") }}
+  <div class="grid grid-3">
+    {{ input("price", "Preis in €", "%.2f"|format((ev.price_cents or 0)/100), errors=errors, hint="0 = kostenlos") }}
+    {{ input("capacity", "Kapazität", ev.capacity or '', type="number", hint="Leer = unbegrenzt") }}
+    <div class="field"><label for="f-status">Status</label><select id="f-status" name="status">{% for s, l in [('published','Veröffentlicht'),('pending','Zur Freigabe'),('cancelled','Abgesagt')] %}<option value="{{ s }}"{% if ev.status == s %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  </div>
+  <button class="btn" type="submit">Termin speichern</button>
+</form>
+{% endblock %}

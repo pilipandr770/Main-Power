@@ -1,0 +1,15 @@
+{% extends "auth/_layout.html" %}
+{% from "partials/_macros.html" import input, check %}
+{% block title %}Anmelden — Main Power{% endblock %}
+{% block content %}
+<h1>Willkommen zurück</h1>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if error %}<div class="flash error mb-m">{{ error }}</div>{% endif %}
+  {{ input("email", "E-Mail", request.form.get("email"), type="email", required=True, autocomplete="email") }}
+  {{ input("password", "Passwort", type="password", required=True, autocomplete="current-password") }}
+  {{ check("remember", "Angemeldet bleiben") }}
+  <button class="btn" type="submit">Anmelden</button>
+  <p class="mt-m muted"><a href="{{ url_for('auth.forgot') }}">Passwort vergessen?</a> · Neu hier? <a href="{{ url_for('auth.register') }}">Mitglied werden</a></p>
+</form>
+{% endblock %}

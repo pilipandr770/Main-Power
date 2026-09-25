@@ -1,0 +1,14 @@
+{% extends "public/_layout.html" %}
+{% from "partials/_macros.html" import event_row %}
+{% block title %}Termine — Main Power{% endblock %}
+{% block content %}
+<section class="hero"><div class="wrap">
+  <h1>Alle Termine</h1>
+  <p class="lead">Alle veröffentlichten Begegnungen der Community, chronologisch. Für die Anmeldung brauchst du ein kostenloses Konto.</p>
+  <nav class="filters" aria-label="Nach Format filtern">
+    <a class="tag{% if not active %} on{% endif %}" href="{{ url_for('public.events') }}">Alle</a>
+    {% for k, f in FORMATS.items() %}<a class="tag{% if active == k %} on{% endif %}" href="{{ url_for('public.events', format=k) }}">{{ f.short }}</a>{% endfor %}
+  </nav>
+  {% for ev in events %}{{ event_row(ev, url_for('member.event_detail', event_id=ev.id)) }}{% else %}<div class="empty">Für diese Auswahl sind gerade keine Termine veröffentlicht.</div>{% endfor %}
+</div></section>
+{% endblock %}

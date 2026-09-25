@@ -1,0 +1,41 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import event_row %}
+{% block page_title %}Übersicht{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Übersicht</h1><div class="row"><span class="tag {{ 'ok' if ai_on else 'warn' }}">KI {{ 'aktiv' if ai_on else 'Demo-Modus' }}</span><span class="tag {{ 'ok' if stripe_on else '' }}">Stripe {{ 'aktiv' if stripe_on else 'aus' }}</span></div></div>
+<div class="kpis mb-l">
+  <div class="kpi"><b>{{ s.members }}</b><span>aktive Mitglieder (+{{ s.new_week }} diese Woche)</span></div>
+  <div class="kpi"><b>{{ s.matchable }}</b><span>Profile im Matching</span></div>
+  <div class="kpi"><b>{{ s.events }}</b><span>kommende Termine{% if s.pending_events %}, {{ s.pending_events }} zur Freigabe{% endif %}</span></div>
+  <div class="kpi"><b>{{ s.registrations }}</b><span>aktive Anmeldungen</span></div>
+  <div class="kpi"><b>{{ s.intros_accepted }}/{{ s.intros }}</b><span>Kontaktanfragen angenommen</span></div>
+  <div class="kpi"><b>{{ s.chats_week }}</b><span>Fragen an Aiko (7 Tage)</span></div>
+  <div class="kpi"><b>{{ s.inquiries_new }}</b><span>neue Leistungsanfragen</span></div>
+  <div class="kpi"><b>{{ s.telegram }}</b><span>mit Telegram verbunden</span></div>
+</div>
+<section class="panel mb-l">
+  <div class="row between"><h2 class="mb-0">KI-Verbrauch (Tokens)</h2><span class="tag">{{ usage.model }}</span></div>
+  <div class="kpis mt-m">
+    <div class="kpi"><b>{{ '{:,}'.format(usage.today.total).replace(',', '.') }}</b><span>heute · {{ usage.today.calls }} Aufrufe</span></div>
+    <div class="kpi"><b>{{ '{:,}'.format(usage.d30.total).replace(',', '.') }}</b><span>letzte 30 Tage · ca. {{ '%.2f'|format(usage.d30.cost) }} $</span></div>
+    <div class="kpi"><b>{{ '{:,}'.format(usage.all.total).replace(',', '.') }}</b><span>gesamt · {{ usage.all.calls }} Aufrufe</span></div>
+    <div class="kpi"><b>{{ '%.2f'|format(usage.all.cost) }} $</b><span>geschätzte Kosten gesamt</span></div>
+  </div>
+  <p class="small muted mt-s mb-0">Eingabe {{ '{:,}'.format(usage.all.in).replace(',', '.') }} · Ausgabe {{ '{:,}'.format(usage.all.out).replace(',', '.') }}{% for r in usage.by_purpose %} · {{ r.label }}: {{ '{:,}'.format(r.total).replace(',', '.') }}{% endfor %}. Kostenschätzung nach den Preisen in der .env (LLM_PRICE_IN/OUT).</p>
+</section>
+<div class="split">
+  <section class="panel">
+    <h2>Wachstum der Datenbank</h2>
+    <p class="muted small">Mitglieder gesamt, letzte 8 Wochen. Ziel: 1.000+ in Frankfurt/Rhein-Main.</p>
+    <div class="bars">{% for g in growth %}<div><span>{{ g.n }}</span><i class="h-{{ ((g.n / maxn * 100) // 10 * 10)|int }}"></i><span>{{ g.label }}</span></div>{% endfor %}</div>
+  </section>
+  <section>
+    <h2>Neue Mitglieder</h2>
+    {% for u in recent_users %}<a class="person" href="{{ url_for('admin.user_detail', user_id=u.id) }}"><span class="av">{{ u.initials }}</span><span><b>{{ u.full_name }}</b><br><span class="small muted">{{ u.profile.headline if u.profile }} · {{ u.created_at|dt }}</span></span></a>{% endfor %}
+  </section>
+</div>
+<section class="mt-l">
+  <div class="row between"><h2 class="mb-0">Nächste Termine</h2><a href="{{ url_for('admin.events') }}">Alle Termine</a></div>
+  {% for ev in upcoming_events %}{% set extra %}<a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_matching', event_id=ev.id) }}">Matching</a> <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_attendees', event_id=ev.id) }}">{{ ev.active_registrations|length }} Anmeldungen</a>{% endset %}{{ event_row(ev, url_for('admin.event_attendees', event_id=ev.id), extra) }}{% endfor %}
+</section>
+{% endblock %}

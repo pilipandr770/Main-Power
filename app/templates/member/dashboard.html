@@ -1,0 +1,47 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import event_row, width_class %}
+{% block page_title %}Übersicht{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Hallo {{ current_user.first_name }}.</h1><p class="muted mb-0">Geladen bleiben.</p></div></div>
+{% if announcement %}<div class="flash info mb-l">{{ announcement }}</div>{% endif %}
+
+{% if p.completeness < 70 %}
+<section class="panel mb-l">
+  <div class="row between"><h2 class="mb-0">Dein Profil ist zu {{ p.completeness }} % ausgefüllt</h2><a class="btn btn-sm" href="{{ url_for('member.profile') }}">Profil ergänzen</a></div>
+  <div class="progress mt-m"><span class="{{ width_class(p.completeness) }}"></span></div>
+  <p class="muted mt-m mb-0">Je genauer du beschreibst, was du suchst und womit du helfen kannst, desto besser passen deine Matches.</p>
+</section>
+{% endif %}
+
+{% if incoming %}
+<section class="panel mb-l">
+  <h2>{{ incoming|length }} {{ 'Person möchte' if incoming|length == 1 else 'Personen möchten' }} dich kennenlernen</h2>
+  {% for ir in incoming %}<p class="mb-0">{{ ir.from_user.full_name }} — {{ ir.from_user.profile.headline if ir.from_user.profile }}</p>{% endfor %}
+  <a class="btn btn-sm mt-m" href="{{ url_for('member.contacts') }}">Anfragen beantworten</a>
+</section>
+{% endif %}
+
+<div class="split">
+  <section>
+    <div class="row between"><h2 class="mb-0">Deine besten Matches</h2><a href="{{ url_for('member.matches') }}">Alle ansehen</a></div>
+    <div class="stack mt-m">
+      {% for m in matches %}{% with compact=True %}{% include "member/_match_card.html" %}{% endwith %}{% else %}
+      <div class="empty">
+        {% if not p.allow_matching %}Matching ist ausgeschaltet. <a href="{{ url_for('member.privacy') }}">Unter Privatsphäre aktivieren</a>, um passende Menschen vorgeschlagen zu bekommen.
+        {% else %}Beantworte die vier Fragen in deinem <a href="{{ url_for('member.profile') }}">Profil</a> — dann zeigt dir Aiko, wen du kennenlernen solltest.{% endif %}
+      </div>{% endfor %}
+    </div>
+  </section>
+  <section>
+    <h2>Deine Anmeldungen</h2>
+    {% for r in regs %}{{ event_row(r.event, url_for('member.event_detail', event_id=r.event.id)) }}{% else %}<div class="empty">Noch keine Anmeldung.</div>{% endfor %}
+    <h2 class="mt-l">Als Nächstes</h2>
+    {% for ev in events %}{{ event_row(ev, url_for('member.event_detail', event_id=ev.id)) }}{% endfor %}
+    <div class="panel mt-l">
+      <div class="row between"><b>Aiko fragen</b><span class="ai-mark">KI</span></div>
+      <p class="muted small mt-s">„Wen sollte ich beim nächsten Hub kennenlernen?“ — Aiko kennt dein Profil und die Termine.</p>
+      <a class="btn btn-sm" href="{{ url_for('member.aiko_page') }}">Chat öffnen</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

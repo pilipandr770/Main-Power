@@ -1,0 +1,17 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Leistungen{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Leistungen</h1><a class="btn btn-sm" href="{{ url_for('admin.service_edit') }}">Neue Leistung</a></div>
+<div class="table-wrap mb-l"><table><thead><tr><th>Titel</th><th>Anbieter</th><th>Status</th><th class="num">Reihenfolge</th></tr></thead><tbody>
+{% for s in items %}<tr><td><a href="{{ url_for('admin.service_edit', sid=s.id) }}">{{ s.title }}</a></td><td class="small">{{ s.provider_name }}<br><span class="muted">{{ s.provider_email }}</span></td><td>{{ 'aktiv' if s.active else 'aus' }}</td><td class="num">{{ s.sort }}</td></tr>{% endfor %}
+</tbody></table></div>
+<h2>Anfragen</h2>
+<div class="table-wrap"><table><thead><tr><th>Zeit</th><th>Leistung</th><th>Mitglied</th><th>Nachricht</th><th>Status</th></tr></thead><tbody>
+{% for i in inquiries %}<tr>
+  <td class="nowrap small">{{ i.created_at|dt }}</td><td>{{ i.service.title }}</td>
+  <td><a href="{{ url_for('admin.user_detail', user_id=i.user.id) }}">{{ i.user.full_name }}</a><br><span class="small muted">{{ i.user.email }}</span></td>
+  <td class="small pre">{{ i.message }}</td>
+  <td><form method="post" action="{{ url_for('admin.inquiry_status', iid=i.id) }}" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="status" aria-label="Status">{% for s, l in [('new','neu'),('contacted','kontaktiert'),('won','Auftrag'),('lost','kein Auftrag')] %}<option value="{{ s }}"{% if i.status == s %} selected{% endif %}>{{ l }}</option>{% endfor %}</select><button class="btn btn-ghost btn-sm">OK</button></form></td>
+</tr>{% else %}<tr><td colspan="5" class="muted">Noch keine Anfragen.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

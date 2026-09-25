@@ -1,0 +1,14 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}Meine Matches{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Menschen, die du kennenlernen solltest</h1><p class="muted mb-0">Ausgewählt nach Bedarf und Angebot — wer kann wem wirklich weiterhelfen? <span class="ai-mark">KI-Empfehlung</span></p></div></div>
+{% if not p.allow_matching %}
+  <div class="empty">Matching ist ausgeschaltet. <a href="{{ url_for('member.privacy') }}">Unter Privatsphäre aktivieren</a>.</div>
+{% elif not p.is_matchable %}
+  <div class="empty">Beantworte mindestens „Womit kannst du helfen?“ und „Wonach suchst du?“ in deinem <a href="{{ url_for('member.profile') }}">Profil</a>.</div>
+{% else %}
+<div class="stack">
+  {% for m in items %}{% include "member/_match_card.html" %}{% else %}<div class="empty">Noch keine passenden Mitglieder. Die Community wächst — schau bald wieder vorbei.</div>{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

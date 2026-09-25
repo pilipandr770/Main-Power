@@ -1,0 +1,42 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}Kontakte{% endblock %}
+{% macro contact_details(u) -%}
+<div class="small mt-s">
+  <a href="mailto:{{ u.email }}">{{ u.email }}</a>{% if u.phone %} · <a href="tel:{{ u.phone }}">{{ u.phone }}</a>{% endif %}
+  {% set p = u.profile %}{% if p %}{% for label, url in [("LinkedIn", p.linkedin_url), ("Xing", p.xing_url), ("Instagram", p.instagram_url), ("Website", p.website_url)] %}{% if url %} · <a href="{{ url }}" rel="noopener nofollow" target="_blank">{{ label }}</a>{% endif %}{% endfor %}{% endif %}
+</div>
+{%- endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>Kontakte</h1><p class="muted mb-0">Kontaktdaten werden erst geteilt, wenn beide zugestimmt haben.</p></div></div>
+<div class="split">
+  <section>
+    <h2>An dich</h2>
+    {% for ir in incoming %}
+    <div class="panel-flat">
+      <div class="row between"><b><a href="{{ url_for('member.member_detail', user_id=ir.from_user.id) }}">{{ ir.from_user.full_name }}</a></b><span class="small muted">{{ ir.created_at|dt }}</span></div>
+      <div class="muted small">{{ ir.from_user.profile.headline if ir.from_user.profile }}</div>
+      {% if ir.message %}<p class="mt-s">„{{ ir.message }}“</p>{% endif %}
+      {% if ir.status == 'pending' %}
+      <div class="row">
+        <form method="post" action="{{ url_for('member.respond_intro', ir_id=ir.id, action='annehmen') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">Annehmen und Kontaktdaten teilen</button></form>
+        <form method="post" action="{{ url_for('member.respond_intro', ir_id=ir.id, action='ablehnen') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Ablehnen</button></form>
+      </div>
+      {% elif ir.status == 'accepted' %}<span class="tag ok">Verbunden</span>{{ contact_details(ir.from_user) }}
+      {% else %}<span class="tag">{{ {'declined': 'Abgelehnt', 'withdrawn': 'Zurückgezogen'}.get(ir.status, ir.status) }}</span>{% endif %}
+    </div>
+    {% else %}<div class="empty">Noch keine Anfragen an dich.</div>{% endfor %}
+  </section>
+  <section>
+    <h2>Von dir</h2>
+    {% for ir in outgoing %}
+    <div class="panel-flat">
+      <div class="row between"><b><a href="{{ url_for('member.member_detail', user_id=ir.to_user.id) }}">{{ ir.to_user.full_name }}</a></b><span class="small muted">{{ ir.created_at|dt }}</span></div>
+      {% if ir.status == 'accepted' %}<span class="tag ok">Verbunden</span>{{ contact_details(ir.to_user) }}
+      {% elif ir.status == 'pending' %}<span class="tag warn">Wartet auf Antwort</span>
+        <form method="post" action="{{ url_for('member.respond_intro', ir_id=ir.id, action='zurueckziehen') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn small">Zurückziehen</button></form>
+      {% else %}<span class="tag">{{ {'declined': 'Nicht angenommen', 'withdrawn': 'Zurückgezogen'}.get(ir.status, ir.status) }}</span>{% endif %}
+    </div>
+    {% else %}<div class="empty">Du hast noch niemanden angefragt. <a href="{{ url_for('member.matches') }}">Zu deinen Matches</a></div>{% endfor %}
+  </section>
+</div>
+{% endblock %}

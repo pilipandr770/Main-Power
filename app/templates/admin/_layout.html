@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import logo, flashes %}
+{% block title %}{% block page_title %}{% endblock %} — Admin · Main Power{% endblock %}
+{% block body_class %}admin{% endblock %}
+{% block body %}
+{% set ep = request.endpoint or '' %}
+<div class="mobile-bar">{{ logo("Admin") }}<button class="btn btn-ghost btn-sm" data-rail-toggle aria-expanded="false">Menü</button></div>
+<div class="app">
+  <aside class="rail" aria-label="Adminbereich">
+    {{ logo("Admin") }}
+    <nav>
+      <a href="{{ url_for('admin.dashboard') }}" class="{{ 'on' if ep == 'admin.dashboard' }}">Übersicht</a>
+      <a href="{{ url_for('admin.users') }}" class="{{ 'on' if ep.startswith('admin.user') }}">Mitglieder</a>
+      <a href="{{ url_for('admin.expert_search') }}" class="{{ 'on' if ep == 'admin.expert_search' }}">Expert:innen finden</a>
+      <a href="{{ url_for('admin.events') }}" class="{{ 'on' if ep.startswith('admin.event') }}">Termine</a>
+      <a href="{{ url_for('admin.intros') }}" class="{{ 'on' if ep == 'admin.intros' }}">Kontaktanfragen</a>
+      <a href="{{ url_for('admin.services') }}" class="{{ 'on' if ep.startswith('admin.service') }}">Leistungen & Anfragen</a>
+      <a href="{{ url_for('admin.knowledge') }}" class="{{ 'on' if ep == 'admin.knowledge' }}">Wissen für Aiko</a>
+      <div class="navlabel">Compliance</div>
+      <a href="{{ url_for('admin.consents') }}" class="{{ 'on' if ep == 'admin.consents' }}">Einwilligungen</a>
+      {% if current_user.is_superadmin %}
+      <a href="{{ url_for('admin.audit_log') }}" class="{{ 'on' if ep == 'admin.audit_log' }}">Protokoll</a>
+      <a href="{{ url_for('admin.settings') }}" class="{{ 'on' if ep == 'admin.settings' }}">Einstellungen</a>
+      {% endif %}
+      <div class="navlabel">Wechseln</div>
+      <a href="{{ url_for('member.dashboard') }}">Mitgliederansicht</a>
+      <a href="{{ url_for('public.index') }}">Öffentliche Seite</a>
+    </nav>
+    <div class="me">
+      <b>{{ current_user.full_name }}</b> <span class="tag">{{ current_user.role }}</span>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="mt-s"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Abmelden</button></form>
+    </div>
+  </aside>
+  <main class="main" id="inhalt">{{ flashes() }}{% block content %}{% endblock %}</main>
+</div>
+{% endblock %}

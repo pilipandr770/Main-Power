@@ -1,0 +1,44 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}{{ ev.title }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0">{{ ev.format_info.name }}</p><h1>{{ ev.title }}</h1><p class="big mb-0">{{ ev|event_date }}</p></div></div>
+<div class="split">
+  <section class="stack">
+    {% if ev.status == 'pending' %}<div class="flash info">Dieses Treffen wartet auf Freigabe durch das Main-Power-Team.</div>{% endif %}
+    {% if ev.status == 'cancelled' %}<div class="flash error">Dieser Termin wurde abgesagt.</div>{% endif %}
+    <p class="pre">{{ ev.description }}</p>
+    <p><b>Ort:</b> {{ ev.location or 'wird bekanntgegeben' }}<br><b>Teilnahme:</b> {{ ev.price_cents|money }}{% if ev.capacity %}<br><b>Plätze:</b> {{ ev.seats_left }} von {{ ev.capacity }} frei{% endif %}</p>
+    {% if reg and reg.status in ('registered','paid','reserved') and ev.online_url %}<p><b>Online-Zugang:</b> <a href="{{ ev.online_url }}" rel="noopener" target="_blank">{{ ev.online_url }}</a></p>{% endif %}
+    {% if attendees %}
+    <div><h3>Wer ist schon dabei</h3><p class="muted small">Nur Mitglieder mit sichtbarem Profil.</p>
+      {% for u in attendees %}<a class="person" href="{{ url_for('member.member_detail', user_id=u.id) }}"><span class="av">{{ u.initials }}</span><span><b>{{ u.first_name }} {{ u.last_name[:1] }}.</b><br><span class="small muted">{{ u.profile.headline }}</span></span></a>{% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  <aside class="panel">
+    {% if reg and reg.status in ('registered','paid','reserved') %}
+      <span class="tag ok">Du bist angemeldet</span>
+      {% if reg.status == 'reserved' and ev.is_paid %}<p class="small muted mt-s">Zahlung vor Ort.</p>
+        {% if stripe_on %}<form method="post" action="{{ url_for('member.event_pay', event_id=ev.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">Jetzt online bezahlen</button></form>{% endif %}
+      {% elif reg.status == 'paid' %}<p class="small muted mt-s">Bezahlt. Danke!</p>{% endif %}
+      <p class="mt-m"><a href="{{ url_for('member.event_ics', event_id=ev.id) }}">In meinen Kalender</a></p>
+      <p class="mt-m"><a href="{{ url_for('member.aiko_page') }}">Aiko fragen, wen ich dort treffen sollte</a></p>
+      <form method="post" action="{{ url_for('member.event_cancel', event_id=ev.id) }}" data-confirm="Wirklich abmelden?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm mt-m">Abmelden</button></form>
+    {% elif reg and reg.status == 'pending_payment' %}
+      <span class="tag warn">Zahlung offen</span>
+      <form method="post" action="{{ url_for('member.event_pay', event_id=ev.id) }}" class="mt-m"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">Zur Zahlung ({{ ev.price_cents|money }})</button></form>
+      <form method="post" action="{{ url_for('member.event_cancel', event_id=ev.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn mt-m">Anmeldung verwerfen</button></form>
+    {% elif ev.status == 'published' %}
+      {% if ev.seats_left == 0 %}<p>Ausgebucht.</p>{% else %}
+      <form method="post" action="{{ url_for('member.event_register', event_id=ev.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="note">Notiz an das Team<span class="hint">Optional, z. B. Unverträglichkeiten beim Frühstück.</span></label>
+        <textarea id="note" name="note" rows="2" maxlength="500"></textarea>
+        <button class="btn mt-s" type="submit">{% if ev.is_paid and stripe_on %}Anmelden und bezahlen ({{ ev.price_cents|money }}){% else %}Anmelden{% endif %}</button>
+        {% if ev.is_paid and not stripe_on %}<p class="small muted mt-s">Die Teilnahmegebühr von {{ ev.price_cents|money }} zahlst du vor Ort.</p>{% endif %}
+      </form>
+      {% endif %}
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

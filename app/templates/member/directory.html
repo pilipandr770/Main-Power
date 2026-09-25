@@ -1,0 +1,18 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}Mitglieder{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Mitglieder</h1><p class="muted mb-0">Beschreib, wen du suchst — die Suche versteht Inhalte, nicht nur Stichworte.</p></div></div>
+{% if not me_visible %}<div class="flash info mb-m">Dein eigenes Profil ist im Verzeichnis nicht sichtbar. <a href="{{ url_for('member.privacy') }}">Ändern</a></div>{% endif %}
+<form method="get" class="row mb-l">
+  <label class="sr-only" for="q">Suche</label>
+  <input id="q" type="search" name="q" value="{{ q }}" placeholder="z. B. Fachanwalt für Arbeitsrecht, Partner für ein IT-Start-up …">
+  <button class="btn" type="submit">Suchen</button>
+</form>
+{% for p in results %}
+<a class="person" href="{{ url_for('member.member_detail', user_id=p.user.id) }}">
+  <span class="av">{{ p.user.initials }}</span>
+  <span><b>{{ p.user.first_name }} {{ p.user.last_name[:1] }}.</b> <span class="muted">{{ p.headline }}</span><br>
+  <span class="small muted">{{ (p.q_can_help or p.q_focus or '')[:180] }}</span></span>
+</a>
+{% else %}<div class="empty">{% if q %}Niemand gefunden. Formulier die Suche anders oder frag Aiko.{% else %}Noch keine sichtbaren Profile.{% endif %}</div>{% endfor %}
+{% endblock %}

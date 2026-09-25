@@ -1,0 +1,8 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Einwilligungen{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Einwilligungsprotokoll</h1><p class="muted mb-0">Nachweis nach Art. 7 Abs. 1 DSGVO. Einträge sind unveränderlich; die letzten 500.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Zeit</th><th>Mitglied</th><th>Einwilligung</th><th>Status</th><th>Version</th><th>Quelle</th></tr></thead><tbody>
+{% for c in items %}<tr><td class="nowrap small">{{ c.created_at|dt }}</td><td><a href="{{ url_for('admin.user_detail', user_id=c.user_id) }}">{{ c.user.full_name }}</a></td><td class="small">{{ kinds.get(c.kind, c.kind) }}</td><td>{{ 'erteilt' if c.granted else 'widerrufen' }}</td><td>{{ c.version }}</td><td>{{ c.source }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

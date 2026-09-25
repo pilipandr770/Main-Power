@@ -1,0 +1,22 @@
+{% extends "public/_layout.html" %}
+{% from "partials/_macros.html" import event_row %}
+{% block title %}{{ f.name }} — Main Power{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="muted">{{ f.tagline }}</p>
+      <h1>{{ f.name }}</h1>
+      <p class="lead">{{ f.description }}</p>
+      <p><b>Teilnahme:</b> {{ f.price_cents|money }}{% if key == 'hub' %} pro Person — davon 18 € für dein Frühstück im Hotel, 7 € Organisationsbeitrag{% endif %}<br><b>Rhythmus:</b> {{ f.rhythm }}</p>
+      {% if key == 'hub' %}<p class="muted">Jede:r stellt sich kurz vor: wer sie ist, wo ihre größte Herausforderung liegt, wobei sie anderen weiterhelfen kann und wonach sie gerade konkret sucht. Unser Ziel: Niemand verlässt ein Hub-Treffen ohne mindestens eine wirklich wertvolle Verbindung.</p>{% endif %}
+      <a class="btn mt-m" href="{{ url_for('auth.register') if not current_user.is_authenticated else url_for('member.events', format=key) }}">Teilnahme anfragen</a>
+    </div>
+    <img src="{{ url_for('static', filename='img/' ~ f.image) }}" alt="">
+  </div>
+</section>
+<section class="section"><div class="wrap">
+  <h2>Termine</h2>
+  {% for ev in events %}{{ event_row(ev, url_for('member.event_detail', event_id=ev.id)) }}{% else %}<div class="empty">Termin folgt. Werde Mitglied, dann erfährst du es zuerst.</div>{% endfor %}
+</div></section>
+{% endblock %}

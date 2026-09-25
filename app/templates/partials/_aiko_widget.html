@@ -1,0 +1,25 @@
+<div class="aiko-fab">
+  <button type="button" data-aiko-open aria-expanded="false" aria-controls="aiko-panel"><span class="dot"></span>Aiko fragen</button>
+</div>
+<section class="aiko-panel" id="aiko-panel" hidden aria-label="Chat mit Aiko">
+  <div class="chat" data-chat data-mode="public" data-endpoint="{{ url_for('public.aiko_public') }}">
+    <header>
+      <div><b>Aiko</b> <span class="ai-mark">KI-Assistentin</span></div>
+      <button type="button" class="linkbtn" data-aiko-close>Schließen</button>
+    </header>
+    <div class="chat-log" aria-live="polite">
+      <div class="msg assistant">Hallo, ich bin Aiko — die KI-Assistentin von Main Power. Ich helfe dir, das passende Format zu finden. Was suchst du gerade?</div>
+    </div>
+    <div class="suggest">
+      <button type="button" data-suggest="Welches Format passt zu mir als Unternehmerin?">Welches Format passt zu mir?</button>
+      <button type="button" data-suggest="Was kostet der Main Power Hub?">Was kostet der Hub?</button>
+      <button type="button" data-suggest="Wann ist das nächste Treffen?">Nächstes Treffen</button>
+    </div>
+    <form class="chat-form">
+      <label class="sr-only" for="aiko-public-input">Nachricht an Aiko</label>
+      <textarea id="aiko-public-input" maxlength="1500" placeholder="Frag Aiko …"></textarea>
+      <button class="btn" type="submit">Senden</button>
+    </form>
+  </div>
+  <p class="small muted widget-note">Aiko ist eine KI und kann sich irren. Bitte keine sensiblen Daten eingeben. <a href="{{ url_for('public.ai_notice') }}">Mehr erfahren</a></p>
+</section>

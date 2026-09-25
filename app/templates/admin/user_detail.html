@@ -1,0 +1,55 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}{{ u.full_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ u.full_name }}</h1><p class="muted mb-0">{{ u.email }}{% if u.phone %} · {{ u.phone }}{% endif %} · seit {{ u.created_at|dt }} · letzter Login {{ u.last_login_at|dt }}</p></div>
+<div class="row"><span class="tag">{{ u.role }}</span><span class="tag {{ 'ok' if u.status == 'active' else 'warn' }}">{{ u.status }}</span></div></div>
+<div class="split">
+  <section class="stack">
+    {% if p %}
+    <div class="panel">
+      <h2>Profil ({{ p.completeness }} %)</h2>
+      <p><b>{{ p.headline }}</b>{% if p.company %} · {{ p.company }}{% endif %}{% if p.industry %} · {{ p.industry }}{% endif %}</p>
+      <p><b>Tätigkeit:</b> {{ p.q_focus or '—' }}</p>
+      <p><b>Herausforderung:</b> {{ p.q_challenge or '—' }}</p>
+      <p><b>Kann helfen:</b> {{ p.q_can_help or '—' }}</p>
+      <p><b>Sucht:</b> {{ p.q_looking_for or '—' }}</p>
+      <p><b>Expertise:</b> {{ p.expertise or '—' }}</p>
+      <p class="small muted">Links: {% for url in [p.linkedin_url, p.xing_url, p.instagram_url, p.website_url] if url %}<a href="{{ url }}" rel="noopener nofollow" target="_blank">{{ url }}</a> {% else %}—{% endfor %}</p>
+    </div>
+    {% endif %}
+    <div>
+      <h2>Top-Matches (intern)</h2>
+      {% for m in matches %}<a class="person" href="{{ url_for('admin.user_detail', user_id=m.other.id) }}"><span class="av">{{ m.other.initials }}</span><span><b>{{ m.other.full_name }}</b> <span class="score">{{ (m.score*100)|round|int }} %</span><br><span class="small muted">{{ m.other.profile.headline }}</span></span></a>{% else %}<div class="empty">Kein Matching (Einwilligung fehlt oder Profil leer).</div>{% endfor %}
+    </div>
+    <div>
+      <h2>Anmeldungen</h2>
+      {% for r in u.registrations %}<p class="mb-0">{{ r.event.title }} — {{ r.event|event_date }} <span class="tag">{{ r.status }}</span></p>{% else %}<p class="muted">Keine.</p>{% endfor %}
+    </div>
+    <div>
+      <h2>Kontaktanfragen</h2>
+      {% for ir in intros %}<p class="mb-0 small">{{ ir.from_user.full_name }} → {{ ir.to_user.full_name }} <span class="tag">{{ ir.status }}</span> {{ ir.created_at|dt }}</p>{% else %}<p class="muted">Keine.</p>{% endfor %}
+    </div>
+  </section>
+  <aside class="stack">
+    <div class="panel">
+      <h3>Aktionen</h3>
+      <a class="btn btn-sm mb-m" href="{{ url_for('admin.user_edit', user_id=u.id) }}">Bearbeiten</a>
+      {% if u.status == 'active' %}
+      <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='sperren') }}" data-confirm="Konto sperren? Die Person wird auch aus dem Telegram-Chat entfernt."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Sperren</button></form>
+      {% else %}
+      <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='entsperren') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">Entsperren</button></form>
+      {% endif %}
+      <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='export') }}" class="mt-s"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Datenauskunft (JSON)</button></form>
+      {% if current_user.is_superadmin %}
+      <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='rolle') }}" class="row mt-m"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="role" aria-label="Rolle">{% for r in roles %}<option value="{{ r }}"{% if r == u.role %} selected{% endif %}>{{ r }}</option>{% endfor %}</select><button class="btn btn-ghost btn-sm">Rolle setzen</button></form>
+      <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='loeschen') }}" class="mt-m" data-confirm="Konto und alle Daten endgültig löschen (Art. 17 DSGVO)?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm">Endgültig löschen</button></form>
+      {% endif %}
+    </div>
+    <div class="panel">
+      <h3>Einwilligungen</h3>
+      {% for c in u.consents %}<p class="small mb-0">{{ c.created_at|dt }} · {{ consent_kinds.get(c.kind, c.kind) }} · <b>{{ 'erteilt' if c.granted else 'widerrufen' }}</b> ({{ c.version }})</p>{% else %}<p class="muted">Keine.</p>{% endfor %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

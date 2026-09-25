@@ -1,0 +1,25 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Mitglieder{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Mitglieder</h1><a class="btn btn-ghost btn-sm" href="{{ url_for('admin.users_csv') }}">CSV exportieren</a></div>
+<form class="row mb-m" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Name, E-Mail, Rolle, Branche" aria-label="Suche">
+  <select name="status" aria-label="Status"><option value="">Alle</option><option value="active"{% if status=='active' %} selected{% endif %}>Aktiv</option><option value="blocked"{% if status=='blocked' %} selected{% endif %}>Gesperrt</option></select>
+  <button class="btn btn-sm">Filtern</button>
+</form>
+<div class="table-wrap"><table>
+<thead><tr><th>Name</th><th>Rolle / Branche</th><th class="num">Profil</th><th>Matching</th><th>Verzeichnis</th><th>Telegram</th><th>Registriert</th></tr></thead>
+<tbody>
+{% for u in users %}{% set p = u.profile %}
+<tr>
+  <td><a href="{{ url_for('admin.user_detail', user_id=u.id) }}">{{ u.full_name }}</a><br><span class="small muted">{{ u.email }}</span>{% if u.status != 'active' %} <span class="tag warn">gesperrt</span>{% endif %}{% if u.role != 'member' %} <span class="tag ember">{{ u.role }}</span>{% endif %}</td>
+  <td>{{ p.headline if p }}<br><span class="small muted">{{ p.industry if p }}</span></td>
+  <td class="num">{{ p.completeness if p else 0 }} %</td>
+  <td>{{ 'ja' if p and p.allow_matching else '—' }}</td>
+  <td>{{ 'ja' if p and p.visible_in_directory else '—' }}</td>
+  <td>{{ '@' ~ u.telegram_username if u.telegram_username else ('ja' if u.telegram_user_id else '—') }}</td>
+  <td class="nowrap">{{ u.created_at|dt }}</td>
+</tr>
+{% else %}<tr><td colspan="7" class="muted">Keine Treffer.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

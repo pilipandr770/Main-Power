@@ -1,0 +1,21 @@
+{% extends "public/_layout.html" %}
+{% block title %}Datenschutz — Main Power Plattform{% endblock %}
+{% block content %}
+<section class="hero"><div class="wrap maxw stack">
+  <p class="tag warn">Entwurf — vor Go-live durch Datenschutzbeauftragte:n/Anwält:in prüfen lassen</p>
+  <h1>Datenschutzhinweise der Plattform</h1>
+  <p class="lead">Ergänzend zur <a href="{{ cfg.MAIN_SITE_URL }}/datenschutz">Datenschutzerklärung von main-power.org</a>.</p>
+  <h2>Verantwortlich</h2>
+  <p>Main Power Community, Asset Beissenov, Frankfurt am Main · <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a> · Anschrift siehe <a href="{{ cfg.IMPRESSUM_URL }}">Impressum</a>.</p>
+  <h2>Welche Daten wir verarbeiten</h2>
+  <p>Kontodaten (Name, E-Mail, optional Telefon), Profilangaben, die du selbst einträgst (Tätigkeit, Herausforderung, Angebot, Suche, Expertise, Links zu deinen Profilen), Anmeldungen zu Terminen, Kontaktanfragen, Nachrichten an Aiko sowie ein Protokoll deiner Einwilligungen. Wir erheben keine Daten aus sozialen Netzwerken; Links zu deinen Profilen speichern wir nur, damit angenommene Kontakte sie sehen können.</p>
+  <h2>Zwecke und Rechtsgrundlagen</h2>
+  <p>Kontoführung, Terminverwaltung und Zahlungsabwicklung: Vertrag (Art. 6 Abs. 1 lit. b DSGVO). KI-Matching, persönliche Empfehlungen und Sichtbarkeit im Mitgliederverzeichnis: deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO), jederzeit widerrufbar unter „Privatsphäre“. Sicherheit und Missbrauchsschutz: berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO).</p>
+  <h2>Empfänger (Auftragsverarbeiter)</h2>
+  <p>Hosting: [Anbieter, Standort Deutschland]. KI-Sprachmodell: Anthropic (Aiko, Matching-Begründungen). Optional Embeddings: [Voyage AI / OpenAI — je nach Konfiguration]. Zahlungen: Stripe. Community-Chat: Telegram (nur wenn du dein Konto aktiv verbindest). Für Übermittlungen in Drittländer bestehen Angemessenheitsbeschluss bzw. Standardvertragsklauseln. [Bitte konkret ergänzen.]</p>
+  <h2>Speicherdauer</h2>
+  <p>Bis zur Löschung deines Kontos. Chatverläufe mit Aiko kannst du jederzeit selbst löschen. Zahlungsbelege bewahren wir nach den gesetzlichen Fristen auf.</p>
+  <h2>Deine Rechte</h2>
+  <p>Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit, Widerspruch und Widerruf von Einwilligungen. Export und Löschung kannst du direkt in deinem Konto unter „Privatsphäre“ auslösen. Du kannst dich bei einer Aufsichtsbehörde beschweren, z. B. beim Hessischen Beauftragten für Datenschutz und Informationsfreiheit.</p>
+</div></section>
+{% endblock %}

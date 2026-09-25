@@ -1,0 +1,20 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea %}
+{% block page_title %}Treffen vorschlagen{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Treffen vorschlagen</h1><p class="muted mb-0">Ein thematisches Frühstück, ein Austausch unter Gründer:innen, ein Spaziergang — klein und konkret.</p></div></div>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input("title", "Titel", form.get("title"), errors=errors, required=True, placeholder="z. B. Frühstück: KI im Mittelstand") }}
+  {{ textarea("description", "Worum geht es?", form.get("description"), rows=5, hint="Für wen ist das Treffen, was nehmen Teilnehmende mit?") }}
+  <div class="grid grid-2">
+    {{ input("date", "Datum", form.get("date"), type="date", errors=errors, required=True) }}
+    {{ input("time", "Uhrzeit", form.get("time") or "18:00", type="time") }}
+  </div>
+  <div class="grid grid-2">
+    {{ input("location", "Ort", form.get("location"), placeholder="Frankfurt, Café …") }}
+    {{ input("capacity", "Maximale Teilnehmendenzahl", form.get("capacity"), type="number", hint="Leer lassen für unbegrenzt") }}
+  </div>
+  <button class="btn" type="submit">Treffen einreichen</button>
+</form>
+{% endblock %}

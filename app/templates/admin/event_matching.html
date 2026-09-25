@@ -1,0 +1,16 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Matching · {{ ev.title }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Wer sollte wen treffen?</h1><p class="muted mb-0">{{ ev.title }} · {{ ev|event_date }} — für Sitzordnung, Vorstellungsrunde und persönliche Hinweise.</p></div><a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_attendees', event_id=ev.id) }}">Zur Teilnehmendenliste</a></div>
+{% if pairings %}
+<div class="table-wrap"><table><thead><tr><th>Person</th><th>Sucht</th><th>Beste Gesprächspartner:innen im Raum</th></tr></thead><tbody>
+{% for row in pairings %}{% set p = row.person %}
+<tr>
+  <td><b>{{ p.user.full_name }}</b><br><span class="small muted">{{ p.headline }}</span></td>
+  <td class="small">{{ (p.q_looking_for or p.q_challenge)[:160] }}</td>
+  <td>{% for m in row.matches %}<div class="small">{{ m.profile.user.full_name }} <span class="score">{{ (m.score*100)|round|int }} %</span> <span class="muted">— {{ (m.profile.q_can_help or '')[:90] }}</span></div>{% endfor %}</td>
+</tr>{% endfor %}
+</tbody></table></div>
+{% else %}<div class="empty">Noch keine angemeldeten Personen mit Matching-Einwilligung und ausgefülltem Profil.</div>{% endif %}
+{% if without %}<p class="muted mt-m small">Ohne Matching (Einwilligung fehlt oder Profil unvollständig): {% for u in without %}{{ u.full_name }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,7 @@
+Hallo {{ sender.first_name }},
+
+{{ target.full_name }} hat deine Kontaktanfrage angenommen. Die Kontaktdaten findest du hier:
+{{ link }}
+
+Viel Energie für euer Gespräch!
+Dein Main Power Team

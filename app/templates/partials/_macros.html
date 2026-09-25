@@ -1,0 +1,52 @@
+{% macro logo(sub=None) -%}
+<a class="logo" href="{{ url_for('public.index') }}" aria-label="Main Power Startseite">
+  <svg viewBox="0 0 64 32" aria-hidden="true"><path d="M32 16C25.2 4.8 20 2 13.8 2 6.9 2 3 8.3 3 16s3.9 14 10.8 14C20 30 25.2 27.2 32 16Zm0 0C38.8 4.8 44 2 50.2 2 57.1 2 61 8.3 61 16s-3.9 14-10.8 14C44 30 38.8 27.2 32 16Z" fill="none" stroke="#fe4716" stroke-width="4"/></svg>
+  <span>Main Power{% if sub %} <small>{{ sub }}</small>{% endif %}</span>
+</a>
+{%- endmacro %}
+
+{% macro loop_svg() -%}
+<svg viewBox="0 0 64 32" aria-hidden="true"><path d="M32 16C25.2 4.8 20 2 13.8 2 6.9 2 3 8.3 3 16s3.9 14 10.8 14C20 30 25.2 27.2 32 16Zm0 0C38.8 4.8 44 2 50.2 2 57.1 2 61 8.3 61 16s-3.9 14-10.8 14C44 30 38.8 27.2 32 16Z" fill="none" stroke="#fe4716" stroke-width="4"/></svg>
+{%- endmacro %}
+
+{% macro flashes() -%}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+{% if msgs %}<div class="flashes" role="status">{% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}</div>{% endif %}
+{% endwith %}
+{%- endmacro %}
+
+{% macro input(name, label, value="", type="text", errors={}, hint=None, required=False, autocomplete=None, placeholder=None) -%}
+<div class="field{% if errors.get(name) %} has-error{% endif %}">
+  <label for="f-{{ name }}">{{ label }}{% if hint %}<span class="hint">{{ hint }}</span>{% endif %}</label>
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value or '' }}"{% if required %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}>
+  {% if errors.get(name) %}<div class="error-text">{{ errors[name] }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro textarea(name, label, value="", hint=None, rows=4, placeholder=None, errors={}) -%}
+<div class="field{% if errors.get(name) %} has-error{% endif %}">
+  <label for="f-{{ name }}">{{ label }}{% if hint %}<span class="hint">{{ hint }}</span>{% endif %}</label>
+  <textarea id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}>{{ value or '' }}</textarea>
+  {% if errors.get(name) %}<div class="error-text">{{ errors[name] }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro check(name, label, checked=False, errors={}) -%}
+<label class="check"><input type="checkbox" name="{{ name }}" value="1"{% if checked %} checked{% endif %}><span>{{ label }}</span></label>
+{% if errors.get(name) %}<div class="error-text">{{ errors[name] }}</div>{% endif %}
+{%- endmacro %}
+
+{% macro event_row(ev, link, extra=None) -%}
+{% set d = ev.starts_at|local %}
+<article class="event">
+  <div class="date"><b>{{ d.day }}</b><span>{{ ["Jan","Feb","März","Apr","Mai","Juni","Juli","Aug","Sep","Okt","Nov","Dez"][d.month-1] }}</span></div>
+  <div>
+    <h3><a href="{{ link }}">{{ ev.title }}</a></h3>
+    <div class="muted small">{{ ev|event_date }}{% if ev.location %} · {{ ev.location }}{% endif %}</div>
+    <div class="row small mt-s"><span class="tag">{{ ev.format_info.short }}</span><span class="tag{% if ev.is_paid %} ember{% endif %}">{{ ev.price_cents|money }}</span>{% if ev.status == 'pending' %}<span class="tag warn">wartet auf Freigabe</span>{% endif %}{% if ev.status == 'cancelled' %}<span class="tag">abgesagt</span>{% endif %}</div>
+  </div>
+  <div class="actions">{{ extra or '' }}</div>
+</article>
+{%- endmacro %}
+
+{% macro width_class(pct) -%}w-{{ ((pct or 0) // 10 * 10)|int }}{%- endmacro %}

@@ -1,0 +1,35 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}{{ u.first_name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ u.first_name }} {{ u.last_name if connected else u.last_name[:1] ~ '.' }}</h1><p class="muted mb-0">{{ p.headline }}{% if p.company %} · {{ p.company }}{% endif %}{% if p.industry %} · {{ p.industry }}{% endif %}</p></div>
+{% if match %}<span class="score">{{ match.score|fit }}</span>{% endif %}</div>
+<div class="split">
+  <section class="stack">
+    {% if match and match.reason %}<div class="panel"><b>Warum ihr euch treffen solltet</b> <span class="ai-mark">KI</span><p class="mt-s mb-0">{{ match.reason }}</p></div>{% endif %}
+    {% if p.q_focus %}<div><h3>Was {{ u.first_name }} macht</h3><p class="pre">{{ p.q_focus }}</p></div>{% endif %}
+    {% if p.q_can_help %}<div><h3>Kann helfen mit</h3><p class="pre">{{ p.q_can_help }}</p></div>{% endif %}
+    {% if p.q_looking_for %}<div><h3>Sucht gerade</h3><p class="pre">{{ p.q_looking_for }}</p></div>{% endif %}
+    {% if p.bio %}<div><h3>Über {{ u.first_name }}</h3><p class="pre">{{ p.bio }}</p></div>{% endif %}
+    {% if p.expertise_list %}<div class="row">{% for t in p.expertise_list %}<span class="tag">{{ t }}</span>{% endfor %}</div>{% endif %}
+  </section>
+  <aside class="panel">
+    {% if connected %}
+      <span class="tag ok">Verbunden</span>
+      <p class="mt-m"><a href="mailto:{{ u.email }}">{{ u.email }}</a>{% if u.phone %}<br><a href="tel:{{ u.phone }}">{{ u.phone }}</a>{% endif %}</p>
+      {% for label, url in [("LinkedIn", p.linkedin_url), ("Xing", p.xing_url), ("Instagram", p.instagram_url), ("Website", p.website_url)] %}{% if url %}<a href="{{ url }}" rel="noopener nofollow" target="_blank">{{ label }}</a><br>{% endif %}{% endfor %}
+    {% elif ir and ir.status == 'pending' %}
+      <span class="tag warn">Anfrage offen</span>
+      <p class="muted small mt-s">Kontaktdaten werden sichtbar, sobald die Anfrage angenommen ist.</p>
+    {% else %}
+      <h3>Kontakt anfragen</h3>
+      <form method="post" action="{{ url_for('member.request_intro', user_id=u.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="msg" class="sr-only">Nachricht</label>
+        <textarea id="msg" name="message" rows="4" maxlength="1000" placeholder="Worüber möchtest du mit {{ u.first_name }} sprechen?"></textarea>
+        <button class="btn mt-s" type="submit">Anfrage senden</button>
+      </form>
+      <p class="muted small mt-m">{{ u.first_name }} entscheidet, ob ihr Kontaktdaten austauscht.</p>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

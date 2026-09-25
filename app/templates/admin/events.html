@@ -1,0 +1,25 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import event_row %}
+{% block page_title %}Termine{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Termine</h1>
+<div class="row">
+  <form method="post" action="{{ url_for('admin.events_sync') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Mit main-power.org synchronisieren</button></form>
+  <a class="btn btn-sm" href="{{ url_for('admin.event_edit') }}">Neuer Termin</a>
+</div></div>
+<nav class="filters">
+  <a class="tag{% if show=='upcoming' %} on{% endif %}" href="{{ url_for('admin.events') }}">Kommend</a>
+  <a class="tag{% if show=='pending' %} on{% endif %}" href="{{ url_for('admin.events', show='pending') }}">Zur Freigabe</a>
+  <a class="tag{% if show=='past' %} on{% endif %}" href="{{ url_for('admin.events', show='past') }}">Vergangen</a>
+</nav>
+{% for ev in events %}
+{% set extra %}
+<div class="row">
+  <span class="small muted">{{ ev.active_registrations|length }} Anm.{% if ev.source == 'sync' %} · Kalender{% elif ev.source == 'member' %} · von {{ ev.created_by.first_name if ev.created_by else 'Mitglied' }}{% endif %}</span>
+  {% if ev.status == 'pending' %}<form method="post" action="{{ url_for('admin.event_status', event_id=ev.id, status='published') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">Freigeben</button></form>{% endif %}
+  <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_edit', event_id=ev.id) }}">Bearbeiten</a>
+</div>
+{% endset %}
+{{ event_row(ev, url_for('admin.event_attendees', event_id=ev.id), extra) }}
+{% else %}<div class="empty">Keine Termine in dieser Ansicht.</div>{% endfor %}
+{% endblock %}

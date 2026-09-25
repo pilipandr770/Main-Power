@@ -1,0 +1,5 @@
+# Automatisches HTTPS (Let's Encrypt). Bei Cloudflare-Proxy: SSL/TLS-Modus "Full (strict)".
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8000
+}

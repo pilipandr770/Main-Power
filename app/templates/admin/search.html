@@ -1,0 +1,14 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Expert:innen finden{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Expert:innen finden</h1><p class="muted mb-0">Semantische Suche über alle Profile (auch nicht im Verzeichnis sichtbare). Nur für die Organisation.</p></div></div>
+<form method="get" class="row mb-l"><input type="search" name="q" value="{{ q }}" placeholder="z. B. Expertin für Exportrecht, Marketing für Start-ups, Speaker zum Thema Führung" aria-label="Suche"><button class="btn">Suchen</button></form>
+{% if q %}
+<div class="table-wrap"><table><thead><tr><th>Person</th><th>Kann helfen mit</th><th class="num">Relevanz</th><th>Matching-Einwilligung</th></tr></thead><tbody>
+{% for score, p in hits %}
+<tr><td><a href="{{ url_for('admin.user_detail', user_id=p.user.id) }}">{{ p.user.full_name }}</a><br><span class="small muted">{{ p.headline }}</span></td><td class="small">{{ (p.q_can_help or p.q_focus or '')[:220] }}</td><td class="num">{{ (score*100)|round|int }}</td><td>{{ 'ja' if p.allow_matching else 'nein — nur persönlich ansprechen' }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Niemand gefunden.</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="small muted mt-m">Einladung zu einem Termin: Person öffnen und per E-Mail einladen, oder den Termin im Telegram-Chat ankündigen.</p>
+{% endif %}
+{% endblock %}
