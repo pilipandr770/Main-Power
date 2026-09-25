@@ -1,0 +1,39 @@
+# Variante für Server mit bereits laufendem Traefik (Hostinger-VPS, host-network):
+# Die App lauscht nur lokal auf 127.0.0.1:${APP_PORT:-8010}; Traefik routet per Datei (deploy/traefik-mainpower.yml) dorthin.
+#   docker compose -f docker-compose.traefik.yml up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mainpower
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD in .env setzen}
+      POSTGRES_DB: mainpower
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mainpower"]
+      interval: 10s
+      retries: 10
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://mainpower:${POSTGRES_PASSWORD}@db:5432/mainpower
+      BASE_URL: https://${DOMAIN:?DOMAIN in .env setzen}
+      COOKIE_SECURE: "1"
+      FLASK_ENV: production
+    ports: ["127.0.0.1:${APP_PORT:-8010}:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+  sync:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://mainpower:${POSTGRES_PASSWORD}@db:5432/mainpower
+    entrypoint: ["sh", "-c", "while true; do flask sync-events; sleep 3600; done"]
+    depends_on:
+      app: {condition: service_healthy}
+volumes:
+  pgdata:

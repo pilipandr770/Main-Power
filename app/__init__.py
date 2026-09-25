@@ -17,7 +17,7 @@ def create_app(config_object=Config) -> Flask:
     app.config.from_object(config_object)
     from werkzeug.middleware.proxy_fix import ProxyFix
     hops = int(os.environ.get("PROXY_HOPS", "1"))  # 1 = nur Caddy/Nginx; 2 = Cloudflare-Proxy + Caddy
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=1)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=1, x_host=1)
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"),
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 

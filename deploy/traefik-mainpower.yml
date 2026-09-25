@@ -1,0 +1,14 @@
+# Nach /opt/traefik-dynamic/mainpower.yml kopieren (Traefik beobachtet das Verzeichnis, kein Neustart nötig).
+http:
+  routers:
+    mainpower:
+      rule: "Host(`mainpower.andrii-it.de`)"
+      entryPoints: [websecure]
+      service: mainpower
+      tls:
+        certResolver: letsencrypt
+  services:
+    mainpower:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8010"
