@@ -33,3 +33,10 @@ Cloudflare не запускает Flask/Docker-приложения на обы
 - Публичный чат ограничен 12 запросами в минуту и 80 в час на IP. Для жёсткого лимита расходов задать лимит в консоли Anthropic.
 - Правила EU AI Act/DSGVO (`AI_ACT_RULES` в `app/services/llm.py`) добавляются в начало system-промпта **каждого** вызова ИИ и приоритетнее любых
   админских «Zusätzliche Anweisungen».
+
+## Aktueller Stand: mainpower.andrii-it.de (Hostinger-VPS srv1425385)
+- Auf dem VPS läuft bereits Traefik (host-network, Ports 80/443). Main Power nutzt deshalb `docker-compose.traefik.yml`:
+  App nur auf `127.0.0.1:8010`, Route per Datei `/opt/traefik-dynamic/mainpower.yml` (Vorlage `deploy/traefik-mainpower.yml`), Zertifikat `letsencrypt`.
+- Code: `/srv/mainpower` (git pull, dann `docker compose -f docker-compose.traefik.yml up -d --build`). Secrets: `/srv/mainpower/.env` (chmod 600).
+- DNS: A `mainpower` → 187.124.6.120, Cloudflare-Proxy an, `PROXY_HOPS=2`.
+- SSH: eigener Schlüssel `~/.ssh/mainpower_deploy` (in hPanel als `mainpower-claude-deploy` hinterlegt) — nach dem Projekt in hPanel löschen.
