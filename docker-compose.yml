@@ -25,7 +25,9 @@ services:
       SEED: ${SEED:-1}
       SEED_DEMO: ${SEED_DEMO:-1}
     ports: ["8000:8000"]
+    volumes: ["uploads:/app/instance"]
     depends_on:
       db: {condition: service_healthy}
 volumes:
   pgdata:
+  uploads:

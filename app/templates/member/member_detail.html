@@ -1,22 +1,36 @@
 {% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import avatar, socials %}
 {% block page_title %}{{ u.first_name }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>{{ u.first_name }} {{ u.last_name if connected else u.last_name[:1] ~ '.' }}</h1><p class="muted mb-0">{{ p.headline }}{% if p.company %} · {{ p.company }}{% endif %}{% if p.industry %} · {{ p.industry }}{% endif %}</p></div>
-{% if match %}<span class="score">{{ match.score|fit }}</span>{% endif %}</div>
+{% if is_self %}<div class="flash info mb-m">So sehen andere Mitglieder deine Seite. <a href="{{ url_for('member.profile') }}">Profil bearbeiten</a></div>{% endif %}
+<div class="profile-head">
+  {{ avatar(u, "lg") }}
+  <div>
+    <h1>{{ u.first_name }} {{ u.last_name if (connected or is_self) else u.last_name[:1] ~ '.' }}</h1>
+    <p class="muted mb-0">{{ p.headline }}{% if p.company %} · {{ p.company }}{% endif %}{% if p.industry %} · {{ p.industry }}{% endif %}</p>
+    <p class="small muted mb-0">{% if p.city %}{{ p.city }} · {% endif %}Mitglied seit {{ u.created_at|local|attr('strftime')('%m/%Y') }}{% if p.formats_list %} · Interessiert an {% for k in p.formats_list %}{{ FORMATS[k].short if k in FORMATS }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}</p>
+    {% if connected or is_self or p.socials_public %}{{ socials(p) }}{% endif %}
+  </div>
+  {% if match %}<span class="score">{{ match.score|fit }}</span>{% endif %}
+</div>
 <div class="split">
   <section class="stack">
-    {% if match and match.reason %}<div class="panel"><b>Warum ihr euch treffen solltet</b> <span class="ai-mark">KI</span><p class="mt-s mb-0">{{ match.reason }}</p></div>{% endif %}
+    {% if match and match.reason %}<div class="panel"><b>Warum ihr euch treffen solltet</b> <span class="ai-mark">KI</span><p class="mt-s mb-0">{{ match.reason }}</p>{% if match.opener %}<p class="muted small mt-s mb-0">{{ match.opener }}</p>{% endif %}</div>{% endif %}
+    {% if p.bio %}<div><h3>Über {{ u.first_name }}</h3><p class="pre">{{ p.bio }}</p></div>{% endif %}
     {% if p.q_focus %}<div><h3>Was {{ u.first_name }} macht</h3><p class="pre">{{ p.q_focus }}</p></div>{% endif %}
     {% if p.q_can_help %}<div><h3>Kann helfen mit</h3><p class="pre">{{ p.q_can_help }}</p></div>{% endif %}
     {% if p.q_looking_for %}<div><h3>Sucht gerade</h3><p class="pre">{{ p.q_looking_for }}</p></div>{% endif %}
-    {% if p.bio %}<div><h3>Über {{ u.first_name }}</h3><p class="pre">{{ p.bio }}</p></div>{% endif %}
-    {% if p.expertise_list %}<div class="row">{% for t in p.expertise_list %}<span class="tag">{{ t }}</span>{% endfor %}</div>{% endif %}
+    {% if p.expertise_list %}<div><h3>Expertise</h3><div class="row">{% for t in p.expertise_list %}<a class="tag" href="{{ url_for('member.directory', q=t) }}">{{ t }}</a>{% endfor %}</div></div>{% endif %}
+    {% set evs = upcoming_events if is_self else shared_events %}
+    {% if evs %}<div><h3>{{ 'Deine kommenden Termine' if is_self else 'Ihr seid beide dabei' }}</h3>
+      {% for ev in evs %}<p class="mb-0"><a href="{{ url_for('member.event_detail', event_id=ev.id) }}">{{ ev.title }}</a> <span class="muted small">{{ ev|event_date }}</span></p>{% endfor %}</div>{% endif %}
   </section>
   <aside class="panel">
-    {% if connected %}
+    {% if is_self %}
+      <p class="muted small mb-0">Kontaktdaten sehen nur Menschen, deren Anfrage du angenommen hast.{% if not p.socials_public %} Deine Social-Links sind derzeit nur für angenommene Kontakte sichtbar.{% endif %}</p>
+    {% elif connected %}
       <span class="tag ok">Verbunden</span>
       <p class="mt-m"><a href="mailto:{{ u.email }}">{{ u.email }}</a>{% if u.phone %}<br><a href="tel:{{ u.phone }}">{{ u.phone }}</a>{% endif %}</p>
-      {% for label, url in [("LinkedIn", p.linkedin_url), ("Xing", p.xing_url), ("Instagram", p.instagram_url), ("Website", p.website_url)] %}{% if url %}<a href="{{ url }}" rel="noopener nofollow" target="_blank">{{ label }}</a><br>{% endif %}{% endfor %}
     {% elif ir and ir.status == 'pending' %}
       <span class="tag warn">Anfrage offen</span>
       <p class="muted small mt-s">Kontaktdaten werden sichtbar, sobald die Anfrage angenommen ist.</p>

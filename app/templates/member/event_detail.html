@@ -1,4 +1,5 @@
 {% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import avatar %}
 {% block page_title %}{{ ev.title }}{% endblock %}
 {% block content %}
 <div class="page-head"><div><p class="muted mb-0">{{ ev.format_info.name }}</p><h1>{{ ev.title }}</h1><p class="big mb-0">{{ ev|event_date }}</p></div></div>
@@ -11,7 +12,7 @@
     {% if reg and reg.status in ('registered','paid','reserved') and ev.online_url %}<p><b>Online-Zugang:</b> <a href="{{ ev.online_url }}" rel="noopener" target="_blank">{{ ev.online_url }}</a></p>{% endif %}
     {% if attendees %}
     <div><h3>Wer ist schon dabei</h3><p class="muted small">Nur Mitglieder mit sichtbarem Profil.</p>
-      {% for u in attendees %}<a class="person" href="{{ url_for('member.member_detail', user_id=u.id) }}"><span class="av">{{ u.initials }}</span><span><b>{{ u.first_name }} {{ u.last_name[:1] }}.</b><br><span class="small muted">{{ u.profile.headline }}</span></span></a>{% endfor %}
+      {% for u in attendees %}<a class="person" href="{{ url_for('member.member_detail', user_id=u.id) }}">{{ avatar(u) }}<span><b>{{ u.first_name }} {{ u.last_name[:1] }}.</b><br><span class="small muted">{{ u.profile.headline }}</span></span></a>{% endfor %}
     </div>
     {% endif %}
   </section>

@@ -24,6 +24,7 @@ services:
       BASE_URL: https://${DOMAIN:?DOMAIN in .env setzen}
       COOKIE_SECURE: "1"
       FLASK_ENV: production
+    volumes: ["uploads:/app/instance"]
     depends_on:
       db: {condition: service_healthy}
   sync:
@@ -52,4 +53,5 @@ services:
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
 volumes:
   pgdata:
+  uploads:
   caddy_data:

@@ -1,5 +1,5 @@
 {% extends "admin/_layout.html" %}
-{% from "partials/_macros.html" import event_row %}
+{% from "partials/_macros.html" import event_row, avatar %}
 {% block page_title %}Übersicht{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Übersicht</h1><div class="row"><span class="tag {{ 'ok' if ai_on else 'warn' }}">KI {{ 'aktiv' if ai_on else 'Demo-Modus' }}</span><span class="tag {{ 'ok' if stripe_on else '' }}">Stripe {{ 'aktiv' if stripe_on else 'aus' }}</span></div></div>
@@ -31,7 +31,7 @@
   </section>
   <section>
     <h2>Neue Mitglieder</h2>
-    {% for u in recent_users %}<a class="person" href="{{ url_for('admin.user_detail', user_id=u.id) }}"><span class="av">{{ u.initials }}</span><span><b>{{ u.full_name }}</b><br><span class="small muted">{{ u.profile.headline if u.profile }} · {{ u.created_at|dt }}</span></span></a>{% endfor %}
+    {% for u in recent_users %}<a class="person" href="{{ url_for('admin.user_detail', user_id=u.id) }}">{{ avatar(u) }}<span><b>{{ u.full_name }}</b><br><span class="small muted">{{ u.profile.headline if u.profile }} · {{ u.created_at|dt }}</span></span></a>{% endfor %}
   </section>
 </div>
 <section class="mt-l">

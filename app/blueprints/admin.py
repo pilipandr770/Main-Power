@@ -11,13 +11,13 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from ..extensions import db
-from ..models import (CONSENT_KINDS, FORMATS, ROLES, AuditLog, ChatMessage, Consent, Event, IntroRequest,
+from ..models import (CONSENT_KINDS, FORMATS, ROLES, SOCIALS, AuditLog, ChatMessage, Consent, Event, IntroRequest,
                       KnowledgeItem, LLMUsage, Profile, Registration, Service, ServiceInquiry, Setting, User, utcnow)
-from ..services import matching, telegram
+from ..services import matching, media, telegram
 from ..services.audit import audit
 from ..services.events_sync import sync_events
 from ..services.gdpr import delete_user, export_user
-from ..utils import admin_required, clean_url, fmt_dt, fmt_event_date, local_to_utc, superadmin_required, to_local
+from ..utils import admin_required, clean_social, fmt_dt, fmt_event_date, local_to_utc, superadmin_required, to_local
 
 bp = Blueprint("admin", __name__)
 
@@ -158,14 +158,17 @@ def user_edit(user_id):
             for field, limit in MEMBER_TEXT_FIELDS.items():
                 setattr(p, field, f.get(field, "").strip()[:limit])
             p.preferred_formats = ",".join(k for k in f.getlist("formats") if k in FORMATS)
-            for field in ("linkedin_url", "xing_url", "instagram_url", "website_url"):
-                setattr(p, field, clean_url(f.get(field, "")))
+            for key in SOCIALS:
+                setattr(p, f"{key}_url", clean_social(key, f.get(f"{key}_url", "")))
+            if f.get("remove_photo") and p.photo:  # Moderation: unpassendes Foto entfernen
+                media.delete_avatar(p.photo)
+                p.photo = None
             matching.refresh_embeddings(p, commit=False)
             audit("user.edit", f"user:{u.id}", u.email)
             db.session.commit()
             flash("Mitglied gespeichert.", "success")
             return redirect(url_for("admin.user_detail", user_id=u.id))
-    return render_template("admin/user_edit.html", u=u, p=p, errors=errors, formats=FORMATS,
+    return render_template("admin/user_edit.html", u=u, p=p, errors=errors, formats=FORMATS, socials=SOCIALS,
                            form=request.form if request.method == "POST" else None)
 
 

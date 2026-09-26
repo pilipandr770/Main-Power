@@ -1,10 +1,11 @@
 {% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import socials %}
 {% block page_title %}Kontakte{% endblock %}
 {% macro contact_details(u) -%}
 <div class="small mt-s">
   <a href="mailto:{{ u.email }}">{{ u.email }}</a>{% if u.phone %} · <a href="tel:{{ u.phone }}">{{ u.phone }}</a>{% endif %}
-  {% set p = u.profile %}{% if p %}{% for label, url in [("LinkedIn", p.linkedin_url), ("Xing", p.xing_url), ("Instagram", p.instagram_url), ("Website", p.website_url)] %}{% if url %} · <a href="{{ url }}" rel="noopener nofollow" target="_blank">{{ label }}</a>{% endif %}{% endfor %}{% endif %}
 </div>
+{% set p = u.profile %}{% if p and p.social_links() %}{{ socials(p) }}{% endif %}
 {%- endmacro %}
 {% block content %}
 <div class="page-head"><div><h1>Kontakte</h1><p class="muted mb-0">Kontaktdaten werden erst geteilt, wenn beide zugestimmt haben.</p></div></div>

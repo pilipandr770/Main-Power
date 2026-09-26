@@ -76,3 +76,26 @@ def superadmin_required(fn):
             abort(403)
         return fn(*a, **kw)
     return wrapper
+
+
+def clean_social(key: str, value: str) -> str:
+    """Prüft einen Social-Link gegen die erlaubten Domains des Netzwerks; leer = ungültig/entfernt."""
+    from .models import SOCIALS
+    value = (value or "").strip()
+    if not value:
+        return ""
+    if key == "telegram" and re.fullmatch(r"@?[A-Za-z0-9_]{4,32}", value):
+        return "https://t.me/" + value.lstrip("@")
+    if key in ("instagram", "x", "tiktok", "github") and re.fullmatch(r"@[A-Za-z0-9_.-]{2,40}", value):
+        base = {"instagram": "https://www.instagram.com/", "x": "https://x.com/", "tiktok": "https://www.tiktok.com/@",
+                "github": "https://github.com/"}[key]
+        return base + value.lstrip("@")
+    if "://" not in value and re.match(r"^[\w.-]+\.[a-z]{2,}(/|$)", value, re.I):
+        value = "https://" + value
+    url = clean_url(value)
+    hosts = SOCIALS[key][2]
+    if url and hosts:
+        host = (urlparse(url).hostname or "").lower()
+        if not any(host == h or host.endswith("." + h) for h in hosts):
+            return ""
+    return url

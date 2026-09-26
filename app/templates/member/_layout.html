@@ -14,7 +14,7 @@
       <a href="{{ url_for('member.events') }}" class="{{ 'on' if ep.startswith('member.event') }}">Termine</a>
       <a href="{{ url_for('member.contacts') }}" class="{{ 'on' if ep == 'member.contacts' }}">Kontakte{% if pending_intros %}<span class="badge">{{ pending_intros }}</span>{% endif %}</a>
       <a href="{{ url_for('member.directory') }}" class="{{ 'on' if ep in ('member.directory','member.member_detail') }}">Mitglieder</a>
-      <a href="{{ url_for('member.community') }}" class="{{ 'on' if ep == 'member.community' }}">Community-Chat</a>
+      <a href="{{ url_for('member.community') }}" class="{{ 'on' if ep == 'member.community' }}">Community</a>
       <a href="{{ url_for('member.services') }}" class="{{ 'on' if ep.startswith('member.service') }}">Leistungen</a>
       <div class="navlabel">Konto</div>
       <a href="{{ url_for('member.profile') }}" class="{{ 'on' if ep == 'member.profile' }}">Mein Profil</a>

@@ -1,11 +1,45 @@
 {% extends "member/_layout.html" %}
-{% block page_title %}Community-Chat{% endblock %}
+{% from "partials/_macros.html" import avatar %}
+{% block page_title %}Community{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Community-Chat</h1><p class="muted mb-0">{{ group_title }} — ein geschlossener Telegram-Chat nur für verifizierte Mitglieder.</p></div></div>
+<div class="page-head"><div><h1>Community</h1><p class="muted mb-0">Wer ist gerade dabei, wer kommt wohin — und wie du mit allen im Gespräch bleibst.</p></div>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('member.directory') }}">Alle {{ total }} Profile im Verzeichnis</a></div>
+
+{% if industries %}
+<section class="mb-l"><h2>Branchen</h2>
+  <div class="row">{% for name, n in industries %}<a class="tag" href="{{ url_for('member.directory', branche=name) }}">{{ name }} · {{ n }}</a>{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="mb-l"><h2>Neu in der Community</h2>
+  <div class="card-grid">
+    {% for p in newest %}<a class="member-card" href="{{ url_for('member.member_detail', user_id=p.user.id) }}">{{ avatar(p.user) }}<b>{{ p.user.first_name }} {{ p.user.last_name[:1] }}.</b><small>{{ p.headline }}</small></a>
+    {% else %}<div class="empty">Noch keine sichtbaren Profile. Sichtbarkeit stellst du unter <a href="{{ url_for('member.privacy') }}">Privatsphäre</a> ein.</div>{% endfor %}
+  </div>
+</section>
+
+<section class="mb-l"><h2>Kommende Treffen und wer dabei ist</h2>
+  {% for ev, people, n in events %}
+  <div class="panel-flat">
+    <div class="row between"><b><a href="{{ url_for('member.event_detail', event_id=ev.id) }}">{{ ev.title }}</a></b><span class="small muted">{{ ev|event_date }}</span></div>
+    <p class="small muted mb-0">{{ n }} Anmeldung{{ 'en' if n != 1 }}{% if ev.seats_left is not none %} · {{ ev.seats_left }} Plätze frei{% endif %}</p>
+    {% if people %}<div class="faces mt-s">{% for u in people %}<a href="{{ url_for('member.member_detail', user_id=u.id) }}" title="{{ u.first_name }} {{ u.last_name[:1] }}.">{{ avatar(u) }}</a>{% endfor %}</div>{% endif %}
+  </div>
+  {% else %}<div class="empty">Aktuell sind keine Termine geplant. <a href="{{ url_for('member.event_create') }}">Eigenes Treffen vorschlagen</a></div>{% endfor %}
+</section>
+
+{% if contacts %}
+<section class="mb-l"><h2>Deine Kontakte</h2>
+  <div class="card-grid">{% for u in contacts %}<a class="member-card" href="{{ url_for('member.member_detail', user_id=u.id) }}">{{ avatar(u) }}<b>{{ u.first_name }} {{ u.last_name[:1] }}.</b><small>{{ u.profile.headline if u.profile }}</small></a>{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="maxw"><h2>Community-Chat</h2>
+<p class="muted">{{ group_title }} — ein geschlossener Telegram-Chat nur für verifizierte Mitglieder.</p>
 {% if not tg %}
   <div class="empty">Der Community-Chat wird gerade eingerichtet. Bis dahin erreichst du das Team unter <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</div>
 {% else %}
-<ol class="steps maxw">
+<ol class="steps">
   <li>
     <h3>Telegram verbinden</h3>
     {% if current_user.telegram_user_id %}
@@ -31,4 +65,5 @@
   </li>
 </ol>
 {% endif %}
+</section>
 {% endblock %}

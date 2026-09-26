@@ -22,6 +22,8 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
     APP_NAME = "Main Power"
+    MAX_CONTENT_LENGTH = 6 * 1024 * 1024  # Foto-Upload (Limit 5 MB) + Formularrest
+    UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "")  # leer = <instance>/uploads
     BASE_URL = os.environ.get("BASE_URL", "http://localhost:5000").rstrip("/")
     MAIN_SITE_URL = os.environ.get("MAIN_SITE_URL", "https://www.main-power.org")
     CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "hallo@main-power.org")

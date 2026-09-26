@@ -4,6 +4,7 @@ from __future__ import annotations
 from ..extensions import db
 from ..models import (ChatMessage, IntroRequest, Match, ServiceInquiry, User)
 from ..utils import fmt_dt
+from . import media
 
 
 def export_user(user: User) -> dict:
@@ -16,7 +17,9 @@ def export_user(user: User) -> dict:
             k: getattr(p, k) for k in ("headline", "company", "industry", "city", "region", "bio", "q_focus",
                                        "q_challenge", "q_can_help", "q_looking_for", "expertise",
                                        "preferred_formats", "linkedin_url", "xing_url", "instagram_url",
-                                       "website_url", "visible_in_directory", "allow_matching")},
+                                       "website_url", "facebook_url", "telegram_url", "x_url", "youtube_url", "github_url",
+                                       "tiktok_url", "socials_public", "photo", "visible_in_directory",
+                                       "allow_matching")},
         "einwilligungen": [{"art": c.kind, "erteilt": c.granted, "version": c.version, "zeit": fmt_dt(c.created_at)}
                            for c in user.consents],
         "anmeldungen": [{"termin": r.event.title, "status": r.status, "zeit": fmt_dt(r.created_at)}
@@ -41,5 +44,7 @@ def delete_user(user: User) -> None:
                               (IntroRequest.to_user_id == uid)).delete(synchronize_session=False)
     ChatMessage.query.filter_by(user_id=uid).delete(synchronize_session=False)
     ServiceInquiry.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    if user.profile and user.profile.photo:
+        media.delete_avatar(user.profile.photo)
     db.session.delete(user)  # Profil, Einwilligungen, Anmeldungen via cascade
     db.session.commit()

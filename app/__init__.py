@@ -88,7 +88,7 @@ def _register_security_headers(app: Flask) -> None:
         resp.headers.setdefault("X-Frame-Options", "DENY")
         if request.is_secure:
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        if request.path.startswith(("/app", "/admin")):
+        if request.path.startswith(("/app", "/admin")) and not request.path.startswith("/app/foto/"):
             resp.headers["Cache-Control"] = "no-store"
         return resp
 
@@ -118,11 +118,41 @@ def _register_errors(app: Flask) -> None:
                                msg="Da ist etwas schiefgelaufen. Wir kümmern uns darum."), 500
 
 
+def add_missing_columns() -> list[str]:
+    """Leichte Schema-Nachführung ohne Alembic: fehlende Spalten bestehender Tabellen per ALTER TABLE ergänzen.
+
+    Neue Tabellen legt db.create_all() an. Umbenennen/Löschen/Typwechsel bleibt Sache von Flask-Migrate.
+    """
+    from sqlalchemy import inspect, text
+    added = []
+    insp = inspect(db.engine)
+    for table in db.metadata.sorted_tables:
+        if not insp.has_table(table.name):
+            continue
+        have = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in have:
+                continue
+            ddl = f'ALTER TABLE {table.name} ADD COLUMN {col.name} {col.type.compile(db.engine.dialect)}'
+            default = col.default.arg if col.default is not None and getattr(col.default, "is_scalar", False) else None
+            if default is not None:
+                lit = "TRUE" if default is True else "FALSE" if default is False else (str(default) if isinstance(default, (int, float)) else "'" + str(default).replace("'", "''") + "'")
+                ddl += f" DEFAULT {lit}"
+            if not col.nullable and default is not None:
+                ddl += " NOT NULL"
+            with db.engine.begin() as conn:
+                conn.execute(text(ddl))
+            added.append(f"{table.name}.{col.name}")
+    return added
+
+
 def _register_cli(app: Flask) -> None:
     @app.cli.command("init-db")
     def init_db():
-        """Tabellen anlegen (für Produktion später: flask db migrate/upgrade)."""
+        """Tabellen anlegen und fehlende Spalten ergänzen (für Produktion später: flask db migrate/upgrade)."""
         db.create_all()
+        for c in add_missing_columns():
+            click.echo(f"Spalte ergaenzt: {c}")
         click.echo("Datenbank initialisiert.")
 
     @app.cli.command("seed")

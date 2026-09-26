@@ -72,6 +72,20 @@ FORMATS = {
 
 ROLES = ("member", "admin", "superadmin")
 
+# Soziale Netzwerke im Profil: key -> (Label, Beispiel, erlaubte Domains). Spalte = f"{key}_url".
+SOCIALS = {
+    "linkedin": ("LinkedIn", "https://www.linkedin.com/in/…", ("linkedin.com",)),
+    "xing": ("Xing", "https://www.xing.com/profile/…", ("xing.com",)),
+    "instagram": ("Instagram", "https://www.instagram.com/…", ("instagram.com",)),
+    "facebook": ("Facebook", "https://www.facebook.com/…", ("facebook.com", "fb.com")),
+    "telegram": ("Telegram", "@dein_name oder https://t.me/…", ("t.me", "telegram.me")),
+    "x": ("X", "https://x.com/…", ("x.com", "twitter.com")),
+    "youtube": ("YouTube", "https://www.youtube.com/@…", ("youtube.com", "youtu.be")),
+    "github": ("GitHub", "https://github.com/…", ("github.com",)),
+    "tiktok": ("TikTok", "https://www.tiktok.com/@…", ("tiktok.com",)),
+    "website": ("Website", "https://…", ()),
+}
+
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
@@ -120,6 +134,10 @@ class User(UserMixin, db.Model):
         return f"{self.first_name} {self.last_name}".strip()
 
     @property
+    def photo_name(self) -> str | None:
+        return self.profile.photo if self.profile and self.profile.photo else None
+
+    @property
     def initials(self) -> str:
         return (self.first_name[:1] + (self.last_name[:1] or "")).upper()
 
@@ -161,6 +179,14 @@ class Profile(db.Model):
     xing_url = db.Column(db.String(300), default="")
     instagram_url = db.Column(db.String(300), default="")
     website_url = db.Column(db.String(300), default="")
+    facebook_url = db.Column(db.String(300), default="")
+    telegram_url = db.Column(db.String(300), default="")
+    x_url = db.Column(db.String(300), default="")
+    youtube_url = db.Column(db.String(300), default="")
+    github_url = db.Column(db.String(300), default="")
+    tiktok_url = db.Column(db.String(300), default="")
+    socials_public = db.Column(db.Boolean, default=False, nullable=False)  # Links für alle Mitglieder sichtbar
+    photo = db.Column(db.String(120))  # Dateiname in instance/uploads/avatars (nur vom Server vergeben)
 
     visible_in_directory = db.Column(db.Boolean, default=False, nullable=False)
     allow_matching = db.Column(db.Boolean, default=False, nullable=False)
@@ -170,6 +196,10 @@ class Profile(db.Model):
     embed_provider = db.Column(db.String(60))
     embed_updated_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    def social_links(self) -> list[tuple[str, str, str]]:
+        """[(key, Label, URL)] aller gepflegten Netzwerke."""
+        return [(k, v[0], getattr(self, f"{k}_url") or "") for k, v in SOCIALS.items() if getattr(self, f"{k}_url")]
 
     @property
     def expertise_list(self) -> list[str]:

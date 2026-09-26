@@ -257,3 +257,78 @@ def test_llm_gets_ai_act_rules_and_counts_tokens(app, monkeypatch):
         assert sent["system"].startswith(llm.AI_ACT_RULES) and sent["system"].endswith("Persona")
         row = LLMUsage.query.one()
         assert (row.purpose, row.input_tokens, row.output_tokens) == ("aiko_public", 10, 5)
+
+
+def _png_bytes(size=(300, 200), color=(200, 60, 20)):
+    import io
+
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", size, color).save(buf, "PNG")
+    buf.seek(0)
+    return buf
+
+
+def test_profile_photo_socials_and_community(client, app, tmp_path):
+    import io
+
+    app.config["UPLOAD_DIR"] = str(tmp_path)
+    register(client, "foto@example.com")
+    base = {"first_name": "Foto", "last_name": "Nutzerin", "headline": "Designerin", "q_can_help": "Design",
+            "q_looking_for": "Kunden"}
+    # Foto + Social-Links; falsches Netzwerk und javascript: werden verworfen, @handle wird zu URL
+    r = client.post("/app/profil", data={**base, "photo": (_png_bytes(), "me.png"),
+                                         "linkedin_url": "https://www.linkedin.com/in/foto",
+                                         "instagram_url": "@foto_design", "github_url": "https://evil.example/x",
+                                         "x_url": "javascript:alert(1)", "socials_public": "1"},
+                    content_type="multipart/form-data", follow_redirects=True)
+    assert "Profil gespeichert" in r.get_data(as_text=True)
+    assert "GitHub" in r.get_data(as_text=True) and "X" in r.get_data(as_text=True)  # Hinweis auf verworfene Links
+    with app.app_context():
+        p = User.query.filter_by(email="foto@example.com").first().profile
+        assert p.photo and (tmp_path / "avatars" / p.photo).exists()
+        assert p.instagram_url == "https://www.instagram.com/foto_design"
+        assert p.github_url == "" and p.x_url == "" and p.socials_public
+        name, uid = p.photo, p.user_id
+    served = client.get(f"/app/foto/{name}")
+    assert served.status_code == 200 and served.mimetype == "image/jpeg"
+    from PIL import Image
+    im = Image.open(io.BytesIO(served.data))
+    served.close()  # Windows: Dateihandle freigeben, sonst lässt sich die Datei später nicht löschen
+    assert im.size == (512, 512) and not im.getexif()
+    assert client.get("/app/foto/../x.jpg").status_code == 404
+
+    # ungültige Datei wird abgelehnt und das alte Foto bleibt
+    r = client.post("/app/profil", data={**base, "photo": (io.BytesIO(b"kein bild"), "x.png")},
+                    content_type="multipart/form-data", follow_redirects=True)
+    assert "nicht als Bild" in r.get_data(as_text=True)
+    with app.app_context():
+        assert User.query.get(uid).profile.photo == name
+
+    # eigene Vorschau + Community-Seite
+    assert client.get(f"/app/mitglieder/{uid}").status_code == 200
+    r = client.get("/app/community")
+    assert r.status_code == 200 and "Neu in der Community" in r.get_data(as_text=True)
+    # Foto nur für Angemeldete
+    client.post("/logout")
+    assert client.get(f"/app/foto/{name}", follow_redirects=False).status_code == 302
+
+    # Foto entfernen löscht die Datei
+    login(client, "foto@example.com", "sehr-sicheres-pw")
+    client.post("/app/profil", data={**base, "remove_photo": "1"}, follow_redirects=True)
+    with app.app_context():
+        assert User.query.get(uid).profile.photo is None
+    assert not (tmp_path / "avatars" / name).exists()
+
+
+def test_add_missing_columns_migrates_old_schema(app):
+    from sqlalchemy import text
+
+    from app import add_missing_columns
+    with app.app_context():
+        db.session.remove()
+        with db.engine.begin() as conn:
+            conn.execute(text("ALTER TABLE profiles DROP COLUMN photo"))
+            conn.execute(text("ALTER TABLE profiles DROP COLUMN socials_public"))
+        assert set(add_missing_columns()) == {"profiles.photo", "profiles.socials_public"}
+        assert add_missing_columns() == []

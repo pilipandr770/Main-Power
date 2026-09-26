@@ -33,11 +33,9 @@
     </div>
     {{ textarea("bio", "Kurzvorstellung", v.bio if v else p.bio, rows=3) }}
     <div class="grid grid-2">
-      {{ input("linkedin_url", "LinkedIn", p.linkedin_url) }}
-      {{ input("xing_url", "Xing", p.xing_url) }}
-      {{ input("instagram_url", "Instagram", p.instagram_url) }}
-      {{ input("website_url", "Website", p.website_url) }}
+      {% for key, s in socials.items() %}{{ input(key ~ "_url", s[0], p|attr(key ~ "_url"), placeholder=s[1]) }}{% endfor %}
     </div>
+    {% if p.photo %}<label class="check mt-s"><input type="checkbox" name="remove_photo" value="1"><span>Profilfoto entfernen (Moderation)</span></label>{% endif %}
   </fieldset>
   <fieldset><legend>Bevorzugte Formate</legend>
     {% for key, f in formats.items() if key != 'community' %}

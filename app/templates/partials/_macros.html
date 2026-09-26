@@ -50,3 +50,11 @@
 {%- endmacro %}
 
 {% macro width_class(pct) -%}w-{{ ((pct or 0) // 10 * 10)|int }}{%- endmacro %}
+
+{% macro avatar(user, cls="") -%}
+<span class="av {{ cls }}">{% if user.photo_name %}<img src="{{ url_for('member.avatar', name=user.photo_name) }}" alt="" loading="lazy" width="96" height="96">{% else %}{{ user.initials }}{% endif %}</span>
+{%- endmacro %}
+
+{% macro socials(p, cls="socials") -%}
+<ul class="{{ cls }}">{% for key, label, url in p.social_links() %}<li><a class="chip" href="{{ url }}" rel="noopener nofollow ugc" target="_blank">{{ label }}</a></li>{% endfor %}</ul>
+{%- endmacro %}

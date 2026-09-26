@@ -4,17 +4,17 @@ import json
 from datetime import datetime, timedelta
 
 from flask import (Blueprint, Response, abort, current_app, flash, jsonify, redirect, render_template, request,
-                   url_for)
+                   send_from_directory, url_for)
 from flask_login import current_user, login_required, logout_user
 
 from ..extensions import db, limiter
-from ..models import (FORMATS, ChatMessage, Event, IntroRequest, Match, Profile, Registration, Service,
+from ..models import (FORMATS, SOCIALS, ChatMessage, Event, IntroRequest, Match, Profile, Registration, Service,
                       ServiceInquiry, Setting, User, utcnow)
-from ..services import aiko, matching, payments, telegram
+from ..services import aiko, matching, media, payments, telegram
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
 from ..services.mailer import send_mail
-from ..utils import clean_url, local_to_utc
+from ..utils import clean_social, local_to_utc
 from .auth import record_consent
 from .public import upcoming
 
@@ -62,8 +62,29 @@ def profile():
         for field, limit in PROFILE_TEXT_FIELDS.items():
             setattr(p, field, f.get(field, "").strip()[:limit])
         p.preferred_formats = ",".join(k for k in f.getlist("formats") if k in FORMATS)
-        for field in ("linkedin_url", "xing_url", "instagram_url", "website_url"):
-            setattr(p, field, clean_url(f.get(field, "")))
+        rejected = []
+        for key, (label, _example, _hosts) in SOCIALS.items():
+            raw = f.get(f"{key}_url", "").strip()
+            val = clean_social(key, raw)
+            if raw and not val:
+                rejected.append(label)
+            setattr(p, f"{key}_url", val)
+        if rejected:
+            flash("Diese Links wurden nicht übernommen (ungültig oder falsches Netzwerk): " + ", ".join(rejected),
+                  "error")
+        p.socials_public = bool(f.get("socials_public"))
+        upload = request.files.get("photo")
+        if f.get("remove_photo") and p.photo:
+            media.delete_avatar(p.photo)
+            p.photo = None
+        if upload and upload.filename:
+            try:
+                new_name = media.save_avatar(upload)
+            except media.PhotoError as exc:
+                flash(str(exc), "error")
+            else:
+                media.delete_avatar(p.photo)
+                p.photo = new_name
         p.updated_at = utcnow()
         matching.refresh_embeddings(p, commit=False)
         db.session.commit()
@@ -73,7 +94,7 @@ def profile():
                   "info")
         return redirect(url_for("member.matches" if request.args.get("welcome") and p.allow_matching
                                 else "member.profile"))
-    return render_template("member/profile.html", p=p, welcome=request.args.get("welcome"))
+    return render_template("member/profile.html", p=p, welcome=request.args.get("welcome"), socials=SOCIALS)
 
 
 # --------------------------------------------------------------------------- Matches & Kontakte
@@ -160,22 +181,51 @@ def respond_intro(ir_id, action):
 @bp.route("/mitglieder")
 def directory():
     q = request.args.get("q", "").strip()[:200]
+    branche = request.args.get("branche", "").strip()[:120]
     if q:
         results = [p for _, p in matching.semantic_search(q, k=24, only_directory=True,
                                                           exclude_user_id=current_user.id)]
+        if branche:
+            results = [p for p in results if p.industry == branche]
     else:
-        results = (Profile.query.join(User).filter(User.status == "active", Profile.visible_in_directory.is_(True),
-                                                   Profile.user_id != current_user.id)
-                   .order_by(Profile.updated_at.desc()).limit(60).all())
-    return render_template("member/directory.html", results=results, q=q,
+        query = (Profile.query.join(User).filter(User.status == "active", Profile.visible_in_directory.is_(True),
+                                                 Profile.user_id != current_user.id))
+        if branche:
+            query = query.filter(Profile.industry == branche)
+        results = query.order_by(Profile.updated_at.desc()).limit(60).all()
+    return render_template("member/directory.html", results=results, q=q, branche=branche,
                            me_visible=current_user.profile.visible_in_directory)
+
+
+ACTIVE_REG = ("registered", "paid", "reserved")
+
+
+def _upcoming_of(u: User) -> list[Event]:
+    """Kommende Termine, zu denen die Person angemeldet ist (nur bei sichtbarem Profil sinnvoll aufgerufen)."""
+    return (Event.query.join(Registration).filter(Registration.user_id == u.id, Registration.status.in_(ACTIVE_REG),
+                                                  Event.status == "published",
+                                                  Event.starts_at >= utcnow() - timedelta(hours=6))
+            .order_by(Event.starts_at).limit(6).all())
+
+
+@bp.route("/foto/<name>")
+def avatar(name):
+    """Profilfotos nur für angemeldete Mitglieder; Dateiname ist zufällig und wird vom Server vergeben."""
+    if not name.endswith(".jpg") or "/" in name or "\\" in name:
+        abort(404)
+    resp = send_from_directory(media.avatar_dir(), name, mimetype="image/jpeg", max_age=86400)
+    resp.headers["Cache-Control"] = "private, max-age=86400"
+    return resp
 
 
 @bp.route("/mitglieder/<int:user_id>")
 def member_detail(user_id):
     u = db.session.get(User, user_id)
-    if not u or u.status != "active" or u.id == current_user.id:
+    if not u or u.status != "active":
         abort(404)
+    if u.id == current_user.id:  # eigene Seite so ansehen, wie andere sie sehen
+        return render_template("member/member_detail.html", u=u, p=u.profile, ir=None, connected=False, match=None,
+                               is_self=True, shared_events=[], upcoming_events=_upcoming_of(u))
     ir = IntroRequest.query.filter(
         ((IntroRequest.from_user_id == current_user.id) & (IntroRequest.to_user_id == u.id)) |
         ((IntroRequest.from_user_id == u.id) & (IntroRequest.to_user_id == current_user.id))
@@ -184,8 +234,12 @@ def member_detail(user_id):
     recommended = Match.query.filter_by(user_id=current_user.id, other_id=u.id).first()
     if not (u.profile and (u.profile.visible_in_directory or connected or (recommended and u.profile.allow_matching))):
         abort(404)
+    mine = {r.event_id for r in Registration.query.filter(Registration.user_id == current_user.id,
+                                                          Registration.status.in_(ACTIVE_REG))}
+    # Anmeldungen anderer bleiben privat: sichtbar sind nur Termine, zu denen beide angemeldet sind.
+    shared = [e for e in _upcoming_of(u) if e.id in mine]
     return render_template("member/member_detail.html", u=u, p=u.profile, ir=ir, connected=connected,
-                           match=recommended)
+                           match=recommended, is_self=False, upcoming_events=[], shared_events=shared)
 
 
 # --------------------------------------------------------------------------- Termine
@@ -366,8 +420,27 @@ def service_detail(slug):
 # --------------------------------------------------------------------------- Community-Chat (Telegram)
 @bp.route("/community")
 def community():
+    """Community-Übersicht: neue Mitglieder, Termine mit Teilnehmenden, Themen, Kontakte — plus Telegram-Chat."""
+    visible = (Profile.query.join(User).filter(User.status == "active", Profile.visible_in_directory.is_(True),
+                                               Profile.user_id != current_user.id))
+    newest = visible.order_by(User.created_at.desc()).limit(8).all()
+    total = visible.count()
+    industries = (db.session.query(Profile.industry, db.func.count(Profile.id))
+                  .join(User).filter(User.status == "active", Profile.visible_in_directory.is_(True),
+                                     Profile.industry != "")
+                  .group_by(Profile.industry).order_by(db.func.count(Profile.id).desc()).limit(10).all())
+    events = []
+    for ev in upcoming(6):
+        people = [r.user for r in ev.active_registrations
+                  if r.user_id != current_user.id and r.user.profile and r.user.profile.visible_in_directory][:8]
+        events.append((ev, people, len(ev.active_registrations)))
+    accepted = IntroRequest.query.filter(
+        IntroRequest.status == "accepted",
+        (IntroRequest.from_user_id == current_user.id) | (IntroRequest.to_user_id == current_user.id)).all()
+    contacts = [ir.to_user if ir.from_user_id == current_user.id else ir.from_user for ir in accepted]
     return render_template("member/community.html", tg=telegram.enabled(), group=telegram.group_enabled(),
-                           group_title=Setting.get("telegram_group_title"))
+                           group_title=Setting.get("telegram_group_title"), newest=newest, total=total,
+                           industries=industries, events=events, contacts=contacts[:8])
 
 
 @bp.route("/community/verbinden", methods=["POST"])
