@@ -56,7 +56,7 @@ def impersonate_switch(user_id):
     db.session.commit()
     login_user(target, remember=False)
     session["impersonator_id"] = admin.id
-    return redirect(request.referrer if request.referrer and request.host in request.referrer else url_for("member.dashboard"))
+    return redirect(url_for("member.dashboard"))
 
 
 @bp.route("/als-nutzer-beenden", methods=["POST"])
