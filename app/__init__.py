@@ -50,11 +50,30 @@ def create_app(config_object=Config) -> Flask:
     app.register_blueprint(webhooks_bp, url_prefix="/webhooks")
     csrf.exempt(webhooks_bp)
 
+    _register_static_busting(app)
     _register_template_helpers(app)
     _register_security_headers(app)
     _register_errors(app)
     _register_cli(app)
     return app
+
+
+def _register_static_busting(app: Flask) -> None:
+    """Hängt ?v=<Änderungszeit> an Static-URLs: nach einem Deploy holen Browser und Cloudflare sofort die neue Datei."""
+    cache: dict[str, int] = {}
+
+    @app.url_defaults
+    def add_version(endpoint, values):
+        if endpoint != "static" or "filename" not in values or "v" in values:
+            return
+        name = values["filename"]
+        if name not in cache:
+            try:
+                cache[name] = int(os.path.getmtime(os.path.join(app.static_folder, name)))
+            except OSError:
+                cache[name] = 0
+        if cache[name]:
+            values["v"] = cache[name]
 
 
 def _register_template_helpers(app: Flask) -> None:
