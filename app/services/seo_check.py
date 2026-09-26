@@ -328,13 +328,28 @@ def build_report(result: dict, keywords: list[str]) -> dict:
               "{\"zusammenfassung\": \"3–4 Sätze\", \"massnahmen\": [{\"prio\": 1, \"titel\": \"…\", \"warum\": \"1–2 "
               "Sätze, warum das zählt\", \"so_gehts\": \"konkrete Schritte, 1–3 Sätze\", \"aufwand\": \"gering|mittel|hoch\", "
               "\"wirkung\": \"hoch|mittel|niedrig\"}] (5–7 Einträge, nur echte Schwächen), \"keyword_hinweise\": \"2–3 "
-              "Sätze, leer wenn keine Keywords geprüft\", \"naechste_schritte\": \"2 Sätze\"}.")
+              "Sätze, leer wenn keine Keywords geprüft\", \"naechste_schritte\": \"2 Sätze\"}. "
+              "WICHTIG für gültiges JSON: In Textwerten keine doppelten Anführungszeichen (nutze ‚einfache‘), keine "
+              "Zeilenumbrüche, keine Aufzählungszeichen.")
     payload = {"url": result["url"], "score": result["score"], "seite": result["facts"], "keywords": keywords,
                "ergebnisse": [{k: f[k] for k in ("cat", "status", "title", "detail", "fix")} for f in result["findings"]]}
+    data = None
+    for attempt in (1, 2):
+        try:
+            raw = complete(system + (" Deine letzte Antwort war kein gültiges JSON. Achte streng auf die Syntax."
+                                     if attempt == 2 else ""),
+                           [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                           max_tokens=1800, purpose="seo_report")
+            data = json.loads(raw[raw.find("{"):raw.rfind("}") + 1], strict=False)
+            break
+        except LLMUnavailable as exc:
+            log.info("SEO-Bericht per Fallback (%s)", exc)
+            return _fallback_report(result)
+        except ValueError as exc:
+            log.warning("SEO-Bericht: ungültiges JSON (Versuch %s): %s", attempt, exc)
+    if data is None:
+        return _fallback_report(result)
     try:
-        raw = complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                       max_tokens=1600, purpose="seo_report")
-        data = json.loads(raw[raw.find("{"):raw.rfind("}") + 1], strict=False)
         acts = [{"prio": int(a.get("prio", i + 1)), "titel": str(a.get("titel", ""))[:160],
                  "warum": str(a.get("warum", ""))[:500], "so_gehts": str(a.get("so_gehts", ""))[:600],
                  "aufwand": str(a.get("aufwand", "mittel")), "wirkung": str(a.get("wirkung", "mittel"))}
