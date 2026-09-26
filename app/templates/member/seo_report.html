@@ -1,10 +1,12 @@
 {% extends "member/_layout.html" %}
 {% from "partials/_macros.html" import width_class %}
-{% block page_title %}{{ 'Compliance-Bericht' if r.kind == 'compliance' else 'SEO-Bericht' }}{% endblock %}
+{% set K = {'seo': ('SEO-Bericht', 'SEO-Check', 'member.seo_check_page'), 'compliance': ('Compliance-Bericht', 'Compliance-Check', 'member.compliance_check_page'), 'security': ('Sicherheits-Bericht', 'Sicherheits-Check', 'member.security_check_page')}[r.kind or 'seo'] %}
+{% block page_title %}{{ K[0] }}{% endblock %}
 {% block content %}
 {% set labels = {'ok': 'gut', 'warn': 'prüfen', 'fail': 'kritisch', 'info': 'Hinweis'} %}
 {% set is_c = r.kind == 'compliance' %}
-<div class="page-head"><div><p class="muted mb-0 no-print"><a href="{{ url_for('member.compliance_check_page' if is_c else 'member.seo_check_page') }}">{{ 'Compliance-Check' if is_c else 'SEO-Check' }}</a></p><h1>{{ 'Compliance-Bericht' if is_c else 'SEO-Bericht' }}</h1>
+{% set is_s = r.kind == 'security' %}
+<div class="page-head"><div><p class="muted mb-0 no-print"><a href="{{ url_for(K[2]) }}">{{ K[1] }}</a></p><h1>{{ K[0] }}</h1>
 <p class="muted mb-0">{{ r.url }} · {{ r.created_at|dt }}{% if r.keywords %} · Suchbegriffe: {{ r.keywords }}{% endif %}</p></div>
 <div class="row no-print"><button type="button" class="btn btn-ghost btn-sm" data-print>Drucken / als PDF speichern</button>
 <form method="post" action="{{ url_for('member.seo_report_delete', rid=r.id) }}" data-confirm="Bericht löschen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Löschen</button></form></div></div>
@@ -47,6 +49,6 @@
 </section>
 
 {% if report.naechste_schritte %}<section class="mb-l"><h2>Nächste Schritte</h2><p>{{ report.naechste_schritte }}</p></section>{% endif %}
-<p class="small muted">Momentaufnahme der geprüften Seite am {{ r.created_at|dt }}. {% if is_c %}Automatische, statische Prüfung — <b>keine Rechtsberatung</b> und keine Gewähr auf Vollständigkeit; ob deine Website rechtskonform ist, klärt im Zweifel eine Anwältin, ein Anwalt oder ein Datenschutzbeauftragter.{% else %}Keine Garantie für Platzierungen in Suchmaschinen.{% endif %} Der Bericht wurde {{ 'mit KI-Unterstützung (Aiko)' if report.ai else 'automatisch' }} erstellt und ersetzt keine individuelle Beratung.</p>
-<div class="panel no-print"><b>{{ 'Du möchtest die Lücken schließen?' if is_c else 'Möchtest du Hilfe bei der Umsetzung?' }}</b> <span class="muted">Frag Aiko oder schreib uns an <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</span></div>
+<p class="small muted">Momentaufnahme der geprüften Seite am {{ r.created_at|dt }}. {% if is_c %}Automatische, statische Prüfung — <b>keine Rechtsberatung</b> und keine Gewähr auf Vollständigkeit; ob deine Website rechtskonform ist, klärt im Zweifel eine Anwältin, ein Anwalt oder ein Datenschutzbeauftragter.{% elif is_s %}Passive Prüfung öffentlich sichtbarer Einstellungen — <b>kein Penetrationstest</b>; interne Systeme, Software-Stände und Zugänge wurden nicht geprüft.{% else %}Keine Garantie für Platzierungen in Suchmaschinen.{% endif %} Der Bericht wurde {{ 'mit KI-Unterstützung (Aiko)' if report.ai else 'automatisch' }} erstellt und ersetzt keine individuelle Beratung.</p>
+<div class="panel no-print"><b>{{ 'Du möchtest die Lücken schließen?' if (is_c or is_s) else 'Möchtest du Hilfe bei der Umsetzung?' }}</b> <span class="muted">Frag Aiko oder schreib uns an <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</span></div>
 {% endblock %}

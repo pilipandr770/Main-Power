@@ -602,3 +602,64 @@ def test_compliance_check_finds_gaps_and_ok_pages(client, app, monkeypatch):
         rid = row.id
     r = client.post(f"/app/seo-check/{rid}/loeschen", follow_redirects=True)
     assert "Compliance-Check" in r.get_data(as_text=True)
+
+
+def test_security_check_passive(client, app, monkeypatch):
+    import time
+    from types import SimpleNamespace
+
+    from app.models import SeoReport
+    from app.services import security_check as sc
+
+    monkeypatch.setattr(sc, "_assert_public", lambda host: None)
+    monkeypatch.setattr(sc, "_tls", lambda host: {"reachable": True, "valid": True, "version": "TLSv1.3",
+                                                  "not_after": time.time() + 12 * 86400, "issuer": "Let's Encrypt"})
+    records = {"kanzlei.example": ["v=spf1 include:_spf.mail.example ~all"], "_dmarc.kanzlei.example": ["v=DMARC1; p=none"]}
+    monkeypatch.setattr(sc, "_txt", lambda name: records.get(name, []))
+    monkeypatch.setattr(sc, "_has", lambda name, rtype: False)
+
+    def fake_fetch(url, max_bytes=0):
+        headers = {"Content-Type": "text/html", "Server": "nginx/1.18.0", "Strict-Transport-Security": "max-age=63072000"}
+        raw = SimpleNamespace(headers=SimpleNamespace(getlist=lambda k: ["sid=1; Path=/", "lang=de; Secure; HttpOnly; SameSite=Lax"]))
+        final = url.replace("http://", "https://") if url.startswith("http://") else url
+        return SimpleNamespace(status_code=404 if "security.txt" in url else 200, headers=headers, raw=raw, encoding="utf-8"), b"<html></html>", 0.2, final
+
+    monkeypatch.setattr(sc, "_fetch", fake_fetch)
+    res = sc.analyze("https://www.kanzlei.example/seite")
+    by = {f["key"]: f for f in res["findings"]}
+    assert by["https"]["status"] == "ok" and by["cert"]["status"] == "ok" and by["redir"]["status"] == "ok"
+    assert by["cert_exp"]["status"] == "warn"           # 12 Tage
+    assert by["hsts"]["status"] == "ok" and by["csp"]["status"] == "warn"
+    assert by["leak"]["status"] == "warn" and "nginx/1.18.0" in by["leak"]["detail"]
+    assert by["cookies"]["status"] == "warn"            # ein Cookie ohne Schutzattribute
+    assert by["spf"]["status"] == "warn" and by["dmarc"]["status"] == "warn" and "p=none" in by["dmarc"]["detail"]
+    assert by["dnssec"]["status"] == "warn" and by["sectxt"]["status"] == "warn"
+    assert 40 < res["score"] < 90 and res["facts"]["domain"] == "kanzlei.example"
+
+    for bad in ["127.0.0.1", "10.1.2.3", "ftp://x.de", "user:pw@x.de", "keinedomain", ""]:
+        try:
+            sc.hostname_from(bad)
+        except sc.SeoCheckError:
+            continue
+        raise AssertionError(bad)
+    assert sc.org_domain("www.shop.co.uk") == "shop.co.uk" and sc.org_domain("a.b.example.de") == "example.de"
+
+    register(client)
+    assert client.get("/app/leistungen/sicherheits-check").status_code == 302
+    assert "Was geprüft wird" in client.get("/app/sicherheits-check").get_data(as_text=True)
+    r = client.post("/app/sicherheits-check", data={"url": "kanzlei.example", "authorized": "1"}, follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert "Sicherheits-Bericht" in body and "kein Penetrationstest" in body and "DMARC" in body
+    with app.app_context():
+        rid = SeoReport.query.filter_by(kind="security").one().id
+    assert "Sicherheits-Check" in client.post(f"/app/seo-check/{rid}/loeschen", follow_redirects=True).get_data(as_text=True)
+
+
+def test_security_check_blocks_internal_targets():
+    from app.services import security_check as sc
+    for bad in ["localhost.localdomain", "169.254.169.254"]:
+        try:
+            sc.analyze(bad)
+        except sc.SeoCheckError:
+            continue
+        raise AssertionError(bad)

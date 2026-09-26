@@ -118,6 +118,18 @@ COMPLIANCE_SERVICE = dict(
     member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
     provider_email="")
 
+SECURITY_SERVICE = dict(
+    slug="sicherheits-check", sort=2, title="Sicherheits-Check (passiv)",
+    summary="Aiko prüft die öffentlich sichtbare Sicherheit deiner Domain: Verschlüsselung, Header, Cookies und E-Mail-Schutz.",
+    description="Du gibst deine Domain ein. Wir prüfen wie ein normaler Besucher und wie ein Mailserver: HTTPS und "
+                "Zertifikat, TLS-Version, Weiterleitung auf https, HSTS, Sicherheits-Header, Cookie-Schutz, SPF, DMARC, "
+                "DKIM, DNSSEC, CAA und security.txt. Aiko erklärt die Ergebnisse verständlich und sagt, was dein Hoster, "
+                "deine Agentur oder dein Mailanbieter umstellen sollte. Es gibt keinen Portscan und keine Angriffe — "
+                "das ist ausdrücklich kein Penetrationstest.",
+    benefits="Bericht in unter einer Minute\nPassiv: keine Tests gegen deine Systeme\nKonkrete Aufgaben für Hoster und Mailanbieter\nBerichte lassen sich speichern und ausdrucken",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    provider_email="")
+
 DEMO_MEMBERS = [
     ("Julia", "Wagner", "Steuerberaterin, eigene Kanzlei", "Steuerberatung",
      "Steuerberatung für Gründer:innen und Selbstständige, Schwerpunkt digitale Buchhaltung",
@@ -198,7 +210,7 @@ def _seed_content() -> None:
     if KnowledgeItem.query.count() == 0:
         for i, (q, a, public) in enumerate(FAQ):
             db.session.add(KnowledgeItem(question=q, answer=a, public=public, sort=i))
-    for s in SERVICES + [SEO_SERVICE, COMPLIANCE_SERVICE]:
+    for s in SERVICES + [SEO_SERVICE, COMPLIANCE_SERVICE, SECURITY_SERVICE]:
         if not Service.query.filter_by(slug=s["slug"]).first():
             db.session.add(Service(**s))
     db.session.commit()
