@@ -30,7 +30,14 @@ FIELD_LABELS = {"q_focus": "Was machst du?", "q_challenge": "Größte Herausford
 def _json(text: str):
     text = re.sub(r"^```(?:json)?|```$", "", (text or "").strip(), flags=re.M).strip()
     a, b = text.find("{"), text.rfind("}")
-    return json.loads(text[a:b + 1])
+    return json.loads(text[a:b + 1], strict=False)  # strict=False: Zeilenumbrüche in Strings tolerieren
+
+
+def _text(v) -> str:
+    """Modelle liefern gelegentlich Listen statt Text; zu einem lesbaren Absatz zusammenfügen."""
+    if isinstance(v, (list, tuple)):
+        return " ".join(str(x).strip() for x in v if str(x).strip())
+    return "" if v is None else str(v)
 
 
 def _card(p: Profile) -> dict:
@@ -141,25 +148,33 @@ def pair_insight(viewer: User, other: User, force: bool = False) -> dict:
                   "(bevorzuge Termine, bei denen beide oder B angemeldet sind), sonst null\n"
                   "- event_reason: 1 Satz, warum dieser Termin passt\n"
                   "Antworte NUR als JSON mit genau diesen Schlüsseln.")
+        system += " Alle Werte sind einfacher Text (kein Array, keine Aufzählung)."
         payload = {"person_A": _card(me), "person_B": _card(ot), "termine": options}
-        try:
-            data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                                  max_tokens=700, purpose="pair_insight"))
-            ai = True
-        except (LLMUnavailable, ValueError, KeyError, TypeError):
-            data, ai = _insight_fallback(me, ot, options), False
+        data, ai = None, False
+        for attempt in (1, 2):  # ein zweiter Versuch fängt gelegentlich unsauberes JSON ab
+            try:
+                data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                                      max_tokens=800, purpose="pair_insight"))
+                ai = True
+                break
+            except LLMUnavailable:
+                break
+            except (ValueError, KeyError, TypeError) as exc:
+                log.warning("Kontakt-Assistent: unbrauchbare Modellantwort (Versuch %s): %s", attempt, exc)
+        if not ai:
+            data = _insight_fallback(me, ot, options)
         if row is None:
             row = PairInsight(user_id=viewer.id, other_id=other.id)
             db.session.add(row)
         row.version, row.data, row.ai = key, data, ai
         db.session.commit()
-    ev = next((e for e in options if e["id"] == data.get("event_id")), None)
-    return {"they_help_you": str(data.get("they_help_you", ""))[:500],
-            "you_help_them": str(data.get("you_help_them", ""))[:500],
-            "message_draft": str(data.get("message_draft", ""))[:1200],
+    ev = next((e for e in options if str(e["id"]) == str(data.get("event_id"))), None)
+    return {"they_help_you": _text(data.get("they_help_you"))[:600],
+            "you_help_them": _text(data.get("you_help_them"))[:600],
+            "message_draft": _text(data.get("message_draft"))[:1200],
             "event": ({"id": ev["id"], "title": ev["titel"], "when": ev["wann"],
                        "url": url_for("member.event_detail", event_id=ev["id"]),
-                       "reason": str(data.get("event_reason", ""))[:300]} if ev else None),
+                       "reason": _text(data.get("event_reason"))[:300]} if ev else None),
             "ai": bool(row.ai)}
 
 
