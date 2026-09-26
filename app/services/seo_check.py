@@ -341,10 +341,11 @@ def ai_report(system: str, payload: dict, result: dict) -> dict:
     data = None
     for attempt in (1, 2):
         try:
-            raw = complete(system + (" Deine letzte Antwort war kein gültiges JSON. Achte streng auf die Syntax."
-                                     if attempt == 2 else ""),
+            raw = complete(system + " Fasse dich kurz: jeder Textwert höchstens zwei Sätze, insgesamt höchstens 6 Maßnahmen." +
+                           (" Deine letzte Antwort war kein gültiges JSON (vermutlich zu lang). Antworte kompakter und achte "
+                            "streng auf die Syntax." if attempt == 2 else ""),
                            [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                           max_tokens=1800, purpose="seo_report")
+                           max_tokens=3200, purpose="seo_report")
             data = json.loads(raw[raw.find("{"):raw.rfind("}") + 1], strict=False)
             break
         except LLMUnavailable as exc:
