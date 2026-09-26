@@ -7,10 +7,11 @@
 <div class="split">
   <section>
     <h2>Würde eingeladen ({{ cands|length }})</h2>
-    {% for score, p, expert in cands %}
+    {% for score, p, expert, reason in cands %}
     <div class="panel-flat">
       <div class="row between"><b><a href="{{ url_for('admin.user_detail', user_id=p.user.id) }}">{{ p.user.full_name }}</a></b><span class="score">{{ (score*100)|round|int }} %</span></div>
       <div class="small muted">{{ p.headline }} · <span class="tag">{{ 'als Expert:in' if expert else 'als Interessierte:r' }}</span></div>
+      <p class="small mb-0 mt-s">{{ reason }}</p>
     </div>
     {% else %}<div class="empty">Niemand mehr, der zum Thema passt.</div>{% endfor %}
     {% if cands %}

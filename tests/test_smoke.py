@@ -384,7 +384,7 @@ def test_event_invitations_and_network_pages(client, app):
         names = {db.session.get(User, n.user_id).first_name for n in created}
         assert "Ivan" in names  # Cybersecurity-Berater wird zuerst eingeladen
         with app.test_request_context():
-            assert insights.invite_for_event(ev, limit=3) == [] or len(Notification.query.filter_by(event_id=ev.id).all()) <= 6
+            assert len(insights.invite_for_event(ev, limit=3)) <= 3 and Notification.query.filter_by(event_id=ev.id).count() <= 6  # niemand doppelt
         ivan = User.query.filter_by(first_name="Ivan").first().email
     login(client, ivan, "demo-passwort-123")
     dash = client.get("/app/").get_data(as_text=True)

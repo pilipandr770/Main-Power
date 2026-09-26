@@ -170,8 +170,8 @@ def _invite_fallback(p: Profile, expert: bool) -> str:
     return f"Das Thema passt zu dem, was du suchst („{_snip(p.q_looking_for or p.q_challenge, 70)}“)."
 
 
-def invite_candidates(ev: Event, limit: int = 8, min_score: float = 0.12) -> list[tuple[float, Profile, bool]]:
-    """(Score, Profil, ist_Expert:in): Mitglieder mit Matching-Einwilligung, die zum Termin passen und noch nicht dabei sind."""
+def _prefilter(ev: Event, limit: int, min_score: float) -> list[tuple[float, Profile, bool]]:
+    """Grobe Vorauswahl per Embeddings (schnell, billig); die eigentliche Auswahl trifft die KI."""
     if not ev.title:
         return []
     vec = emb.embed([f"{ev.title}. {ev.description or ''}"], input_type="query")[0][0]
@@ -193,31 +193,52 @@ def invite_candidates(ev: Event, limit: int = 8, min_score: float = 0.12) -> lis
     return out[:limit]
 
 
+def invite_candidates(ev: Event, limit: int = 8, min_score: float = 0.12) -> list[tuple[float, Profile, bool, str]]:
+    """(Score, Profil, ist_Expert:in, Begründung) — wen die KI zum Termin einladen würde.
+
+    Mit API-Schlüssel wählt das Modell aus den besten Embedding-Treffern die wirklich passenden Personen aus
+    (Score 0–10, nur ab 6) und begründet je Person; ohne Schlüssel gilt der Embedding-Score mit Vorlagen-Begründung.
+    """
+    if current_app.config.get("ANTHROPIC_API_KEY"):
+        pool = _prefilter(ev, limit=14, min_score=0.03)
+        if not pool:
+            return []
+        system = ("Du wählst für die Main Power Community aus einer Kandidatenliste die Personen, die zu einem Termin "
+                  "wirklich passen, und schreibst je Person 1–2 Sätze Einladungsgrund (du-Form, Deutsch, warm, konkret, "
+                  "kein Verkaufston). Passend heißt: die Person kann inhaltlich beitragen (Expert:in) ODER profitiert "
+                  "erkennbar vom Thema (z. B. passende Zielgruppe oder aktueller Bedarf). Bewerte jede Person mit relevanz "
+                  "von 0 bis 10; wähle nur ab 6 aus und höchstens " + str(limit) + " Personen. Nutze nur die Profildaten, "
+                  "erfinde nichts. Antworte NUR als JSON: {\"auswahl\": [{\"id\": <id>, \"relevanz\": <0-10>, "
+                  "\"rolle\": \"Expert:in|Interessiert\", \"grund\": \"…\"}]}.")
+        payload = {"termin": {"titel": ev.title, "beschreibung": _snip(ev.description, 500), "format": ev.format},
+                   "kandidaten": [{"id": p.user_id, **_card(p)} for _, p, _ in pool]}
+        try:
+            data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                                  max_tokens=1100, purpose="event_invite"))
+            by_id = {p.user_id: (sc, p, ex) for sc, p, ex in pool}
+            picked = []
+            for g in data.get("auswahl", []):
+                pid = int(g.get("id", 0))
+                if pid in by_id and float(g.get("relevanz", 0)) >= 6 and g.get("grund"):
+                    sc, p, ex = by_id[pid]
+                    picked.append((float(g["relevanz"]) / 10, p, str(g.get("rolle", "")).startswith("Expert"),
+                                   str(g["grund"])[:400]))
+            picked.sort(key=lambda t: t[0], reverse=True)
+            return picked[:limit]
+        except (LLMUnavailable, ValueError, KeyError, TypeError):
+            log.info("Einladungs-Auswahl per Fallback")
+    return [(sc, p, ex, _invite_fallback(p, ex)) for sc, p, ex in _prefilter(ev, limit, min_score)]
+
+
 def invite_for_event(ev: Event, limit: int = 8) -> list[Notification]:
     """Erzeugt persönliche Einladungen (in der Plattform, per E-Mail und Telegram, falls verbunden)."""
     from .mailer import send_mail
     cands = invite_candidates(ev, limit=limit)
-    if not cands:
-        return []
-    reasons: dict[int, str] = {}
-    system = ("Du schreibst für die Main Power Community kurze, persönliche Einladungsgründe. Pro Person 1–2 Sätze "
-              "(du-Form, Deutsch, warm, konkret, kein Verkaufston): warum dieser Termin zu genau dieser Person passt "
-              "und ob sie eher als Expert:in beitragen oder als Interessierte profitieren kann. Nutze nur die "
-              "Profildaten. Antworte NUR als JSON: {\"gruende\": [{\"id\": <id>, \"grund\": \"…\"}]}.")
-    payload = {"termin": {"titel": ev.title, "beschreibung": _snip(ev.description, 400), "format": ev.format},
-               "personen": [{"id": p.user_id, "rolle_im_termin": "Expert:in" if expert else "Interessiert", **_card(p)}
-                            for _, p, expert in cands]}
-    try:
-        data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                              max_tokens=900, purpose="event_invite"))
-        reasons = {int(g["id"]): str(g["grund"])[:400] for g in data.get("gruende", []) if g.get("id") and g.get("grund")}
-    except (LLMUnavailable, ValueError, KeyError, TypeError):
-        pass
     created = []
     link = url_for("member.event_detail", event_id=ev.id, _external=True)
-    for score, p, expert in cands:
+    for score, p, _expert, reason in cands:
         n = Notification(user_id=p.user_id, kind="event_invite", event_id=ev.id, title=f"Einladung: {ev.title}",
-                         body=reasons.get(p.user_id) or _invite_fallback(p, expert), score=round(score, 3))
+                         body=reason, score=round(score, 3))
         db.session.add(n)
         created.append(n)
     db.session.commit()
