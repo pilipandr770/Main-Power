@@ -140,16 +140,16 @@ def _nice(p: float) -> float:
 
 
 def price_curve(rows: list[dict], extra: list[float]) -> dict:
-    """Akzeptanz je Preis: Anteil der Personas mit Kaufwahrscheinlichkeit >= 40 % und Preisgrenze >= Preis."""
+    """Nachfragekurve: erwarteter Anteil zahlender Kund:innen je Preis = Mittel der Kaufwahrscheinlichkeiten aller Personas,
+    deren Preisgrenze den Preis erreicht. Umsatzindex = Preis mal Anteil."""
     wtp = sorted(r["a"]["max_preis"] for r in rows if r["a"].get("max_preis"))
     if len(wtp) < 8:
         return {"points": [], "best": None}
     q = lambda f: wtp[min(len(wtp) - 1, int(f * len(wtp)))]  # noqa: E731
     grid = sorted({_nice(q(f / 10)) for f in range(1, 10)} | {_nice(x) for x in extra if x})
-    grid = [g for g in grid if g > 0]
     pts = []
-    for p in grid:
-        share = _share(rows, lambda r, p=p: r["a"]["kaufwahrscheinlichkeit"] >= 40 and (r["a"].get("max_preis") or 0) >= p)
+    for p in [g for g in grid if g > 0]:
+        share = round(100 * sum(r["a"]["kaufwahrscheinlichkeit"] / 100 for r in rows if (r["a"].get("max_preis") or 0) >= p) / len(rows), 1)
         pts.append({"price": p, "share": share, "index": round(p * share, 1)})
     best = max(pts, key=lambda x: x["index"]) if pts and max(x["index"] for x in pts) > 0 else None
     return {"points": pts, "best": best}
@@ -187,6 +187,9 @@ def aggregate(rows: list[dict], run: dict, n_requested: int) -> dict:
     if not valid:
         return res
     res["overall"] = _stats(valid)
+    core = [r for r in valid if (r["a"].get("relevanz") or 0) >= 6]
+    if len(core) >= 5:  # Kernzielgruppe: Personas, die sich vom Produkt angesprochen fühlen
+        res["core"] = _stats(core)
     res["intents"] = {INTENT_LABEL[k]: sum(1 for r in valid if r["a"]["kaufabsicht"] == k) for k in INTENTS}
     res["prob_hist"] = {f"{lo}–{lo + 19}": sum(1 for r in valid if lo <= r["a"]["kaufwahrscheinlichkeit"] < lo + 20 + (1 if lo == 80 else 0))
                         for lo in range(0, 100, 20)}

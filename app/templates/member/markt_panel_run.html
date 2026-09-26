@@ -26,6 +26,7 @@
 <div class="kpis compact mb-l">
   <div class="kpi"><b>{{ o.intent|round|int }} %</b><span>Kaufabsicht (sofort oder nach Test)</span></div>
   <div class="kpi"><b>{{ o.prob|round|int }} %</b><span>Ø Kaufwahrscheinlichkeit (3 Monate)</span></div>
+  {% if res.core %}<div class="kpi"><b>{{ res.core.intent|round|int }} %</b><span>Kaufabsicht in der Kernzielgruppe (Relevanz ≥ 6, {{ res.core.n }} Personas)</span></div>{% endif %}
   <div class="kpi"><b>{{ o.relevanz }}</b><span>Ø Relevanz (1–10)</span></div>
   <div class="kpi"><b>{% if o.wtp %}{{ ('%.2f'|format(o.wtp))|replace('.', ',') }} €{% else %}—{% endif %}</b><span>Median Preisgrenze {{ unit }}</span></div>
   {% if res.curve.best %}<div class="kpi"><b>{{ ('%.2f'|format(res.curve.best.price))|replace('.', ',') }} €</b><span>umsatzstärkster Preis in der Kurve</span></div>{% endif %}
@@ -47,7 +48,7 @@
 
 {% if res.curve.points %}
 <section class="mb-l"><h2>Preiskurve</h2>
-  <p class="muted small">Anteil der Personas, die bei diesem Preis {{ unit }} kaufen würden (Kaufwahrscheinlichkeit ab 40 % und Preisgrenze nicht überschritten). Der Umsatzindex ist Preis mal Anteil.{% if run.price_a %} Die Personas kannten deinen Preis; Anker-Effekte sind möglich, am verlässlichsten ist die Kurve bei offenem Preis.{% endif %}</p>
+  <p class="muted small">Erwarteter Anteil zahlender Kund:innen bei diesem Preis {{ unit }}: Summe der Kaufwahrscheinlichkeiten aller Personas, deren Preisgrenze den Preis erreicht, geteilt durch alle Personas. Der umsatzstärkste Preis maximiert Preis mal Anteil.{% if run.price_a %} Die Personas kannten deinen Preis; Anker-Effekte sind möglich, am verlässlichsten ist die Kurve bei offenem Preis.{% endif %}</p>
   {% for pt in res.curve.points %}<div class="hbar{{ ' best' if res.curve.best and pt.price == res.curve.best.price }}"><span>{{ ('%.2f'|format(pt.price))|replace('.', ',') }} €{% if run.price_a == pt.price %} (Preis A){% elif run.price_b == pt.price %} (Preis B){% endif %}</span><span class="track"><span class="fill" data-w="{{ pt.share }}"></span></span><span class="val">{{ pt.share|round|int }} %</span></div>{% endfor %}
   {% if rep.preis_fazit %}<p class="mt-s">{{ rep.preis_fazit }}</p>{% endif %}
 </section>
