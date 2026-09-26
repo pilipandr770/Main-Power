@@ -1,0 +1,29 @@
+{% extends "public/_layout.html" %}
+{% block title %}Cookies — Main Power{% endblock %}
+{% block content %}
+<section class="hero"><div class="wrap maxw stack">
+  <h1>Cookies und lokale Speicherung</h1>
+  <p class="lead">Kurz: Wir verwenden nur Cookies, die für den Betrieb der Plattform technisch notwendig sind. Dafür ist nach § 25 Abs. 2 TDDDG keine Einwilligung erforderlich. Deshalb gibt es hier auch keinen „Alle akzeptieren“-Schalter: Es gibt nichts, was du ablehnen könntest, ohne dass die Anmeldung nicht mehr funktioniert.</p>
+
+  <h2>Was gespeichert wird</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Zweck</th><th>Dauer</th></tr></thead>
+    <tbody>
+      <tr><td><code>session</code></td><td>Sitzung und Schutz vor gefälschten Formularanfragen (CSRF). Wird beim Aufruf der Seite gesetzt.</td><td>bis zum Schließen des Browsers, höchstens 14 Tage</td></tr>
+      <tr><td><code>remember_token</code></td><td>„Angemeldet bleiben“ — nur, wenn du das beim Login wählst.</td><td>14 Tage</td></tr>
+      <tr><td><code>mp-cookie-hinweis</code> (lokaler Speicher)</td><td>Merkt sich, dass du diesen Hinweis gesehen hast.</td><td>bis du deine Browserdaten löschst</td></tr>
+      <tr><td><code>mp-aiko-public</code> (Sitzungsspeicher)</td><td>Verlauf deines Gesprächs mit Aiko auf der öffentlichen Seite. Bleibt in deinem Browser, wird nicht an uns gespeichert.</td><td>bis zum Schließen des Tabs</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Was wir nicht tun</h2>
+  <p>Kein Tracking, keine Analyse-Tools, keine Werbe- oder Social-Media-Pixel, keine Schriftarten oder Skripte von Drittanbietern. Sollten wir künftig Analysewerkzeuge einsetzen, fragen wir vorher um deine Einwilligung.</p>
+
+  <h2>Hinweis zum Schutz vor Angriffen</h2>
+  <p>Unsere Seite wird über Cloudflare ausgeliefert (DNS, Schutz vor Angriffen und Bots). Dabei kann Cloudflare technisch notwendige Cookies (z. B. <code>__cf_bm</code>) setzen. Näheres in den <a href="{{ url_for('public.privacy') }}">Datenschutzhinweisen</a>.</p>
+
+  <h2>Cookies löschen</h2>
+  <p>In den Einstellungen deines Browsers kannst du Cookies jederzeit löschen. Danach bist du abgemeldet.</p>
+  <p><button type="button" class="btn btn-ghost btn-sm" data-cookie-reset>Hinweis erneut anzeigen</button></p>
+</div></section>
+{% endblock %}

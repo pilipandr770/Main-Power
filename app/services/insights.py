@@ -195,7 +195,8 @@ def _prefilter(ev: Event, limit: int, min_score: float) -> list[tuple[float, Pro
     if ev.created_by_id:
         skip.add(ev.created_by_id)
     q = (Profile.query.join(User).filter(User.status == "active", Profile.allow_matching.is_(True),
-                                         Profile.embed_offer.isnot(None), Profile.embed_need.isnot(None)))
+                                         Profile.embed_offer.isnot(None), Profile.embed_need.isnot(None),
+                                         Profile.event_invites.is_(True)))
     out = []
     for p in q.all():
         if p.user_id in skip:

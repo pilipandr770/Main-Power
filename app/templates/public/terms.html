@@ -1,0 +1,37 @@
+{% extends "public/_layout.html" %}
+{% block title %}Nutzungsbedingungen — Main Power{% endblock %}
+{% block content %}
+<section class="hero"><div class="wrap maxw stack">
+  <h1>Nutzungsbedingungen</h1>
+  <p class="lead">Für die Mitgliederplattform der Main Power Community · Stand {{ cfg.CONSENT_VERSION }}</p>
+
+  <h2>1. Wer wir sind, was das ist</h2>
+  <p>Main Power Community (Frankfurt am Main) betreibt diese Plattform, um Unternehmer:innen, Expert:innen und Freelancer zu vernetzen, Termine zu organisieren und passende Kontakte vorzuschlagen. Anbieter und Kontakt siehe <a href="{{ cfg.IMPRESSUM_URL }}">Impressum</a>.</p>
+
+  <h2>2. Konto und Mitgliedschaft</h2>
+  <p>Die Registrierung ist ab 18 Jahren möglich und derzeit kostenlos. Du gibst wahrheitsgemäße Angaben an und hältst deine Zugangsdaten geheim. Ein Konto ist persönlich und nicht übertragbar. Einzelne Termine können kostenpflichtig sein; der Preis steht vor der Anmeldung beim Termin.</p>
+
+  <h2>3. Was wir von dir erwarten</h2>
+  <p>Respektvoller, konstruktiver Umgang, wie in den Werten der Community beschrieben. Nicht erlaubt sind insbesondere Beleidigungen, Diskriminierung, Belästigung, unerwünschte Massenwerbung, Betrug, das Weitergeben fremder Kontaktdaten sowie das automatisierte Auslesen der Plattform. Bei Verstößen dürfen wir Inhalte entfernen und Konten sperren.</p>
+
+  <h2>4. Deine Inhalte</h2>
+  <p>Profilangaben, Nachrichten und andere Inhalte bleiben deine. Du räumst uns das Recht ein, sie im Rahmen der Plattform anzuzeigen und für Matching und Empfehlungen zu verarbeiten — soweit du eingewilligt hast. Du versicherst, dass du das Recht an Texten und Fotos hast, die du hochlädst, und dass keine Rechte Dritter verletzt werden.</p>
+
+  <h2>5. Künstliche Intelligenz</h2>
+  <p>Aiko und die Matching-Funktionen nutzen KI. Ergebnisse sind Vorschläge und können Fehler enthalten; sie ersetzen keine Rechts-, Steuer- oder sonstige Fachberatung. Ob ein Kontakt zustande kommt, entscheiden immer die beteiligten Menschen. Mehr im <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>.</p>
+
+  <h2>6. Kontakte zwischen Mitgliedern</h2>
+  <p>Kontaktdaten werden nur nach beidseitiger Zustimmung geteilt. Wir vermitteln Kontakte, sind aber nicht Vertragspartner von Vereinbarungen zwischen Mitgliedern und übernehmen dafür keine Gewähr.</p>
+
+  <h2>7. Verfügbarkeit und Haftung</h2>
+  <p>Wir bemühen uns um eine hohe Verfügbarkeit, können sie aber nicht garantieren. Wir haften unbeschränkt bei Vorsatz und grober Fahrlässigkeit sowie bei Verletzung von Leben, Körper und Gesundheit, im Übrigen nur bei Verletzung wesentlicher Vertragspflichten und dann begrenzt auf den vorhersehbaren, typischen Schaden. Die gesetzliche Haftung nach dem Produkthaftungsgesetz bleibt unberührt.</p>
+
+  <h2>8. Kündigung und Löschung</h2>
+  <p>Du kannst dein Konto jederzeit selbst unter <a href="{{ url_for('member.privacy') }}">Privatsphäre und Konto</a> löschen. Dabei werden Profil, Anmeldungen, Kontaktanfragen und Chatverläufe entfernt. Wir dürfen Konten bei schwerwiegenden oder wiederholten Verstößen sperren oder löschen.</p>
+
+  <h2>9. Änderungen</h2>
+  <p>Wir können diese Bedingungen anpassen, wenn es sachlich erforderlich ist, und informieren dich über wesentliche Änderungen. Es gilt deutsches Recht; zwingende Verbraucherschutzvorschriften deines Aufenthaltsstaates bleiben unberührt.</p>
+
+  <p class="small muted">Fragen? <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a></p>
+</div></section>
+{% endblock %}

@@ -566,6 +566,7 @@ def privacy():
                 record_consent(current_user, kind, val)
         p.allow_matching = changes["matching"]
         p.visible_in_directory = changes["directory"]
+        p.event_invites = bool(f.get("event_invites"))
         if not p.allow_matching:
             Match.query.filter((Match.user_id == current_user.id) |
                                (Match.other_id == current_user.id)).delete(synchronize_session=False)
@@ -574,7 +575,8 @@ def privacy():
         db.session.commit()
         flash("Einstellungen gespeichert.", "success")
         return redirect(url_for("member.privacy"))
-    return render_template("member/privacy.html", p=p, newsletter=current_user.has_consent("newsletter"))
+    return render_template("member/privacy.html", p=p, newsletter=current_user.has_consent("newsletter"),
+                           telegram_linked=bool(current_user.telegram_user_id))
 
 
 @bp.route("/privatsphaere/export")

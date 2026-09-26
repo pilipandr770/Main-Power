@@ -405,3 +405,33 @@ def utcnow_plus(days):
 
     from app.models import utcnow
     return utcnow() + timedelta(days=days)
+
+
+def test_legal_pages_cookie_banner_and_subscriptions(client, app):
+    for url, needle in [("/cookies", "technisch notwendig"),
+                        ("/nutzungsbedingungen", "Kündigung und Löschung"), ("/datenschutz", "Cookies"),
+                        ("/ki-hinweis", "KI")]:
+        r = client.get(url)
+        assert r.status_code == 200 and needle in r.get_data(as_text=True), url
+    home = client.get("/").get_data(as_text=True)
+    assert "data-cookie-banner" in home and "/nutzungsbedingungen" in home and "/cookies" in home
+    reg = client.get("/registrieren").get_data(as_text=True)
+    assert "Nutzungsbedingungen" in reg
+
+    register(client, "abo@example.com")
+    page = client.get("/app/privatsphaere").get_data(as_text=True)
+    assert 'id="abos"' in page and 'id="konto-loeschen"' in page and "Persönliche Einladungen" in page
+    # Einladungen abbestellen -> Profil wird nicht mehr eingeladen
+    client.post("/app/privatsphaere", data={"matching": "1", "directory": "1"}, follow_redirects=True)
+    with app.app_context():
+        assert User.query.filter_by(email="abo@example.com").first().profile.event_invites is False
+    client.post("/app/privatsphaere", data={"matching": "1", "event_invites": "1", "newsletter": "1"}, follow_redirects=True)
+    with app.app_context():
+        u = User.query.filter_by(email="abo@example.com").first()
+        assert u.profile.event_invites is True and u.has_consent("newsletter")
+    # Konto löschen mit falschem und richtigem Passwort
+    r = client.post("/app/privatsphaere/loeschen", data={"password": "falsch"}, follow_redirects=True)
+    assert "nicht gelöscht" in r.get_data(as_text=True)
+    client.post("/app/privatsphaere/loeschen", data={"password": "sehr-sicheres-pw"}, follow_redirects=True)
+    with app.app_context():
+        assert User.query.filter_by(email="abo@example.com").first() is None

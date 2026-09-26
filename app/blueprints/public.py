@@ -43,6 +43,16 @@ def privacy():
     return render_template("public/privacy.html")
 
 
+@bp.route("/cookies")
+def cookies():
+    return render_template("public/cookies.html")
+
+
+@bp.route("/nutzungsbedingungen")
+def terms():
+    return render_template("public/terms.html")
+
+
 @bp.route("/ki-hinweis")
 def ai_notice():
     return render_template("public/ai_notice.html")

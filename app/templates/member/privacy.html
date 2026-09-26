@@ -10,8 +10,14 @@
         <legend>Einwilligungen</legend>
         <label class="check"><input type="checkbox" name="matching" value="1"{% if p.allow_matching %} checked{% endif %}><span><b>KI-Matching und persönliche Empfehlungen</b><br><span class="muted small">Dein Profil wird mit anderen verglichen; du erscheinst als Vorschlag bei passenden Mitgliedern (ohne Kontaktdaten).</span></span></label>
         <label class="check"><input type="checkbox" name="directory" value="1"{% if p.visible_in_directory %} checked{% endif %}><span><b>Im Mitgliederverzeichnis sichtbar</b><br><span class="muted small">Name, Rolle und Profiltexte — ohne E-Mail, Telefon und Links.</span></span></label>
-        <label class="check"><input type="checkbox" name="newsletter" value="1"{% if newsletter %} checked{% endif %}><span><b>Termin-Infos per E-Mail</b></span></label>
         <button class="btn btn-sm" type="submit">Speichern</button>
+      </fieldset>
+      <fieldset id="abos">
+        <legend>Benachrichtigungen und Abos</legend>
+        <label class="check"><input type="checkbox" name="newsletter" value="1"{% if newsletter %} checked{% endif %}><span><b>Termin-Infos per E-Mail</b><br><span class="muted small">Neuigkeiten zu kommenden Terminen. Abbestellen: Häkchen entfernen und speichern.</span></span></label>
+        <label class="check"><input type="checkbox" name="event_invites" value="1"{% if p.event_invites %} checked{% endif %}><span><b>Persönliche Einladungen von Aiko</b><br><span class="muted small">Aiko schlägt dir Termine vor, die zu deinem Profil passen (nur mit Matching-Einwilligung).</span></span></label>
+        <p class="small muted mb-0">Telegram: {% if telegram_linked %}verbunden — trennen unter <a href="{{ url_for('member.community') }}">Community</a>{% else %}nicht verbunden{% endif %}. Mitgliedschaft: derzeit kostenlos; kostenpflichtige Tarife gibt es noch nicht.</p>
+        <button class="btn btn-sm mt-s" type="submit">Speichern</button>
       </fieldset>
     </form>
     <fieldset>
@@ -36,7 +42,7 @@
         <button class="btn btn-sm" type="submit">Passwort ändern</button>
       </form>
     </fieldset>
-    <fieldset>
+    <fieldset id="konto-loeschen">
       <legend>Konto löschen</legend>
       <p class="muted small">Löscht Konto, Profil, Anmeldungen, Kontaktanfragen und Chatverlauf endgültig.</p>
       <form method="post" action="{{ url_for('member.delete_account') }}" data-confirm="Konto endgültig löschen? Das lässt sich nicht rückgängig machen.">

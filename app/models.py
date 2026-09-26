@@ -185,6 +185,7 @@ class Profile(db.Model):
     youtube_url = db.Column(db.String(300), default="")
     github_url = db.Column(db.String(300), default="")
     tiktok_url = db.Column(db.String(300), default="")
+    event_invites = db.Column(db.Boolean, default=True, nullable=False)  # Aiko darf passende Termine vorschlagen
     socials_public = db.Column(db.Boolean, default=False, nullable=False)  # Links für alle Mitglieder sichtbar
     photo = db.Column(db.String(120))  # Dateiname in instance/uploads/avatars (nur vom Server vergeben)
 

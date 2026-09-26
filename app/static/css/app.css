@@ -360,3 +360,12 @@ input[type="file"] { color: var(--ash); font-size: .9rem; max-width: 100%; }
 input[type="file"]::file-selector-button { font: inherit; font-weight: 600; color: var(--bone); background: var(--coal-2);
   border: 1px solid var(--line); border-radius: 999px; padding: .4rem 1rem; margin-right: .8rem; cursor: pointer; }
 input[type="file"]::file-selector-button:hover { border-color: var(--ember); color: var(--ember-soft); }
+
+/* ---------- Cookie-Hinweis, rechtliche Links ---------- */
+.cookie-banner { position: fixed; left: 1rem; right: 1rem; bottom: 1rem; z-index: 60; max-width: 760px; margin: 0 auto;
+  display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 1rem 1.2rem;
+  background: var(--coal); border: 1px solid var(--line); border-radius: var(--radius-m); box-shadow: 0 14px 40px rgba(0,0,0,.55); }
+.cookie-banner[hidden] { display: none; }
+.cookie-banner p { flex: 1 1 320px; font-size: .92rem; }
+.legal-links { display: flex; flex-wrap: wrap; gap: .3rem .9rem; font-size: .8rem; margin-top: .8rem; }
+.legal-links a { color: var(--ash); }

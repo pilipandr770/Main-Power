@@ -259,4 +259,21 @@
     refresh.addEventListener("click", function () { load(true); });
     load(false);
   });
+
+  // ---------- Cookie-Hinweis (nur notwendige Cookies: reiner Informationshinweis, Merker im lokalen Speicher) ----------
+  var CK = "mp-cookie-hinweis";
+  var banner = document.querySelector("[data-cookie-banner]");
+  function ckGet() { try { return localStorage.getItem(CK); } catch (e) { return "1"; } }
+  if (banner && !ckGet()) banner.hidden = false;
+  var ok = document.querySelector("[data-cookie-ok]");
+  if (ok) ok.addEventListener("click", function () {
+    try { localStorage.setItem(CK, "1"); } catch (e) {}
+    banner.hidden = true;
+  });
+  document.querySelectorAll("[data-cookie-reset]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      try { localStorage.removeItem(CK); } catch (e) {}
+      if (banner) banner.hidden = false;
+    });
+  });
 })();

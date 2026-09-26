@@ -18,7 +18,7 @@ def export_user(user: User) -> dict:
                                        "q_challenge", "q_can_help", "q_looking_for", "expertise",
                                        "preferred_formats", "linkedin_url", "xing_url", "instagram_url",
                                        "website_url", "facebook_url", "telegram_url", "x_url", "youtube_url", "github_url",
-                                       "tiktok_url", "socials_public", "photo", "visible_in_directory",
+                                       "tiktok_url", "socials_public", "event_invites", "photo", "visible_in_directory",
                                        "allow_matching")},
         "einwilligungen": [{"art": c.kind, "erteilt": c.granted, "version": c.version, "zeit": fmt_dt(c.created_at)}
                            for c in user.consents],
