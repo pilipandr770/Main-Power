@@ -12,8 +12,8 @@ from sqlalchemy import func
 
 from ..extensions import db
 from ..models import (CONSENT_KINDS, FORMATS, ROLES, SOCIALS, AuditLog, ChatMessage, Consent, Event, IntroRequest,
-                      KnowledgeItem, LLMUsage, Profile, Registration, Service, ServiceInquiry, Setting, User, utcnow)
-from ..services import matching, media, telegram
+                      KnowledgeItem, LLMUsage, Notification, Profile, Registration, Service, ServiceInquiry, Setting, User, utcnow)
+from ..services import insights, matching, media, telegram
 from ..services.audit import audit
 from ..services.events_sync import sync_events
 from ..services.gdpr import delete_user, export_user
@@ -58,7 +58,29 @@ def dashboard():
                        .order_by(Event.starts_at).limit(5).all())
     recent_users = User.query.order_by(User.created_at.desc()).limit(6).all()
     return render_template("admin/dashboard.html", s=stats, growth=growth, maxn=maxn,
-                           upcoming_events=upcoming_events, recent_users=recent_users, usage=_llm_usage(now))
+                           upcoming_events=upcoming_events, recent_users=recent_users, usage=_llm_usage(now),
+                           graph=_match_graph())
+
+
+def _match_graph(limit: int = 60) -> dict:
+    """Karte aller Matching-Profile; Linien = die zwei stärksten Matches je Person (nur für die Organisation)."""
+    pool = matching._pool()[:limit]
+    nodes = [{"l": p.user.full_name, "u": url_for("admin.user_detail", user_id=p.user_id), "h": 0} for p in pool]
+    edges, seen = [], set()
+    for i, a in enumerate(pool):
+        ranked = sorted(((matching.pair_score(a, b), j) for j, b in enumerate(pool) if j != i), reverse=True)[:2]
+        for score, j in ranked:
+            key = (min(i, j), max(i, j))
+            if key not in seen and score > 0.05:
+                seen.add(key)
+                edges.append([i, j, round(min(1.0, score * 2), 2)])
+    degree: dict[int, int] = {}
+    for a, b, _ in edges:
+        degree[a] = degree.get(a, 0) + 1
+        degree[b] = degree.get(b, 0) + 1
+    for i, d in degree.items():
+        nodes[i]["h"] = 1 if d >= 3 else 0  # stark vernetzte Personen hervorheben
+    return {"nodes": nodes, "edges": edges}
 
 
 def _llm_usage(now: datetime) -> dict:
@@ -285,6 +307,19 @@ def _event_from_form(ev: Event, f) -> dict:
     return errors
 
 
+def auto_invite(ev: Event, was_published: bool) -> int:
+    """Beim Veröffentlichen eines eigenen Termins passende Mitglieder per KI einladen (abschaltbar in den Einstellungen)."""
+    if was_published or ev.status != "published" or ev.source == "sync" or Setting.get("auto_invites") != "1":
+        return 0
+    if ev.starts_at < utcnow():
+        return 0
+    n = len(insights.invite_for_event(ev))
+    if n:
+        audit("event.ai_invites", f"event:{ev.id}", str(n))
+        db.session.commit()
+    return n
+
+
 @bp.route("/termine/neu", methods=["GET", "POST"])
 @bp.route("/termine/<int:event_id>/bearbeiten", methods=["GET", "POST"])
 def event_edit(event_id=None):
@@ -293,13 +328,16 @@ def event_edit(event_id=None):
         abort(404)
     errors = {}
     if request.method == "POST":
+        was_published = bool(ev.id and ev.status == "published")
         errors = _event_from_form(ev, request.form)
         if not errors:
             if not ev.id:
                 db.session.add(ev)
             audit("event.save", f"event:{ev.id or 'neu'}", ev.title)
             db.session.commit()
-            flash("Termin gespeichert.", "success")
+            invited = auto_invite(ev, was_published)
+            flash("Termin gespeichert." + (f" Aiko hat {invited} passende Mitglieder eingeladen." if invited else ""),
+                  "success")
             return redirect(url_for("admin.event_attendees", event_id=ev.id))
     if not ev.starts_at:
         ev.starts_at = local_to_utc(datetime.now().replace(hour=9, minute=0, second=0, microsecond=0) + timedelta(days=7))
@@ -314,9 +352,13 @@ def event_status(event_id, status):
     ev = db.session.get(Event, event_id) or abort(404)
     if status not in ("published", "cancelled", "pending"):
         abort(400)
+    was_published = ev.status == "published"
     ev.status = status
     audit("event.status", f"event:{ev.id}", status)
     db.session.commit()
+    invited = auto_invite(ev, was_published)
+    if invited:
+        flash(f"Aiko hat {invited} passende Mitglieder eingeladen.", "success")
     flash({"published": "Termin veröffentlicht.", "cancelled": "Termin abgesagt.", "pending": "Termin zurückgestellt."}[status],
           "success")
     return redirect(request.referrer or url_for("admin.events"))
@@ -356,6 +398,22 @@ def registration_update(event_id, reg_id):
     db.session.commit()
     flash("Anmeldung aktualisiert.", "success")
     return redirect(url_for("admin.event_attendees", event_id=event_id))
+
+
+@bp.route("/termine/<int:event_id>/einladungen", methods=["GET", "POST"])
+def event_invites(event_id):
+    """Vorschau, wen die KI zu diesem Termin einladen würde — und Versand per Klick."""
+    ev = db.session.get(Event, event_id) or abort(404)
+    if request.method == "POST":
+        created = insights.invite_for_event(ev)
+        audit("event.ai_invites", f"event:{ev.id}", str(len(created)))
+        db.session.commit()
+        flash(f"{len(created)} Einladungen versendet." if created else "Keine weiteren passenden Mitglieder gefunden.",
+              "success" if created else "info")
+        return redirect(url_for("admin.event_invites", event_id=ev.id))
+    cands = insights.invite_candidates(ev, limit=12)
+    sent = Notification.query.filter_by(event_id=ev.id, kind="event_invite").order_by(Notification.score.desc()).all()
+    return render_template("admin/event_invites.html", ev=ev, cands=cands, sent=sent)
 
 
 @bp.route("/termine/<int:event_id>/matching")
@@ -485,6 +543,7 @@ def settings():
     if request.method == "POST":
         f = request.form
         Setting.set("member_events_require_approval", "1" if f.get("member_events_require_approval") else "0")
+        Setting.set("auto_invites", "1" if f.get("auto_invites") else "0")
         Setting.set("aiko_extra_instructions", f.get("aiko_extra_instructions", "").strip()[:4000])
         Setting.set("telegram_group_title", f.get("telegram_group_title", "").strip()[:120])
         Setting.set("announcement", f.get("announcement", "").strip()[:500])

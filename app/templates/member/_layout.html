@@ -8,7 +8,7 @@
   <aside class="rail" aria-label="Mitgliederbereich">
     {{ logo() }}
     <nav>
-      <a href="{{ url_for('member.dashboard') }}" class="{{ 'on' if ep == 'member.dashboard' }}">Übersicht</a>
+      <a href="{{ url_for('member.dashboard') }}" class="{{ 'on' if ep == 'member.dashboard' }}">Übersicht{% if unread_invites %}<span class="badge">{{ unread_invites }}</span>{% endif %}</a>
       <a href="{{ url_for('member.matches') }}" class="{{ 'on' if ep == 'member.matches' }}">Meine Matches</a>
       <a href="{{ url_for('member.aiko_page') }}" class="{{ 'on' if ep == 'member.aiko_page' }}">Aiko fragen</a>
       <a href="{{ url_for('member.events') }}" class="{{ 'on' if ep.startswith('member.event') }}">Termine</a>

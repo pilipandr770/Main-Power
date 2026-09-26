@@ -1,0 +1,30 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}KI-Einladungen · {{ ev.title }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>KI-Einladungen</h1><p class="muted mb-0">{{ ev.title }} · {{ ev|event_date }}</p></div>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_attendees', event_id=ev.id) }}">Zurück zum Termin</a></div>
+<p class="muted maxw">Aiko vergleicht Thema und Beschreibung des Termins mit Angebot und Bedarf aller Mitglieder, die dem Matching zugestimmt haben, und lädt passende Personen mit einer persönlichen Begründung ein (in der Plattform, per E-Mail und, falls verbunden, per Telegram). Wer schon angemeldet oder eingeladen ist, wird übersprungen.</p>
+<div class="split">
+  <section>
+    <h2>Würde eingeladen ({{ cands|length }})</h2>
+    {% for score, p, expert in cands %}
+    <div class="panel-flat">
+      <div class="row between"><b><a href="{{ url_for('admin.user_detail', user_id=p.user.id) }}">{{ p.user.full_name }}</a></b><span class="score">{{ (score*100)|round|int }} %</span></div>
+      <div class="small muted">{{ p.headline }} · <span class="tag">{{ 'als Expert:in' if expert else 'als Interessierte:r' }}</span></div>
+    </div>
+    {% else %}<div class="empty">Niemand mehr, der zum Thema passt.</div>{% endfor %}
+    {% if cands %}
+    <form method="post" class="mt-m" data-confirm="Einladungen jetzt versenden?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn">{{ cands|length }} Einladungen versenden</button></form>
+    {% endif %}
+  </section>
+  <section>
+    <h2>Bereits eingeladen ({{ sent|length }})</h2>
+    {% for n in sent %}
+    <div class="panel-flat">
+      <div class="row between"><b><a href="{{ url_for('admin.user_detail', user_id=n.user_id) }}">Mitglied #{{ n.user_id }}</a></b><span class="small muted">{{ n.created_at|dt }}{% if n.read_at %} · gelesen{% endif %}</span></div>
+      <p class="small mb-0">{{ n.body }}</p>
+    </div>
+    {% else %}<div class="empty">Noch keine Einladungen.</div>{% endfor %}
+  </section>
+</div>
+{% endblock %}

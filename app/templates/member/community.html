@@ -5,6 +5,11 @@
 <div class="page-head"><div><h1>Community</h1><p class="muted mb-0">Wer ist gerade dabei, wer kommt wohin — und wie du mit allen im Gespräch bleibst.</p></div>
 <a class="btn btn-ghost btn-sm" href="{{ url_for('member.directory') }}">Alle {{ total }} Profile im Verzeichnis</a></div>
 
+<section class="mb-l"><h2>Dein Netz</h2>
+  <p class="muted small">Du in der Mitte, die orangefarbenen Punkte sind deine besten Matches. Klick auf einen Namen, um die Seite zu öffnen.</p>
+  <canvas class="network" data-network data-graph='{{ graph|tojson }}' role="img" aria-label="Interaktive 3D-Darstellung deines Netzwerks in der Community"></canvas>
+</section>
+
 {% if industries %}
 <section class="mb-l"><h2>Branchen</h2>
   <div class="row">{% for name, n in industries %}<a class="tag" href="{{ url_for('member.directory', branche=name) }}">{{ name }} · {{ n }}</a>{% endfor %}</div>
@@ -67,3 +72,4 @@
 {% endif %}
 </section>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/network.js') }}" defer></script>{% endblock %}

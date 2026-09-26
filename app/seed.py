@@ -345,6 +345,35 @@ def _seed_demo_scenarios() -> None:
     db.session.commit()
 
 
+AVATAR_COLORS = [(254, 71, 22), (231, 179, 91), (94, 129, 172), (129, 161, 193), (163, 190, 140), (180, 142, 173),
+                 (208, 135, 112), (143, 188, 187), (191, 97, 106), (112, 128, 144)]
+
+
+def _seed_demo_avatars() -> None:
+    """Platzhalter-Fotos (Farbfläche mit Initialen) für Demo-Konten, damit Verzeichnis und Profilseiten lebendig wirken."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    from .services import media
+    users = (User.query.join(Profile).filter(User.email.like(f"%@{DEMO_DOMAIN}"), Profile.photo.is_(None),
+                                             Profile.headline != "").all())
+    for i, u in enumerate(users):
+        base = AVATAR_COLORS[i % len(AVATAR_COLORS)]
+        img = Image.new("RGB", (512, 512), base)
+        d = ImageDraw.Draw(img)
+        for r in range(0, 360, 6):  # sanfter Verlauf
+            shade = tuple(max(0, c - r // 5) for c in base)
+            d.ellipse((256 - 360 + r, 256 - 360 + r, 256 + 360 - r, 256 + 360 - r), fill=shade)
+        font = ImageFont.load_default(size=190)
+        text = u.initials
+        box = d.textbbox((0, 0), text, font=font)
+        d.text((256 - (box[2] - box[0]) / 2 - box[0], 256 - (box[3] - box[1]) / 2 - box[1]), text, fill=(255, 255, 255),
+               font=font)
+        name = f"demo-{u.id}.jpg"
+        img.save(media.avatar_dir() / name, "JPEG", quality=85)
+        u.profile.photo = name
+    db.session.commit()
+
+
 def seed(demo: bool = True) -> None:
     db.create_all()
     _seed_content()
@@ -353,6 +382,7 @@ def seed(demo: bool = True) -> None:
     if demo:
         _seed_demo_members()
         _seed_demo_scenarios()
+        _seed_demo_avatars()
     admin = User.query.filter_by(role="superadmin").first()
     if admin and admin.profile and not admin.profile.embed_need:
         refresh_embeddings(admin.profile)

@@ -14,6 +14,11 @@
   <div class="kpi"><b>{{ s.telegram }}</b><span>mit Telegram verbunden</span></div>
 </div>
 <section class="panel mb-l">
+  <h2>Matching-Karte</h2>
+  <p class="muted small">Alle Profile mit Matching-Einwilligung, verbunden über ihre zwei stärksten Matches. Orange = besonders gut vernetzt. Nur für die Organisation sichtbar.</p>
+  <canvas class="network" data-network data-graph='{{ graph|tojson }}' role="img" aria-label="Interaktive 3D-Karte der Matches"></canvas>
+</section>
+<section class="panel mb-l">
   <div class="row between"><h2 class="mb-0">KI-Verbrauch (Tokens)</h2><span class="tag">{{ usage.model }}</span></div>
   <div class="kpis mt-m">
     <div class="kpi"><b>{{ '{:,}'.format(usage.today.total).replace(',', '.') }}</b><span>heute · {{ usage.today.calls }} Aufrufe</span></div>
@@ -39,3 +44,4 @@
   {% for ev in upcoming_events %}{% set extra %}<a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_matching', event_id=ev.id) }}">Matching</a> <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_attendees', event_id=ev.id) }}">{{ ev.active_registrations|length }} Anmeldungen</a>{% endset %}{{ event_row(ev, url_for('admin.event_attendees', event_id=ev.id), extra) }}{% endfor %}
 </section>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/network.js') }}" defer></script>{% endblock %}

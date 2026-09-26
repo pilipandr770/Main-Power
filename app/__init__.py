@@ -58,7 +58,7 @@ def create_app(config_object=Config) -> Flask:
 
 
 def _register_template_helpers(app: Flask) -> None:
-    from .models import FORMATS, IntroRequest
+    from .models import FORMATS, IntroRequest, Notification
     from .services.payments import stripe_enabled
     from .services.llm import llm_enabled
     from .utils import fmt_dt, fmt_event_date, money, to_local
@@ -68,10 +68,11 @@ def _register_template_helpers(app: Flask) -> None:
 
     @app.context_processor
     def inject():
-        pending = 0
+        pending = unread = 0
         if current_user.is_authenticated:
             pending = IntroRequest.query.filter_by(to_user_id=current_user.id, status="pending").count()
-        return {"FORMATS": FORMATS, "cfg": app.config, "pending_intros": pending,
+            unread = Notification.query.filter_by(user_id=current_user.id, read_at=None).count()
+        return {"FORMATS": FORMATS, "cfg": app.config, "pending_intros": pending, "unread_invites": unread,
                 "stripe_on": stripe_enabled(), "ai_on": llm_enabled()}
 
 

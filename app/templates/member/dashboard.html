@@ -5,6 +5,18 @@
 <div class="page-head"><div><h1>Hallo {{ current_user.first_name }}.</h1><p class="muted mb-0">Geladen bleiben.</p></div></div>
 {% if announcement %}<div class="flash info mb-l">{{ announcement }}</div>{% endif %}
 
+{% if invites %}
+<section class="panel mb-l">
+  <div class="row"><h2 class="mb-0">Aiko lädt dich ein</h2><span class="ai-mark">KI</span></div>
+  {% for n in invites %}
+  <div class="invite">
+    <a href="{{ url_for('member.event_detail', event_id=n.event.id) }}"><b>{{ n.event.title }}</b></a> <span class="small muted">{{ n.event|event_date }}</span>{% if not n.read_at %} <span class="tag ember">neu</span>{% endif %}
+    <p class="mb-0 small">{{ n.body }}</p>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
 {% if p.completeness < 70 %}
 <section class="panel mb-l">
   <div class="row between"><h2 class="mb-0">Dein Profil ist zu {{ p.completeness }} % ausgefüllt</h2><a class="btn btn-sm" href="{{ url_for('member.profile') }}">Profil ergänzen</a></div>

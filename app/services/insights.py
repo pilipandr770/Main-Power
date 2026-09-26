@@ -1,0 +1,229 @@
+"""KI-Funktionen rund um Profile und Termine (alle mit Fallback ohne API-Schlüssel):
+
+- profile_coach:  Feedback zu den Profilantworten, solange man sie schreibt
+- pair_insight:   'Was bringt mir dieser Kontakt?' + Nachrichtenentwurf + passender Termin (mit Cache)
+- invite_for_event: Termin zu passenden Mitgliedern bringen und persönlich einladen
+Profiltexte werden dem Modell nur als Daten übergeben; die vorrangigen KI-VO-Regeln stehen in llm.AI_ACT_RULES.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import re
+from datetime import timedelta
+
+from flask import current_app, url_for
+
+from ..extensions import db
+from ..models import Event, Notification, PairInsight, Profile, User, utcnow
+from . import embeddings as emb
+from .llm import LLMUnavailable, complete
+from .matching import _snip, _version
+from .telegram import enabled as tg_enabled, send as tg_send
+
+log = logging.getLogger(__name__)
+
+FIELD_LABELS = {"q_focus": "Was machst du?", "q_challenge": "Größte Herausforderung",
+                "q_can_help": "Womit kannst du helfen?", "q_looking_for": "Wonach suchst du?"}
+
+
+def _json(text: str):
+    text = re.sub(r"^```(?:json)?|```$", "", (text or "").strip(), flags=re.M).strip()
+    a, b = text.find("{"), text.rfind("}")
+    return json.loads(text[a:b + 1])
+
+
+def _card(p: Profile) -> dict:
+    return {"vorname": p.user.first_name, "rolle": p.headline, "unternehmen": p.company,
+            "branche": p.industry, "taetigkeit": p.q_focus, "herausforderung": p.q_challenge,
+            "kann_helfen": p.q_can_help, "sucht": p.q_looking_for, "expertise": p.expertise}
+
+
+# --------------------------------------------------------------------------- Profil-Coach
+COACH_RULES = {
+    "q_focus": (60, "Nenne Branche, Zielgruppe und was du konkret lieferst — z. B. „Ich berate Mittelständler beim "
+                    "Export in die Türkei“."),
+    "q_challenge": (50, "Beschreib eine echte, aktuelle Hürde mit einem Beispiel, nicht nur ein Thema. So erkennt die "
+                        "KI, wer dir helfen kann."),
+    "q_can_help": (50, "Nenne 2–3 konkrete Dinge, bei denen dich Leute anrufen dürfen (Themen, Kontakte, Erfahrung)."),
+    "q_looking_for": (40, "Sag genau, wen oder was du suchst: eine Rolle, Branche oder Aufgabe — z. B. „Fachanwalt "
+                          "für Vertragsrecht“."),
+}
+
+
+def _coach_fallback(values: dict) -> dict:
+    tips = []
+    for key, (minlen, tip) in COACH_RULES.items():
+        v = (values.get(key) or "").strip()
+        if len(v) < minlen:
+            tips.append({"field": key, "tip": ("Noch leer. " if not v else "Etwas kurz. ") + tip})
+    done = 4 - len(tips)
+    return {"summary": ("Sieht gut aus — die Antworten sind konkret genug für gute Matches." if not tips else
+                        f"{done} von 4 Antworten sind konkret genug. Mit ein paar Details passen deine Matches "
+                        "deutlich besser."),
+            "tips": tips, "ai": False}
+
+
+def profile_coach(values: dict) -> dict:
+    clean = {k: (values.get(k) or "").strip()[:800] for k in FIELD_LABELS}
+    clean["rolle"] = (values.get("headline") or "").strip()[:160]
+    if not any(clean[k] for k in FIELD_LABELS):
+        return {"summary": "Schreib zuerst ein paar Stichworte in die vier Fragen — dann gebe ich dir Feedback.",
+                "tips": [], "ai": False}
+    system = ("Du bist Aiko, Profil-Coach der Main Power Community. Du gibst kurzes, konkretes, wertschätzendes "
+              "Feedback zu den Profilantworten, damit das Matching (Bedarf und Angebot) gut funktioniert. "
+              "Regeln: du-Form, Deutsch, max. 1–2 Sätze pro Tipp, keine Fantasiefakten, nichts Sensibles abfragen. "
+              "Gib für jede Antwort, die konkreter werden sollte, einen Tipp mit einem Formulierungsbeispiel in „…“. "
+              "Antworte NUR als JSON: {\"summary\": \"1 Satz Gesamteindruck\", \"tips\": [{\"field\": "
+              "\"q_focus|q_challenge|q_can_help|q_looking_for\", \"tip\": \"…\"}]}. Lass Felder ohne Tipp weg, "
+              "wenn die Antwort schon gut ist.")
+    try:
+        data = _json(complete(system, [{"role": "user", "content": "Profilentwurf (Daten):\n" +
+                                        json.dumps(clean, ensure_ascii=False)}],
+                              max_tokens=600, purpose="profile_coach"))
+        tips = [{"field": t["field"], "tip": str(t["tip"])[:400]} for t in data.get("tips", [])
+                if t.get("field") in FIELD_LABELS and t.get("tip")]
+        return {"summary": str(data.get("summary", ""))[:300], "tips": tips, "ai": True}
+    except (LLMUnavailable, ValueError, KeyError, TypeError):
+        return _coach_fallback(clean)
+
+
+# --------------------------------------------------------------------------- Kontakt-Assistent
+def _event_options(viewer: User, other: User) -> list[dict]:
+    from ..utils import fmt_event_date
+
+    def attends(e: Event, u: User) -> bool:
+        return any(r.user_id == u.id for r in e.active_registrations)
+
+    events = (Event.query.filter(Event.status == "published", Event.starts_at >= utcnow() - timedelta(hours=6))
+              .order_by(Event.starts_at).limit(6).all())
+    return [{"id": e.id, "titel": e.title, "wann": fmt_event_date(e), "format": e.format_info["short"],
+             "beschreibung": _snip(e.description, 160), "du_angemeldet": attends(e, viewer),
+             "andere_person_angemeldet": attends(e, other)} for e in events]
+
+
+def _insight_fallback(me: Profile, other: Profile, options: list[dict]) -> dict:
+    o = other.user.first_name
+    best = next((e for e in options if e["du_angemeldet"] and e["andere_person_angemeldet"]), None) \
+        or next((e for e in options if e["andere_person_angemeldet"]), None) or (options[0] if options else None)
+    they = (f"{o} bringt mit: {_snip(other.q_can_help, 160)}" if other.q_can_help else
+            f"{o} hat noch nicht viel über das eigene Angebot geschrieben.")
+    you = (f"Du könntest {o} helfen mit: {_snip(me.q_can_help, 160)}" if me.q_can_help else
+           "Ergänze in deinem Profil, womit du helfen kannst — dann sehe ich, was du beitragen kannst.")
+    hook = _snip(me.q_challenge or me.q_looking_for or "", 90)
+    draft = (f"Hallo {o}, ich bin {me.user.first_name}" + (f" ({_snip(me.headline, 60)})" if me.headline else "") +
+             (f". Mich beschäftigt gerade: {hook}" if hook else "") +
+             (f". Du bringst Erfahrung mit {_snip(other.q_can_help, 80)} mit — hättest du Lust auf einen kurzen "
+              "Austausch?" if other.q_can_help else ". Hättest du Lust auf einen kurzen Austausch?") +
+             f" Viele Grüße, {me.user.first_name}")
+    return {"they_help_you": they, "you_help_them": you, "message_draft": draft,
+            "event_id": best["id"] if best else None,
+            "event_reason": "Dort könntet ihr euch persönlich treffen." if best else ""}
+
+
+def pair_insight(viewer: User, other: User, force: bool = False) -> dict:
+    """{they_help_you, you_help_them, message_draft, event: {...}|None, ai: bool} — gecacht je Profilstand."""
+    me, ot = viewer.profile, other.profile
+    options = _event_options(viewer, other)
+    key = f"{_version(me, ot)}:{','.join(str(e['id']) for e in options)}"
+    row = PairInsight.query.filter_by(user_id=viewer.id, other_id=other.id).first()
+    have_key = bool(current_app.config.get("ANTHROPIC_API_KEY"))
+    if row and row.version == key and not force and (row.ai or not have_key):
+        data = row.data
+    else:
+        system = ("Du bist Aiko, die KI der Main Power Community, und beratest Person A vor einem möglichen Kontakt zu "
+                  "Person B. Nutze NUR die Profildaten. Sei konkret, warm, ohne Übertreibung; du-Form an Person A; "
+                  "Deutsch. Liefere:\n- they_help_you: 1–2 Sätze, womit B der Person A konkret helfen kann\n"
+                  "- you_help_them: 1–2 Sätze, womit A der Person B nützen kann\n"
+                  "- message_draft: Nachrichtenentwurf von A an B (3–4 Sätze, du-Form, persönlich, mit einem konkreten "
+                  "Anknüpfungspunkt und einer klaren Bitte, OHNE Kontaktdaten, unterschrieben mit dem Vornamen von A)\n"
+                  "- event_id: ID des Termins aus der Liste, bei dem sich A und B am besten treffen können "
+                  "(bevorzuge Termine, bei denen beide oder B angemeldet sind), sonst null\n"
+                  "- event_reason: 1 Satz, warum dieser Termin passt\n"
+                  "Antworte NUR als JSON mit genau diesen Schlüsseln.")
+        payload = {"person_A": _card(me), "person_B": _card(ot), "termine": options}
+        try:
+            data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                                  max_tokens=700, purpose="pair_insight"))
+            ai = True
+        except (LLMUnavailable, ValueError, KeyError, TypeError):
+            data, ai = _insight_fallback(me, ot, options), False
+        if row is None:
+            row = PairInsight(user_id=viewer.id, other_id=other.id)
+            db.session.add(row)
+        row.version, row.data, row.ai = key, data, ai
+        db.session.commit()
+    ev = next((e for e in options if e["id"] == data.get("event_id")), None)
+    return {"they_help_you": str(data.get("they_help_you", ""))[:500],
+            "you_help_them": str(data.get("you_help_them", ""))[:500],
+            "message_draft": str(data.get("message_draft", ""))[:1200],
+            "event": ({"id": ev["id"], "title": ev["titel"], "when": ev["wann"],
+                       "url": url_for("member.event_detail", event_id=ev["id"]),
+                       "reason": str(data.get("event_reason", ""))[:300]} if ev else None),
+            "ai": bool(row.ai)}
+
+
+# --------------------------------------------------------------------------- Termin-Einladungen
+def _invite_fallback(p: Profile, expert: bool) -> str:
+    if expert:
+        return f"Dein Wissen zu „{_snip(p.q_can_help or p.expertise, 70)}“ passt zum Thema — die Runde würde profitieren."
+    return f"Das Thema passt zu dem, was du suchst („{_snip(p.q_looking_for or p.q_challenge, 70)}“)."
+
+
+def invite_candidates(ev: Event, limit: int = 8, min_score: float = 0.12) -> list[tuple[float, Profile, bool]]:
+    """(Score, Profil, ist_Expert:in): Mitglieder mit Matching-Einwilligung, die zum Termin passen und noch nicht dabei sind."""
+    if not ev.title:
+        return []
+    vec = emb.embed([f"{ev.title}. {ev.description or ''}"], input_type="query")[0][0]
+    skip = {r.user_id for r in ev.active_registrations}
+    skip |= {n.user_id for n in Notification.query.filter_by(event_id=ev.id, kind="event_invite")}
+    if ev.created_by_id:
+        skip.add(ev.created_by_id)
+    q = (Profile.query.join(User).filter(User.status == "active", Profile.allow_matching.is_(True),
+                                         Profile.embed_offer.isnot(None), Profile.embed_need.isnot(None)))
+    out = []
+    for p in q.all():
+        if p.user_id in skip:
+            continue
+        offer, need = emb.cosine(vec, p.embed_offer), emb.cosine(vec, p.embed_need)
+        score = max(offer, need) + (0.05 if ev.format in p.formats_list else 0)
+        if score >= min_score:
+            out.append((score, p, offer >= need))
+    out.sort(key=lambda t: t[0], reverse=True)
+    return out[:limit]
+
+
+def invite_for_event(ev: Event, limit: int = 8) -> list[Notification]:
+    """Erzeugt persönliche Einladungen (in der Plattform, per E-Mail und Telegram, falls verbunden)."""
+    from .mailer import send_mail
+    cands = invite_candidates(ev, limit=limit)
+    if not cands:
+        return []
+    reasons: dict[int, str] = {}
+    system = ("Du schreibst für die Main Power Community kurze, persönliche Einladungsgründe. Pro Person 1–2 Sätze "
+              "(du-Form, Deutsch, warm, konkret, kein Verkaufston): warum dieser Termin zu genau dieser Person passt "
+              "und ob sie eher als Expert:in beitragen oder als Interessierte profitieren kann. Nutze nur die "
+              "Profildaten. Antworte NUR als JSON: {\"gruende\": [{\"id\": <id>, \"grund\": \"…\"}]}.")
+    payload = {"termin": {"titel": ev.title, "beschreibung": _snip(ev.description, 400), "format": ev.format},
+               "personen": [{"id": p.user_id, "rolle_im_termin": "Expert:in" if expert else "Interessiert", **_card(p)}
+                            for _, p, expert in cands]}
+    try:
+        data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                              max_tokens=900, purpose="event_invite"))
+        reasons = {int(g["id"]): str(g["grund"])[:400] for g in data.get("gruende", []) if g.get("id") and g.get("grund")}
+    except (LLMUnavailable, ValueError, KeyError, TypeError):
+        pass
+    created = []
+    link = url_for("member.event_detail", event_id=ev.id, _external=True)
+    for score, p, expert in cands:
+        n = Notification(user_id=p.user_id, kind="event_invite", event_id=ev.id, title=f"Einladung: {ev.title}",
+                         body=reasons.get(p.user_id) or _invite_fallback(p, expert), score=round(score, 3))
+        db.session.add(n)
+        created.append(n)
+    db.session.commit()
+    for n in created:
+        u = db.session.get(User, n.user_id)
+        send_mail(u.email, f"Einladung: {ev.title}", "event_invite", user=u, ev=ev, reason=n.body, link=link)
+        if u.telegram_user_id and tg_enabled():
+            tg_send(u.telegram_user_id, f"Aiko lädt dich ein: {ev.title}\n{n.body}\n{link}")
+    return created

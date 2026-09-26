@@ -2,6 +2,7 @@
 {% from "partials/_macros.html" import avatar %}
 {% block page_title %}{{ ev.title }}{% endblock %}
 {% block content %}
+{% if invite %}<div class="panel mb-m"><b>Aiko hat dich zu diesem Termin eingeladen</b> <span class="ai-mark">KI</span><p class="mb-0 mt-s">{{ invite.body }}</p></div>{% endif %}
 <div class="page-head"><div><p class="muted mb-0">{{ ev.format_info.name }}</p><h1>{{ ev.title }}</h1><p class="big mb-0">{{ ev|event_date }}</p></div></div>
 <div class="split">
   <section class="stack">

@@ -4,6 +4,7 @@
 <div class="page-head"><div><h1>{{ ev.title }}</h1><p class="muted mb-0">{{ ev|event_date }} · {{ ev.location or 'Ort offen' }} · {{ ev.price_cents|money }} · {{ ev.active_registrations|length }}{% if ev.capacity %}/{{ ev.capacity }}{% endif %} Anmeldungen</p></div>
 <div class="row">
   <a class="btn btn-sm" href="{{ url_for('admin.event_matching', event_id=ev.id) }}">Matching für diesen Termin</a>
+  <a class="btn btn-sm" href="{{ url_for('admin.event_invites', event_id=ev.id) }}">KI-Einladungen</a>
   <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_csv', event_id=ev.id) }}">CSV</a>
   <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_edit', event_id=ev.id) }}">Bearbeiten</a>
   {% if ev.status != 'cancelled' %}<form method="post" action="{{ url_for('admin.event_status', event_id=ev.id, status='cancelled') }}" data-confirm="Termin absagen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm">Absagen</button></form>{% endif %}

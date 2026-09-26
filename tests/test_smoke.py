@@ -332,3 +332,76 @@ def test_add_missing_columns_migrates_old_schema(app):
             conn.execute(text("ALTER TABLE profiles DROP COLUMN socials_public"))
         assert set(add_missing_columns()) == {"profiles.photo", "profiles.socials_public"}
         assert add_missing_columns() == []
+
+
+def test_profile_guide_coach_and_contact_assistant(client, app):
+    """Guide im Profil, Coach-Feedback, Kontakt-Assistent mit Entwurf/Termin und Cache (ohne API-Schlüssel = Fallback)."""
+    from app.models import PairInsight
+    register(client)
+    body = client.get("/app/profil").get_data(as_text=True)
+    assert "Wozu diese Frage" in body and "data-coach" in body and "data-example" in body
+
+    r = client.post("/app/api/profil-coach", json={"q_focus": "IT", "q_challenge": "", "q_can_help": "", "q_looking_for": ""})
+    d = r.get_json()
+    assert r.status_code == 200 and d["ai"] is False and {t["field"] for t in d["tips"]} >= {"q_focus", "q_challenge"}
+    assert client.post("/app/api/profil-coach", json={}).get_json()["tips"] == []
+
+    client.post("/app/profil", data={"first_name": "Nina", "headline": "Designerin",
+                                     "q_focus": "Ich gestalte Marken für Start-ups",
+                                     "q_challenge": "Ich brauche Hilfe bei der Steuer für meine Freiberuflichkeit",
+                                     "q_can_help": "Branding und Webdesign", "q_looking_for": "Steuerberater"})
+    with app.app_context():
+        julia = User.query.filter_by(email="julia.wagner@demo.main-power.local").first().id
+    r = client.post(f"/app/api/kontakt-assistent/{julia}", json={})
+    d = r.get_json()
+    assert r.status_code == 200 and d["ai"] is False
+    assert "Julia" in d["message_draft"] and d["they_help_you"] and d["you_help_them"]
+    assert d["event"] and d["event"]["url"].startswith("/app/termine/")
+    with app.app_context():
+        assert PairInsight.query.count() == 1
+    client.post(f"/app/api/kontakt-assistent/{julia}", json={})
+    with app.app_context():
+        assert PairInsight.query.count() == 1  # aus dem Cache
+    # Seite der Person enthält das Assistenten-Panel; unsichtbare/eigene Profile sind nicht abrufbar
+    assert "data-insight" in client.get(f"/app/mitglieder/{julia}").get_data(as_text=True)
+    with app.app_context():
+        me = User.query.filter_by(email="neu@example.com").first().id
+    assert client.post(f"/app/api/kontakt-assistent/{me}", json={}).status_code == 404
+
+
+def test_event_invitations_and_network_pages(client, app):
+    from app.models import Event, Notification
+    from app.services import insights
+    with app.app_context():
+        ev = Event(title="Themen-Frühstück Cybersecurity im Mittelstand", format="community", source="admin",
+                   description="NIS-2, Pentest und Datenschutz — was Unternehmen jetzt tun müssen.",
+                   starts_at=utcnow_plus(20), status="published")
+        db.session.add(ev)
+        db.session.commit()
+        with app.test_request_context():
+            created = insights.invite_for_event(ev, limit=3)
+        assert created and all(n.body for n in created)
+        names = {db.session.get(User, n.user_id).first_name for n in created}
+        assert "Ivan" in names  # Cybersecurity-Berater wird zuerst eingeladen
+        with app.test_request_context():
+            assert insights.invite_for_event(ev, limit=3) == [] or len(Notification.query.filter_by(event_id=ev.id).all()) <= 6
+        ivan = User.query.filter_by(first_name="Ivan").first().email
+    login(client, ivan, "demo-passwort-123")
+    dash = client.get("/app/").get_data(as_text=True)
+    assert "Aiko lädt dich ein" in dash
+    assert "data-network" in client.get("/app/community").get_data(as_text=True)
+    assert "data-network" in client.get("/").get_data(as_text=True)
+    client.post("/logout")
+    login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+          os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
+    assert "Matching-Karte" in client.get("/admin/").get_data(as_text=True)
+    with app.app_context():
+        evid = Event.query.filter_by(title="Themen-Frühstück Cybersecurity im Mittelstand").first().id
+    assert client.get(f"/admin/termine/{evid}/einladungen").status_code == 200
+
+
+def utcnow_plus(days):
+    from datetime import timedelta
+
+    from app.models import utcnow
+    return utcnow() + timedelta(days=days)

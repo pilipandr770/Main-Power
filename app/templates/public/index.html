@@ -24,6 +24,14 @@
   </div>
 </section>
 
+<section class="section network-section">
+  <div class="wrap">
+    <h2>Ein Netz aus relevanten Verbindungen</h2>
+    <p class="muted maxw">Jeder Punkt ist ein Mensch aus der Community, jede Linie ein Match zwischen Bedarf und Angebot. Je mehr Profile, desto dichter und treffender wird das Netz.</p>
+    <canvas class="network" data-network role="img" aria-label="Animierte 3D-Darstellung eines Netzwerks aus Menschen und Verbindungen"></canvas>
+  </div>
+</section>
+
 <section class="section">
   <div class="wrap">
     <h2>So entsteht eine Verbindung</h2>
@@ -105,3 +113,4 @@
 </section>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/network.js') }}" defer></script>{% endblock %}

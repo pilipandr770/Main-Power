@@ -8,6 +8,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <fieldset><legend>Community</legend>
       {{ check("member_events_require_approval", "Von Mitgliedern vorgeschlagene Treffen erst nach Freigabe veröffentlichen", v.member_events_require_approval == '1') }}
+      {{ check("auto_invites", "Aiko lädt passende Mitglieder automatisch ein, sobald ein Termin veröffentlicht wird", v.auto_invites == '1') }}
       {{ input("announcement", "Hinweis in der Mitglieder-Übersicht", v.announcement, hint="Leer = kein Hinweis") }}
       {{ input("telegram_group_title", "Name des Community-Chats", v.telegram_group_title) }}
     </fieldset>

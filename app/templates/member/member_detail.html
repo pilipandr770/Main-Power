@@ -15,6 +15,13 @@
 </div>
 <div class="split">
   <section class="stack">
+    {% if not is_self and current_user.profile.q_can_help or not is_self and current_user.profile.q_looking_for %}
+    <div class="panel insight" data-insight data-endpoint="{{ url_for('member.contact_assistant', user_id=u.id) }}" data-target="msg">
+      <div class="row between"><div><b>Was bringt euch dieser Kontakt?</b> <span class="ai-mark">KI</span></div>
+      <button type="button" class="linkbtn small" data-insight-refresh hidden>Neu einschätzen</button></div>
+      <div class="insight-body mt-s" data-insight-body aria-live="polite"><p class="muted mb-0">Aiko vergleicht dein Profil mit dem von {{ u.first_name }} …</p></div>
+    </div>
+    {% endif %}
     {% if match and match.reason %}<div class="panel"><b>Warum ihr euch treffen solltet</b> <span class="ai-mark">KI</span><p class="mt-s mb-0">{{ match.reason }}</p>{% if match.opener %}<p class="muted small mt-s mb-0">{{ match.opener }}</p>{% endif %}</div>{% endif %}
     {% if p.bio %}<div><h3>Über {{ u.first_name }}</h3><p class="pre">{{ p.bio }}</p></div>{% endif %}
     {% if p.q_focus %}<div><h3>Was {{ u.first_name }} macht</h3><p class="pre">{{ p.q_focus }}</p></div>{% endif %}

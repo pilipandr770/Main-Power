@@ -119,4 +119,144 @@
       b.addEventListener("click", function () { panel.hidden = true; fab.setAttribute("aria-expanded", "false"); });
     });
   }
+
+  // ---------- KI-Hilfen ----------
+  function postJSON(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf, "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body || {})
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+  }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  // Beispielantworten per Klick in das Feld übernehmen
+  document.querySelectorAll("[data-example]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var t = document.getElementById(b.getAttribute("data-target"));
+      if (!t) return;
+      t.value = b.getAttribute("data-example");
+      t.focus();
+    });
+  });
+
+  // Profil-Coach: Feedback zu den Antworten (auch ungespeichert)
+  document.querySelectorAll("[data-coach]").forEach(function (box) {
+    var out = box.querySelector("[data-coach-out]");
+    var btn = box.querySelector("[data-coach-run]");
+    btn.addEventListener("click", function () {
+      var body = {};
+      ["q_focus", "q_challenge", "q_can_help", "q_looking_for", "headline"].forEach(function (k) {
+        var f = document.getElementById("f-" + k);
+        if (f) body[k] = f.value;
+      });
+      btn.disabled = true;
+      out.innerHTML = "";
+      out.appendChild(el("span", "skeleton"));
+      out.appendChild(el("span", "skeleton"));
+      postJSON(box.getAttribute("data-endpoint"), body).then(function (res) {
+        out.innerHTML = "";
+        if (!res.ok) { out.textContent = res.d.error || "Gerade nicht möglich. Versuch es gleich noch einmal."; return; }
+        out.appendChild(el("p", "mb-0", res.d.summary || ""));
+        if (res.d.tips && res.d.tips.length) {
+          var ul = el("ul");
+          res.d.tips.forEach(function (t) {
+            var li = el("li");
+            var lbl = document.querySelector('label[for="f-' + t.field + '"]');
+            li.appendChild(el("b", null, (lbl ? lbl.childNodes[0].textContent.trim() : t.field) + ": "));
+            li.appendChild(document.createTextNode(t.tip));
+            ul.appendChild(li);
+          });
+          out.appendChild(ul);
+        }
+        if (res.d.ai === false) out.appendChild(el("p", "small muted mb-0", "Einfache Prüfung ohne KI-Anbindung."));
+      }).catch(function () {
+        out.textContent = "Keine Verbindung. Versuch es gleich noch einmal.";
+      }).finally(function () { btn.disabled = false; });
+    });
+  });
+
+  // Kontakt-Assistent auf der Mitgliederseite
+  document.querySelectorAll("[data-insight]").forEach(function (box) {
+    var body = box.querySelector("[data-insight-body]");
+    var refresh = box.querySelector("[data-insight-refresh]");
+    var endpoint = box.getAttribute("data-endpoint");
+    var target = document.getElementById(box.getAttribute("data-target"));
+
+    function block(title, text) {
+      var d = el("div", "block");
+      d.appendChild(el("h4", null, title));
+      d.appendChild(el("p", "mb-0", text));
+      return d;
+    }
+    function show(d) {
+      body.innerHTML = "";
+      if (d.they_help_you) body.appendChild(block("Was dir der Kontakt bringen kann", d.they_help_you));
+      if (d.you_help_them) body.appendChild(block("Was du beitragen kannst", d.you_help_them));
+      if (d.message_draft) {
+        var wrap = el("div", "block");
+        wrap.appendChild(el("h4", null, "Nachrichtenentwurf"));
+        var ta = el("textarea", "draft");
+        ta.value = d.message_draft;
+        ta.setAttribute("aria-label", "Nachrichtenentwurf");
+        wrap.appendChild(ta);
+        var row = el("div", "row mt-s");
+        if (target) {
+          var use = el("button", "btn btn-sm", "In meine Anfrage übernehmen");
+          use.type = "button";
+          use.addEventListener("click", function () {
+            target.value = ta.value.slice(0, 1000);
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            target.focus();
+          });
+          row.appendChild(use);
+        }
+        var copy = el("button", "btn btn-ghost btn-sm", "Kopieren");
+        copy.type = "button";
+        copy.addEventListener("click", function () {
+          if (navigator.clipboard) navigator.clipboard.writeText(ta.value);
+          copy.textContent = "Kopiert";
+        });
+        row.appendChild(copy);
+        wrap.appendChild(row);
+        body.appendChild(wrap);
+      }
+      if (d.event) {
+        var eb = el("div", "event-box");
+        eb.appendChild(el("h4", null, "Hier könnt ihr euch treffen"));
+        var a = el("a", null, d.event.title);
+        a.href = d.event.url;
+        var line = el("p", "mb-0");
+        var strong = el("b");
+        strong.appendChild(a);
+        line.appendChild(strong);
+        line.appendChild(document.createTextNode(" · " + d.event.when));
+        eb.appendChild(line);
+        if (d.event.reason) eb.appendChild(el("p", "small muted mb-0 mt-s", d.event.reason));
+        body.appendChild(eb);
+      }
+      if (d.ai === false) body.appendChild(el("p", "small muted mb-0 mt-s", "Vorlage ohne KI-Anbindung."));
+      refresh.hidden = false;
+    }
+    function load(force) {
+      body.innerHTML = "";
+      ["", "", ""].forEach(function () { body.appendChild(el("span", "skeleton")); });
+      refresh.hidden = true;
+      postJSON(endpoint, { refresh: !!force }).then(function (res) {
+        if (!res.ok) { body.innerHTML = ""; body.appendChild(el("p", "muted mb-0", res.d.error || "Gerade nicht möglich.")); return; }
+        show(res.d);
+      }).catch(function () {
+        body.innerHTML = "";
+        body.appendChild(el("p", "muted mb-0", "Keine Verbindung. Lade die Seite neu, um es erneut zu versuchen."));
+      });
+    }
+    refresh.addEventListener("click", function () { load(true); });
+    load(false);
+  });
 })();

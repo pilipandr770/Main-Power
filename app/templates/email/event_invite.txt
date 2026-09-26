@@ -1,0 +1,15 @@
+Hallo {{ user.first_name }},
+
+Aiko, die KI-Assistentin von Main Power, hat einen Termin gefunden, der zu deinem Profil passt:
+
+{{ ev.title }}
+{{ ev|event_date }}{% if ev.location %} · {{ ev.location }}{% endif %}
+
+Warum wir dich einladen: {{ reason }}
+
+Details und Anmeldung: {{ link }}
+
+Diese Einladung ist ein Vorschlag auf Basis deiner Profilangaben und deiner Matching-Einwilligung. Du kannst das Matching jederzeit unter „Privatsphäre“ ausschalten.
+
+Geladen bleiben.
+Dein Main Power Team

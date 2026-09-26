@@ -358,6 +358,37 @@ class ChatMessage(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
+class PairInsight(db.Model):
+    """Zwischengespeicherte KI-Einschätzung 'Was bringt dir dieser Kontakt?' (spart Tokens, ändert sich nur mit den Profilen)."""
+    __tablename__ = "pair_insights"
+    __table_args__ = (db.UniqueConstraint("user_id", "other_id", name="uq_pair_insight"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    other_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    version = db.Column(db.String(64))
+    data = db.Column(db.JSON)
+    ai = db.Column(db.Boolean, default=True)  # False = Vorlage ohne KI
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+
+class Notification(db.Model):
+    """Persönliche Hinweise, z. B. KI-Einladung zu einem Termin, der zum Profil passt."""
+    __tablename__ = "notifications"
+    __table_args__ = (db.UniqueConstraint("user_id", "event_id", "kind", name="uq_notification_event"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = db.Column(db.String(30), default="event_invite")
+    event_id = db.Column(db.Integer, db.ForeignKey("events.id", ondelete="CASCADE"))
+    event = db.relationship("Event")
+    title = db.Column(db.String(200), default="")
+    body = db.Column(db.Text, default="")
+    score = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+    read_at = db.Column(db.DateTime)
+
+
 class LLMUsage(db.Model):
     """Token-Verbrauch je KI-Aufruf (nur Zähler, keine Inhalte)."""
     __tablename__ = "llm_usage"
@@ -424,6 +455,7 @@ class Setting(db.Model):
 
     DEFAULTS = {
         "member_events_require_approval": "1",
+        "auto_invites": "1",
         "aiko_extra_instructions": "",
         "telegram_group_title": "Main Power Community",
         "announcement": "",

@@ -8,9 +8,9 @@ from flask import (Blueprint, Response, abort, current_app, flash, jsonify, redi
 from flask_login import current_user, login_required, logout_user
 
 from ..extensions import db, limiter
-from ..models import (FORMATS, SOCIALS, ChatMessage, Event, IntroRequest, Match, Profile, Registration, Service,
+from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, Event, IntroRequest, Match, Profile, Registration, Service,
                       ServiceInquiry, Setting, User, utcnow)
-from ..services import aiko, matching, media, payments, telegram
+from ..services import aiko, insights, matching, media, payments, telegram
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
 from ..services.mailer import send_mail
@@ -40,14 +40,43 @@ def dashboard():
                .order_by(Event.starts_at).all())
     matches = matching.top_matches(current_user, k=3) if p.is_matchable and p.embed_need else []
     incoming = IntroRequest.query.filter_by(to_user_id=current_user.id, status="pending").all()
+    invites = (Notification.query.join(Event, Notification.event_id == Event.id)
+               .filter(Notification.user_id == current_user.id, Notification.kind == "event_invite",
+                       Event.status == "published", Event.starts_at >= utcnow() - timedelta(hours=6))
+               .order_by(Notification.created_at.desc()).limit(4).all())
     return render_template("member/dashboard.html", p=p, regs=my_regs, matches=matches, incoming=incoming,
-                           events=upcoming(3), announcement=Setting.get("announcement"))
+                           events=upcoming(3), announcement=Setting.get("announcement"), invites=invites)
 
 
 # --------------------------------------------------------------------------- Profil
 PROFILE_TEXT_FIELDS = {
     "headline": 160, "company": 160, "industry": 120, "city": 120, "bio": 1500,
     "q_focus": 800, "q_challenge": 800, "q_can_help": 800, "q_looking_for": 800, "expertise": 500,
+}
+
+
+# Anleitung zu den vier Fragen: Wozu, worauf achten, Beispiele (im Profil ausklappbar, Beispiele per Klick einfügbar)
+PROFILE_GUIDE = {
+    "q_focus": {
+        "why": "Damit andere in einem Satz verstehen, wer du bist und wofür du stehst. Aiko ordnet dich damit in die Community ein.",
+        "tips": "Branche, Zielgruppe, was du konkret lieferst. Kein Werbetext.",
+        "examples": ["Ich berate mittelständische Unternehmen beim Markteintritt in der Türkei — von Zoll bis Vertriebspartnern.",
+                     "Ich baue eine Software für Logistikunternehmen, die Touren automatisch plant."]},
+    "q_challenge": {
+        "why": "Das ist der wichtigste Baustein für gute Matches: Aus deiner Herausforderung erkennt die KI, wer dir helfen kann.",
+        "tips": "Eine aktuelle, echte Hürde — mit einem Beispiel statt eines Schlagworts.",
+        "examples": ["Ich finde keine verlässlichen Vertriebspartner im Ausland und verliere Monate mit Absagen.",
+                     "Unsere ersten Kunden springen nach dem Test ab. Ich weiß nicht, ob es am Preis oder am Onboarding liegt."]},
+    "q_can_help": {
+        "why": "Matching funktioniert nur, wenn beide Seiten profitieren. Hier zeigst du, was du anderen geben kannst.",
+        "tips": "2–3 Themen, bei denen dich Leute gern anrufen dürfen: Wissen, Erfahrung, Kontakte.",
+        "examples": ["Exportrecht, Zollabwicklung und Kontakte zu Spediteuren in Istanbul.",
+                     "Positionierung, LinkedIn-Strategie und Launch-Kampagnen für B2B-Start-ups."]},
+    "q_looking_for": {
+        "why": "Damit Aiko gezielt nach Menschen sucht, die dir jetzt weiterhelfen — nicht nach allen, die irgendwie passen.",
+        "tips": "Rolle, Branche oder Aufgabe nennen. Je genauer, desto besser der Treffer.",
+        "examples": ["Eine Anwältin für internationales Vertragsrecht mit Erfahrung in der Türkei.",
+                     "Tech-Partner, der eine Landingpage samt Automatisierung baut."]},
 }
 
 
@@ -94,7 +123,16 @@ def profile():
                   "info")
         return redirect(url_for("member.matches" if request.args.get("welcome") and p.allow_matching
                                 else "member.profile"))
-    return render_template("member/profile.html", p=p, welcome=request.args.get("welcome"), socials=SOCIALS)
+    return render_template("member/profile.html", p=p, welcome=request.args.get("welcome"), socials=SOCIALS,
+                           guide=PROFILE_GUIDE)
+
+
+@bp.route("/api/profil-coach", methods=["POST"])
+@limiter.limit("20 per hour")
+def profile_coach():
+    """KI-Feedback zu den (noch ungespeicherten) Profilantworten."""
+    data = request.get_json(silent=True) or {}
+    return jsonify(insights.profile_coach({k: str(v) for k, v in data.items() if isinstance(v, (str, int))}))
 
 
 # --------------------------------------------------------------------------- Matches & Kontakte
@@ -218,6 +256,27 @@ def avatar(name):
     return resp
 
 
+@bp.route("/api/kontakt-assistent/<int:user_id>", methods=["POST"])
+@limiter.limit("40 per hour")
+def contact_assistant(user_id):
+    """KI-Einschätzung zu einem Kontakt: Nutzen für beide Seiten, Nachrichtenentwurf, passender Termin."""
+    u = db.session.get(User, user_id)
+    if not u or u.status != "active" or u.id == current_user.id or not u.profile:
+        abort(404)
+    ir = IntroRequest.query.filter(
+        ((IntroRequest.from_user_id == current_user.id) & (IntroRequest.to_user_id == u.id)) |
+        ((IntroRequest.from_user_id == u.id) & (IntroRequest.to_user_id == current_user.id))).first()
+    connected = bool(ir and ir.status == "accepted")
+    recommended = Match.query.filter_by(user_id=current_user.id, other_id=u.id).first()
+    if not (u.profile.visible_in_directory or connected or (recommended and u.profile.allow_matching)):
+        abort(404)
+    me = current_user.profile
+    if not (me.q_can_help or me.q_looking_for or me.q_challenge or me.q_focus):
+        return jsonify(error="Fülle zuerst dein Profil aus, dann kann Aiko dir sagen, was dieser Kontakt dir bringt."), 400
+    force = bool((request.get_json(silent=True) or {}).get("refresh"))
+    return jsonify(insights.pair_insight(current_user, u, force=force))
+
+
 @bp.route("/mitglieder/<int:user_id>")
 def member_detail(user_id):
     u = db.session.get(User, user_id)
@@ -260,11 +319,15 @@ def event_detail(event_id):
     reg = Registration.query.filter_by(event_id=ev.id, user_id=current_user.id).first()
     if request.args.get("paid") and reg and reg.status == "pending_payment":
         flash("Danke! Deine Zahlung wird bestätigt — das dauert meist nur wenige Sekunden.", "success")
+    invite = Notification.query.filter_by(user_id=current_user.id, event_id=ev.id, kind="event_invite").first()
+    if invite and not invite.read_at:
+        invite.read_at = utcnow()
+        db.session.commit()
     attendees = []
     if reg and reg.status in ("registered", "paid", "reserved"):
         attendees = [r.user for r in ev.active_registrations
                      if r.user_id != current_user.id and r.user.profile and r.user.profile.visible_in_directory]
-    return render_template("member/event_detail.html", ev=ev, reg=reg, attendees=attendees)
+    return render_template("member/event_detail.html", ev=ev, reg=reg, attendees=attendees, invite=invite)
 
 
 @bp.route("/termine/<int:event_id>/anmelden", methods=["POST"])
@@ -362,8 +425,11 @@ def event_create():
             db.session.add(Registration(event_id=ev.id, user_id=current_user.id, status="registered"))
             audit("event.member_create", f"event:{ev.id}", title)
             db.session.commit()
+            from .admin import auto_invite
+            invited = 0 if needs_approval else auto_invite(ev, False)
             flash("Dein Treffen ist eingereicht und erscheint nach kurzer Prüfung im Kalender." if needs_approval
-                  else "Dein Treffen ist veröffentlicht.", "success")
+                  else "Dein Treffen ist veröffentlicht." + (f" Aiko hat {invited} passende Mitglieder eingeladen."
+                                                            if invited else ""), "success")
             return redirect(url_for("member.event_detail", event_id=ev.id))
     return render_template("member/event_form.html", errors=errors, form=request.form)
 
@@ -438,9 +504,20 @@ def community():
         IntroRequest.status == "accepted",
         (IntroRequest.from_user_id == current_user.id) | (IntroRequest.to_user_id == current_user.id)).all()
     contacts = [ir.to_user if ir.from_user_id == current_user.id else ir.from_user for ir in accepted]
+    everyone = visible.order_by(Profile.updated_at.desc()).limit(40).all()
+    my_matches = {m.other_id: m.score for m in matching.top_matches(current_user, k=8, explain=False)} \
+        if current_user.profile.is_matchable and current_user.profile.embed_need else {}
+    nodes = [{"l": "Du", "h": 1}]
+    edges = []
+    for p in everyone:
+        idx = len(nodes)
+        nodes.append({"l": f"{p.user.first_name} {p.user.last_name[:1]}.", "u": url_for("member.member_detail", user_id=p.user.id),
+                      "h": 1 if p.user_id in my_matches else 0})
+        edges.append([0, idx, round(max(my_matches.get(p.user_id, 0.15), 0.15), 2)])
     return render_template("member/community.html", tg=telegram.enabled(), group=telegram.group_enabled(),
                            group_title=Setting.get("telegram_group_title"), newest=newest, total=total,
-                           industries=industries, events=events, contacts=contacts[:8])
+                           industries=industries, events=events, contacts=contacts[:8],
+                           graph={"nodes": nodes, "edges": edges})
 
 
 @bp.route("/community/verbinden", methods=["POST"])

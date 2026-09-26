@@ -326,3 +326,31 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   background: var(--coal-2); border: 1px solid var(--line); }
 .member-card small { color: var(--ash); }
 .tabs-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+
+/* ---------- KI-Hilfen: Guide, Coach, Kontakt-Assistent ---------- */
+.guide { margin: -.3rem 0 1rem; border-left: 2px solid var(--line); padding-left: .9rem; }
+.guide summary { cursor: pointer; color: var(--ash); font-size: .9rem; }
+.guide summary:hover { color: var(--ember-soft); }
+.examples { list-style: none; padding: 0; margin: .4rem 0 0; display: grid; gap: .5rem; }
+.examples li { display: flex; gap: .6rem; justify-content: space-between; align-items: baseline; font-size: .92rem; color: var(--ash); }
+.coach-out ul { margin: .4rem 0 0; padding-left: 1.1rem; }
+.coach-out li { margin-bottom: .45rem; }
+.insight .block { margin: 0 0 .9rem; }
+.insight .block h4 { margin: 0 0 .2rem; font-size: .8rem; color: var(--ash); font-weight: 600; }
+.insight .draft { width: 100%; min-height: 8.5rem; }
+.insight .event-box { border: 1px solid var(--line); border-radius: var(--radius-m); padding: .8rem 1rem; background: var(--night); }
+.invite { border-top: 1px solid var(--line); padding: .8rem 0; }
+.invite:first-of-type { border-top: 0; }
+.skeleton { display: block; height: .9rem; border-radius: 6px; background: linear-gradient(90deg, var(--coal-2), var(--line), var(--coal-2));
+  background-size: 200% 100%; animation: shimmer 1.2s infinite linear; margin: .5rem 0; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* ---------- 3D-Netz und Karten ---------- */
+.network { display: block; width: 100%; height: 420px; margin-top: 1.2rem; border: 1px solid var(--line); border-radius: var(--radius-m);
+  background: radial-gradient(ellipse at 50% 40%, #1a1512 0%, var(--night) 70%); touch-action: pan-y; }
+.network-section { background: var(--night); }
+.member-card, .match { transition: transform .25s ease, border-color .2s ease, box-shadow .25s ease; }
+.member-card:hover { transform: perspective(700px) translateY(-3px) rotateX(2deg); box-shadow: 0 14px 30px rgba(0,0,0,.45); }
+@media (prefers-reduced-motion: reduce) { .member-card, .match { transition: none; } .member-card:hover { transform: none; } }
+@media (max-width: 640px) { .network { height: 320px; } }
