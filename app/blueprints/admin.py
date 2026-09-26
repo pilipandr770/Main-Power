@@ -98,7 +98,7 @@ def _llm_usage(now: datetime) -> dict:
         return {"in": int(i), "out": int(o), "total": int(i + o), "calls": int(n), "cost": cost}
 
     labels = {"aiko_public": "Aiko (Website)", "aiko_member": "Aiko (Mitglieder)", "matching": "Matching-Begründungen",
-              "seo_report": "SEO-/Compliance-Check", "profile_coach": "Profil-Coach", "pair_insight": "Kontakt-Assistent",
+              "seo_report": "SEO-/Compliance-Check", "market_panel": "Markt-Panel", "profile_coach": "Profil-Coach", "pair_insight": "Kontakt-Assistent",
               "event_invite": "Termin-Einladungen"}
     rows = (db.session.query(LLMUsage.purpose, func.sum(LLMUsage.input_tokens), func.sum(LLMUsage.output_tokens),
                              func.count(LLMUsage.id)).group_by(LLMUsage.purpose).all())
@@ -563,6 +563,10 @@ def settings():
         f = request.form
         Setting.set("member_events_require_approval", "1" if f.get("member_events_require_approval") else "0")
         Setting.set("auto_invites", "1" if f.get("auto_invites") else "0")
+        for key, lo, hi in (("panel_monthly_limit", 0, 1000), ("panel_max_personas", 10, 500)):
+            v = f.get(key, "")
+            if v.isdigit():
+                Setting.set(key, str(max(lo, min(hi, int(v)))))
         Setting.set("aiko_extra_instructions", f.get("aiko_extra_instructions", "").strip()[:4000])
         Setting.set("telegram_group_title", f.get("telegram_group_title", "").strip()[:120])
         Setting.set("announcement", f.get("announcement", "").strip()[:500])

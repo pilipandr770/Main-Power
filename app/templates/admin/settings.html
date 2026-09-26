@@ -12,6 +12,10 @@
       {{ input("announcement", "Hinweis in der Mitglieder-Übersicht", v.announcement, hint="Leer = kein Hinweis") }}
       {{ input("telegram_group_title", "Name des Community-Chats", v.telegram_group_title) }}
     </fieldset>
+    <fieldset><legend>Markt-Panel (KI-Personas)</legend>
+      {{ input("panel_monthly_limit", "Läufe je Mitglied und Monat", v.panel_monthly_limit, type="number", hint="Admins unbegrenzt. 0 = gesperrt.") }}
+      {{ input("panel_max_personas", "Maximale Personas je Lauf", v.panel_max_personas, type="number", hint="10 bis 500. Kosten steigen linear (ca. 0,3 Cent je Persona mit Haiku).") }}
+    </fieldset>
     <fieldset><legend>Aiko</legend>
       {{ textarea("aiko_extra_instructions", "Zusätzliche Anweisungen", v.aiko_extra_instructions, rows=6, hint="Wird an Aikos Systemanweisung angehängt, z. B. aktuelle Aktionen oder Tonalität. Die KI-VO-/DSGVO-Grundregeln stehen fest im Code und haben immer Vorrang.") }}
     </fieldset>

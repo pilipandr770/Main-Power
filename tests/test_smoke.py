@@ -663,3 +663,116 @@ def test_security_check_blocks_internal_targets():
         except sc.SeoCheckError:
             continue
         raise AssertionError(bad)
+
+
+def _fake_panel_llm(system, messages, max_tokens=0, purpose="", usage=None, model=None, **kw):
+    """Simuliert das Modell: Personas mit knappem Budget lehnen ab, Techies kaufen; Bericht mit Themen-IDs."""
+    import json as _json
+    user = messages[0]["content"]
+    if "Analystin" in system:
+        payload = _json.loads(user)
+        n = len(payload["aussagen_bedenken"])
+        return _json.dumps({"zusammenfassung": "Kurz und ehrlich.", "bedenken": [{"thema": "Preis", "ids": list(range(1, n // 2 + 1))},
+                            {"thema": "Vertrauen", "ids": list(range(n // 2 + 1, n + 1))}],
+                            "nutzen": [{"thema": "Zeitersparnis", "ids": [1, 2, 3]}], "aenderungen": [{"thema": "Günstiger", "ids": [1]}],
+                            "empfehlungen": [{"titel": "Preis testen", "warum": "w", "so_gehts": "s"}], "zielgruppen_fazit": "Tech-affine kaufen.",
+                            "preis_fazit": "Um 30 Euro.", "verzerrung_hinweis": "Zustimmungs-Bias möglich."})
+    if usage is not None:
+        usage["in"] = usage.get("in", 0) + 1000
+        usage["out"] = usage.get("out", 0) + 300
+    tech = int(user.split("Technikaffinität: ")[1][0])
+    buy = tech >= 4
+    price = 25 if buy else 5
+    return _json.dumps({"kaufabsicht": "nach_test" if buy else "nein", "kaufwahrscheinlichkeit": 70 if buy else 10,
+                        "relevanz": 8 if buy else 3, "max_preis": price, "zu_billig_preis": 3,
+                        "hauptgrund": "Passt zu meinem Alltag" if buy else "Zu teuer für mich",
+                        "hauptbedenken": "Datenschutz", "hauptnutzen": "spart Zeit" if buy else "",
+                        "aenderungswunsch": "günstiger"})
+
+
+def test_panel_personas_100_roles_and_sampling():
+    from app.services import panel_personas as pp
+    assert len(pp.B2C) == 62 and len(pp.B2B) == 38
+    ps = pp.sample(100, "beide", "de", seed=3)
+    assert len(ps) == 100 and len({p.label for p in ps}) == 100          # jede Rolle genau einmal
+    assert [p.sheet() for p in pp.sample(20, "beide", "de", 5)] == [p.sheet() for p in pp.sample(20, "beide", "de", 5)]  # reproduzierbar
+    assert len(pp.sample(250, "privat", "rhein-main", 1)) == 250 and all("Rhein-Main" in p.region for p in pp.sample(10, "privat", "rhein-main", 1))
+    assert all(p.kind == "b" for p in pp.sample(30, "business", "de", 1))
+    assert all(16 <= p.age <= 88 and 1 <= p.tech <= 5 and 1 <= p.price_sens <= 5 for p in ps)
+    assert any(p.health != "gesund" for p in ps) and len({p.weight for p in ps}) >= 3
+    banned = ("Religion", "Migrationshintergrund", "Partei", "Konfession")
+    assert not any(b in p.sheet() for p in ps for b in banned)
+
+
+def test_panel_aggregate_math():
+    from app.services import panel
+    def row(v, intent, prob, wtp, tech=3, age=40):
+        return {"v": v, "p": {"kind": "c", "age_group": "30–49", "income_class": "mittel (2.400–4.600 €)", "tech": tech, "price_sens": 3,
+                              "ortstyp": "Großstadt", "health": "gesund", "name": "X", "label": "L", "age": age},
+                "a": {"kaufabsicht": intent, "kaufwahrscheinlichkeit": prob, "relevanz": 6, "max_preis": wtp, "zu_billig_preis": 1,
+                      "hauptgrund": "g", "hauptbedenken": "b", "hauptnutzen": "n", "aenderungswunsch": "c"}}
+    rows = [row("A" if i % 2 == 0 else "B", "nach_test" if i < 30 else "nein", 80 if i < 30 else 5, 20 + i % 10, tech=5 if i < 30 else 2)
+            for i in range(60)]
+    res = panel.aggregate(rows, {"price_a": 20.0, "price_b": 30.0}, 60)
+    assert res["n_valid"] == 60 and res["overall"]["intent"] == 50.0
+    assert res["curve"]["best"] and res["curve"]["points"][0]["share"] <= 50.0
+    assert res["ab"]["a"]["n"] == 30 and res["ab"]["b"]["n"] == 30 and res["ab"]["p_value"] is not None
+    tech = next(s for s in res["segments"] if s["dimension"] == "Technikaffinität")
+    assert tech["rows"][0]["label"].startswith("hoch") and tech["rows"][0]["intent"] == 100.0
+    assert panel._ztest(rows[:1], rows[1:2]) is None
+
+
+def test_panel_full_run_quota_and_pages(client, app, monkeypatch):
+    from app.models import PanelRun
+    from app.services import panel
+    monkeypatch.setattr(panel, "complete", _fake_panel_llm)
+    register(client)
+    page = client.get("/app/markt-panel").get_data(as_text=True)
+    assert "synthetisch" in page and "100 Rollen" in page and client.get("/app/leistungen/markt-panel").status_code == 302
+
+    data = {"product_name": "BuchApp", "description": "Eine App für Freelancer, die Rechnungen automatisch schreibt und Steuern schätzt.",
+            "audience": "beide", "regional": "de", "unit": "monat", "price_a": "29,90", "price_b": "39,90", "n": "50"}
+    r = client.post("/app/markt-panel", data=data, follow_redirects=True)                       # ohne Bestätigung
+    assert "synthetisch (KI-generiert)" in r.get_data(as_text=True)
+    r = client.post("/app/markt-panel", data={**data, "description": "kurz", "synthetic": "1"}, follow_redirects=True)
+    assert "mindestens 40 Zeichen" in r.get_data(as_text=True)
+    r = client.post("/app/markt-panel", data={**data, "price_a": "", "price_b": "10", "synthetic": "1"}, follow_redirects=True)
+    assert "zuerst Preis A" in r.get_data(as_text=True)
+
+    r = client.post("/app/markt-panel", data={**data, "synthetic": "1"}, follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert "Synthetisches Panel" in body and "Preisvergleich A und B" in body and "Preiskurve" in body
+    with app.app_context():
+        run = PanelRun.query.one()
+        rid = run.id
+        assert run.status == "done" and run.n_done == 50 and run.result["n_valid"] == 50 and run.tokens_in >= 50_000
+        assert run.report["bedenken"] and sum(t["anzahl"] for t in run.report["bedenken"]) == 50   # exakt gezählt
+    st = client.get(f"/app/api/markt-panel/{rid}/status").get_json()
+    assert st["status"] == "done" and st["done"] == 50
+    assert "Alle Personas (50)" in client.get(f"/app/markt-panel/{rid}").get_data(as_text=True)
+
+    # Kontingent: 3 Läufe pro Monat
+    for _ in range(2):
+        client.post("/app/markt-panel", data={**data, "synthetic": "1"})
+    r = client.post("/app/markt-panel", data={**data, "synthetic": "1"}, follow_redirects=True)
+    assert "Kontingent" in r.get_data(as_text=True)
+    with app.app_context():
+        assert PanelRun.query.count() == 3
+
+    # fremder Zugriff und Löschen
+    client.post("/logout")
+    login(client, "julia.wagner@demo.main-power.local", "demo-passwort-123")
+    assert client.get(f"/app/markt-panel/{rid}").status_code == 404
+    client.post("/logout")
+    login(client, "neu@example.com", "sehr-sicheres-pw")
+    client.post(f"/app/markt-panel/{rid}/loeschen", follow_redirects=True)
+    with app.app_context():
+        assert PanelRun.query.count() == 2
+
+
+def test_panel_parse_robust_and_stale():
+    from app.services import panel
+    assert panel.parse_answers("Kein JSON") is None
+    assert panel.parse_answers('{"kaufabsicht":"jein","kaufwahrscheinlichkeit":50}') is None
+    ok = panel.parse_answers('```json\n{"kaufabsicht":"vielleicht","kaufwahrscheinlichkeit":"120","max_preis":"1.299,00 €"}\n```')
+    assert ok["kaufwahrscheinlichkeit"] == 100.0 and ok["max_preis"] == 1299.0

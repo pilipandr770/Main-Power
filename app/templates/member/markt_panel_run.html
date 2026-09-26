@@ -1,0 +1,111 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import avatar %}
+{% block page_title %}Markt-Panel: {{ run.product_name }}{% endblock %}
+{% block content %}
+{% set unit = units.get(run.unit, '') %}
+<div class="page-head"><div><p class="muted mb-0 no-print"><a href="{{ url_for('member.panel_page') }}">Markt-Panel</a></p><h1>{{ run.product_name }}</h1>
+<p class="muted mb-0">{{ run.created_at|dt }} · {{ run.n_requested }} Personas · {{ {'privat': 'Privatpersonen', 'business': 'Geschäftsentscheider', 'beide': 'Privat und Business'}[run.audience] }} · {{ 'Rhein-Main' if run.regional == 'rhein-main' else 'Deutschland' }}</p></div>
+{% if run.status == 'done' %}<div class="row no-print"><button type="button" class="btn btn-ghost btn-sm" data-print>Drucken / als PDF speichern</button>
+<form method="post" action="{{ url_for('member.panel_delete', rid=run.id) }}" data-confirm="Auswertung löschen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Löschen</button></form></div>{% endif %}</div>
+
+<div class="synth-note mb-l"><b>Synthetisches Panel — keine echten Menschen.</b> Alle Personas sind von einer KI erfundene, fiktive Figuren. Die Auswertung liefert Hinweise und Hypothesen für Preis, Botschaft und Zielgruppe. Sie ersetzt keine Befragung echter Kund:innen und sagt keine Umsätze voraus. Merkmale wie Gesundheit oder Gewicht sind zufällig gewürfelt und keine Aussagen über reale Gruppen.</div>
+
+{% if run.status in ('queued', 'running') %}
+<section class="panel" data-panel-progress data-endpoint="{{ url_for('member.panel_status', rid=run.id) }}">
+  <h2>Die Personas antworten gerade …</h2>
+  <div class="progress mt-m"><span data-panel-bar></span></div>
+  <p class="muted mt-s mb-0" data-panel-label>Starte …</p>
+  <p class="small muted mt-s mb-0">Du kannst die Seite schließen und später wiederkommen: Der Lauf steht unter „Deine Läufe“.</p>
+</section>
+{% elif run.status == 'failed' %}
+<section class="panel"><h2>Der Lauf ist fehlgeschlagen</h2><p class="mb-0">{{ run.error or 'Unbekannter Fehler.' }}</p>
+<p class="mt-m"><a class="btn btn-sm" href="{{ url_for('member.panel_page') }}">Neuen Lauf starten</a>
+<form method="post" action="{{ url_for('member.panel_delete', rid=run.id) }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Löschen</button></form></p></section>
+{% else %}
+{% set o = res.overall %}
+<div class="kpis compact mb-l">
+  <div class="kpi"><b>{{ o.intent|round|int }} %</b><span>Kaufabsicht (sofort oder nach Test)</span></div>
+  <div class="kpi"><b>{{ o.prob|round|int }} %</b><span>Ø Kaufwahrscheinlichkeit (3 Monate)</span></div>
+  <div class="kpi"><b>{{ o.relevanz }}</b><span>Ø Relevanz (1–10)</span></div>
+  <div class="kpi"><b>{% if o.wtp %}{{ ('%.2f'|format(o.wtp))|replace('.', ',') }} €{% else %}—{% endif %}</b><span>Median Preisgrenze {{ unit }}</span></div>
+  {% if res.curve.best %}<div class="kpi"><b>{{ ('%.2f'|format(res.curve.best.price))|replace('.', ',') }} €</b><span>umsatzstärkster Preis in der Kurve</span></div>{% endif %}
+  <div class="kpi"><b>{{ res.n_valid }}/{{ res.n_requested }}</b><span>verwertbare Antworten</span></div>
+</div>
+{% if res.n_valid < res.n_requested %}<p class="small muted">Bei {{ res.n_requested - res.n_valid }} Personas war die Antwort nicht verwertbar; sie fehlen in der Auswertung.</p>{% endif %}
+
+<section class="panel mb-l"><div class="row"><h2 class="mb-0">Zusammenfassung</h2><span class="ai-mark">{{ 'von Aiko (KI)' if rep.ai else 'automatisch' }}</span></div>
+  <p class="mt-m mb-0">{{ rep.zusammenfassung }}</p></section>
+
+<div class="split mb-l">
+  <section><h2>Kaufabsicht</h2>
+    {% for label, n in res.intents.items() %}<div class="hbar"><span>{{ label }}</span><span class="track"><span class="fill{{ ' alt' if label in ('nein', 'vielleicht') }}" data-w="{{ (100 * n / res.n_valid)|round(1) }}"></span></span><span class="val">{{ n }}</span></div>{% endfor %}
+  </section>
+  <section><h2>Kaufwahrscheinlichkeit</h2>
+    {% for label, n in res.prob_hist.items() %}<div class="hbar"><span>{{ label }} %</span><span class="track"><span class="fill alt" data-w="{{ (100 * n / res.n_valid)|round(1) }}"></span></span><span class="val">{{ n }}</span></div>{% endfor %}
+  </section>
+</div>
+
+{% if res.curve.points %}
+<section class="mb-l"><h2>Preiskurve</h2>
+  <p class="muted small">Anteil der Personas, die bei diesem Preis {{ unit }} kaufen würden (Kaufwahrscheinlichkeit ab 40 % und Preisgrenze nicht überschritten). Der Umsatzindex ist Preis mal Anteil.{% if run.price_a %} Die Personas kannten deinen Preis; Anker-Effekte sind möglich, am verlässlichsten ist die Kurve bei offenem Preis.{% endif %}</p>
+  {% for pt in res.curve.points %}<div class="hbar{{ ' best' if res.curve.best and pt.price == res.curve.best.price }}"><span>{{ ('%.2f'|format(pt.price))|replace('.', ',') }} €{% if run.price_a == pt.price %} (Preis A){% elif run.price_b == pt.price %} (Preis B){% endif %}</span><span class="track"><span class="fill" data-w="{{ pt.share }}"></span></span><span class="val">{{ pt.share|round|int }} %</span></div>{% endfor %}
+  {% if rep.preis_fazit %}<p class="mt-s">{{ rep.preis_fazit }}</p>{% endif %}
+</section>
+{% elif rep.preis_fazit %}<section class="mb-l"><h2>Preis</h2><p>{{ rep.preis_fazit }}</p></section>{% endif %}
+
+{% if res.ab %}
+<section class="mb-l"><h2>Preisvergleich A und B</h2>
+  <div class="table-wrap"><table><thead><tr><th></th><th class="num">Personas</th><th class="num">Kaufabsicht</th><th class="num">Ø Wahrscheinlichkeit</th><th class="num">Median Preisgrenze</th></tr></thead><tbody>
+    {% for k, price in (('a', res.ab.price_a), ('b', res.ab.price_b)) %}{% set s = res.ab[k] %}<tr><td><b>Preis {{ k|upper }}: {{ ('%.2f'|format(price))|replace('.', ',') }} €</b></td><td class="num">{{ s.n }}</td><td class="num">{{ s.intent|round|int }} %</td><td class="num">{{ s.prob|round|int }} %</td><td class="num">{% if s.wtp %}{{ ('%.2f'|format(s.wtp))|replace('.', ',') }} €{% else %}—{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="small muted mt-s">{% if res.ab.p_value is none %}Zu wenige Personas für einen Vergleich.{% elif res.ab.p_value < 0.05 %}Der Unterschied in der Kaufabsicht ist statistisch auffällig (p = {{ res.ab.p_value|string|replace('.', ',') }}) — bei synthetischen Daten trotzdem nur ein Hinweis.{% else %}Der Unterschied in der Kaufabsicht ist statistisch nicht auffällig (p = {{ res.ab.p_value|string|replace('.', ',') }}): Bei dieser Stichprobe lässt sich kein Preiseffekt belegen.{% endif %}</p>
+</section>
+{% endif %}
+
+<section class="mb-l"><h2>Zielgruppen</h2>
+  {% if rep.zielgruppen_fazit %}<p>{{ rep.zielgruppen_fazit }}</p>{% endif %}
+  {% for seg in res.segments %}
+  <h3 class="mt-m">{{ seg.dimension }}</h3>
+  {% for r in seg.rows %}<div class="hbar"><span>{{ r.label }} <span class="small muted">({{ r.n }})</span></span><span class="track"><span class="fill" data-w="{{ r.intent }}"></span></span><span class="val">{{ r.intent|round|int }} %</span></div>{% endfor %}
+  {% endfor %}
+  <p class="small muted mt-s">Anteil mit Kaufabsicht je Segment; nur Segmente mit mindestens 5 Personas. Kleine Segmente schwanken stark.</p>
+</section>
+
+<div class="split mb-l">
+  <section><h2>Bedenken</h2>{% for t in rep.bedenken %}<div class="mb-m"><div class="hbar"><span>{{ t.thema }}</span><span class="track"><span class="fill alt" data-w="{{ (100 * t.anzahl / res.n_valid)|round(1) }}"></span></span><span class="val">{{ t.anzahl }}×</span></div><p class="small muted mb-0">„{{ t.beispiel }}“</p></div>{% endfor %}</section>
+  <section><h2>Nutzen</h2>{% for t in rep.nutzen %}<div class="mb-m"><div class="hbar"><span>{{ t.thema }}</span><span class="track"><span class="fill" data-w="{{ (100 * t.anzahl / res.n_valid)|round(1) }}"></span></span><span class="val">{{ t.anzahl }}×</span></div><p class="small muted mb-0">„{{ t.beispiel }}“</p></div>{% endfor %}</section>
+</div>
+{% if rep.aenderungen %}<section class="mb-l"><h2>Was müsste sich ändern?</h2>{% for t in rep.aenderungen %}<div class="mb-m"><div class="hbar"><span>{{ t.thema }}</span><span class="track"><span class="fill" data-w="{{ (100 * t.anzahl / res.n_valid)|round(1) }}"></span></span><span class="val">{{ t.anzahl }}×</span></div><p class="small muted mb-0">„{{ t.beispiel }}“</p></div>{% endfor %}</section>{% endif %}
+
+{% if rep.empfehlungen %}<section class="mb-l"><h2>Empfehlungen</h2>
+  {% for e in rep.empfehlungen %}<div class="action"><span class="no">{{ loop.index }}</span><div><h3>{{ e.titel }}</h3><p class="mb-0">{{ e.warum }}</p>{% if e.so_gehts %}<p class="mt-s mb-0"><b>So geht’s:</b> {{ e.so_gehts }}</p>{% endif %}</div></div>{% endfor %}
+</section>{% endif %}
+
+<section class="mb-l"><h2>Stimmen aus dem Panel</h2>
+  <div class="split">
+    <div><h3>Am ehesten Käufer:innen</h3>{% for e in res.examples_yes %}<p class="mb-m"><b>{{ e.name }}</b> <span class="small muted">{{ e.label }}, {{ e.age }} · {{ e.prob|round|int }} %</span><br>„{{ e.text }}“</p>{% endfor %}</div>
+    <div><h3>Am wenigsten Käufer:innen</h3>{% for e in res.examples_no %}<p class="mb-m"><b>{{ e.name }}</b> <span class="small muted">{{ e.label }}, {{ e.age }} · {{ e.prob|round|int }} %</span><br>„{{ e.text }}“</p>{% endfor %}</div>
+  </div>
+</section>
+
+{% if rep.verzerrung_hinweis %}<section class="synth-note mb-l"><b>Was du bei diesem Lauf beachten solltest</b><p class="mb-0 mt-s">{{ rep.verzerrung_hinweis }}</p></section>{% endif %}
+
+<section class="mb-l persona-table"><h2>Alle Personas ({{ rows|length }})</h2>
+  <div class="table-wrap"><table><thead><tr><th>Persona (fiktiv)</th><th>Rolle</th><th class="num">Alter</th><th>Kaufabsicht</th><th class="num">Wahrsch.</th><th class="num">Preisgrenze</th></tr></thead><tbody>
+  {% for x in rows %}{% set p = x.p %}{% set a = x.a %}
+  <tr><td><b>{{ p.name }}</b>{% if run.price_b %} <span class="tag">{{ x.r.variant }}</span>{% endif %}
+    <details><summary>Steckbrief und Antwort</summary>
+      <p class="small mb-0">{{ p.gender }}, {{ p.ortstyp }} in {{ p.region }}{% if p.kind == 'c' %} · {{ p.household }} · ca. {{ p.income_eur }} € netto/Monat · {{ p.education }}{% else %} · {{ p.company }} · {{ p.authority }}{% endif %} · Gesundheit: {{ p.health }} · Gewicht: {{ p.weight }} · Technik {{ p.tech }}/5 · Preisbewusstsein {{ p.price_sens }}/5 · Werte: {{ p['values']|join(', ') }} · {{ p.trait }}</p>
+      {% if a %}<p class="small mb-0 mt-s"><b>Begründung:</b> {{ a.hauptgrund }}<br><b>Bedenken:</b> {{ a.hauptbedenken }}<br><b>Nutzen:</b> {{ a.hauptnutzen or '—' }}<br><b>Änderungswunsch:</b> {{ a.aenderungswunsch }}</p>{% endif %}
+    </details></td>
+    <td>{{ p.label }}</td><td class="num">{{ p.age }}</td>
+    <td>{% if a %}<span class="tag {{ 'ok' if a.kaufabsicht in ('sofort_kaufen', 'nach_test') else 'warn' if a.kaufabsicht == 'vielleicht' else '' }}">{{ intent_label[a.kaufabsicht] }}</span>{% else %}<span class="muted">keine Antwort</span>{% endif %}</td>
+    <td class="num">{{ a.kaufwahrscheinlichkeit|round|int ~ ' %' if a else '—' }}</td>
+    <td class="num">{{ (('%.2f'|format(a.max_preis))|replace('.', ',') ~ ' €') if a and a.max_preis else '—' }}</td></tr>
+  {% endfor %}
+  </tbody></table></div>
+</section>
+
+<p class="small muted">Synthetische Auswertung mit {{ res.n_valid }} fiktiven KI-Personas ({{ run.model or 'KI-Modell' }}), erstellt am {{ run.finished_at|dt if run.finished_at else run.created_at|dt }}. Kein Ersatz für echte Marktforschung.{% if cost is not none %} · Admin: {{ run.tokens_in + run.tokens_out }} Tokens, ca. {{ '%.3f'|format(cost) }} $.{% endif %}</p>
+{% endif %}
+{% endblock %}

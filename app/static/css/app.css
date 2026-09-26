@@ -389,3 +389,17 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
   .panel, .action, .table-wrap { border-color: #999 !important; background: #fff !important; }
   a { color: #000 !important; }
 }
+
+/* ---------- Markt-Panel ---------- */
+.synth-note { border: 1px solid var(--ember); border-radius: var(--radius-m); padding: 1rem 1.2rem; background: rgba(254,71,22,.07); }
+.hbar { display: grid; grid-template-columns: minmax(7rem, 14rem) 1fr 4.2rem; gap: .7rem; align-items: center; padding: .3rem 0; font-size: .92rem; }
+.hbar .track { height: .7rem; border-radius: 99px; background: var(--coal-2); overflow: hidden; }
+.hbar .fill { display: block; height: 100%; width: 0; background: var(--ember); border-radius: 99px; }
+.hbar .fill.alt { background: var(--ash); }
+.hbar.best { color: var(--bone); font-weight: 600; }
+.hbar .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ash); }
+.kpis.compact .kpi b { font-size: 1.5rem; }
+.persona-table details { margin-top: .3rem; }
+.persona-table summary { cursor: pointer; color: var(--ash); font-size: .85rem; }
+@media (max-width: 640px) { .hbar { grid-template-columns: 6rem 1fr 3.4rem; } }
+@media print { .synth-note { border-color: #000; background: #fff; } .hbar .track { background: #ddd; } .hbar .fill { background: #000; -webkit-print-color-adjust: exact; } }

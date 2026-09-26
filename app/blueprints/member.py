@@ -9,9 +9,9 @@ from flask import (Blueprint, Response, session, abort, current_app, flash, json
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db, limiter
-from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, SeoReport, Event, IntroRequest, Match, Profile, Registration, Service,
+from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, PanelRun, SeoReport, Event, IntroRequest, Match, Profile, Registration, Service,
                       ServiceInquiry, Setting, User, utcnow)
-from ..services import aiko, compliance_check, insights, security_check, seo_check, matching, media, payments, telegram
+from ..services import aiko, compliance_check, insights, panel, security_check, seo_check, matching, media, payments, telegram
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
 from ..services.mailer import send_mail
@@ -512,7 +512,7 @@ def services():
 
 # Leistungen mit eigenem Werkzeug statt Anfrageformular
 TOOL_SERVICES = {"seo-check": "member.seo_check_page", "compliance-check": "member.compliance_check_page",
-                 "sicherheits-check": "member.security_check_page"}
+                 "sicherheits-check": "member.security_check_page", "markt-panel": "member.panel_page"}
 
 
 @bp.route("/leistungen/<slug>", methods=["GET", "POST"])
@@ -586,6 +586,84 @@ def compliance_check_page():
     reports = (SeoReport.query.filter_by(user_id=current_user.id, kind="compliance")
                .order_by(SeoReport.created_at.desc()).limit(10).all())
     return render_template("member/compliance_check.html", errors=errors, form=form, reports=reports)
+
+
+# --------------------------------------------------------------------------- Markt-Panel (synthetische Personas)
+@bp.route("/markt-panel", methods=["GET", "POST"])
+@limiter.limit("8 per hour", methods=["POST"])
+def panel_page():
+    limit, max_n = panel.limits()
+    used = panel.used_this_month(current_user.id)
+    unlimited = current_user.is_admin
+    sizes = [n for n in (25, 50, 100, 200, 300, 500) if n <= max_n] or [max_n]
+    errors: dict[str, str] = {}
+    form = request.form
+    if request.method == "POST":
+        name = form.get("product_name", "").strip()[:160]
+        desc = form.get("description", "").strip()[:1500]
+        audience = form.get("audience") if form.get("audience") in ("privat", "business", "beide") else "beide"
+        regional = form.get("regional") if form.get("regional") in ("de", "rhein-main") else "de"
+        unit = form.get("unit") if form.get("unit") in panel.UNITS else "einmalig"
+        pa, pb = panel._num(form.get("price_a", "")) if form.get("price_a", "").strip() else None, \
+            panel._num(form.get("price_b", "")) if form.get("price_b", "").strip() else None
+        n = int(form.get("n")) if (form.get("n") or "").isdigit() and int(form.get("n")) in sizes else sizes[-1]
+        if len(name) < 3:
+            errors["product_name"] = "Bitte gib dem Produkt einen Namen."
+        if len(desc) < 40:
+            errors["description"] = "Bitte beschreibe das Produkt in mindestens 40 Zeichen: Was ist es, für wen, was kann es?"
+        if (pa is not None and not 0 < pa < 1_000_000) or (form.get("price_a", "").strip() and pa is None):
+            errors["price_a"] = "Bitte einen gültigen Preis in Euro angeben (z. B. 29,90) oder das Feld leer lassen."
+        if pb is not None and pa is None:
+            errors["price_b"] = "Für den Preisvergleich braucht es zuerst Preis A."
+        elif (pb is not None and not 0 < pb < 1_000_000) or (form.get("price_b", "").strip() and pb is None):
+            errors["price_b"] = "Bitte einen gültigen Preis in Euro angeben."
+        if not form.get("synthetic"):
+            errors["synthetic"] = "Bitte bestätige, dass dir bewusst ist: Die Ergebnisse sind synthetisch (KI-generiert)."
+        if not unlimited and used >= limit:
+            errors["quota"] = f"Du hast dein Kontingent von {limit} Läufen in diesem Monat aufgebraucht."
+        if not errors:
+            run = panel.start_run(current_user, {"product_name": name, "description": desc, "audience": audience,
+                                                 "regional": regional, "unit": unit, "price_a": pa, "price_b": pb, "n": n})
+            audit("panel.start", f"run:{run.id}", f"{name[:80]} n={n}")
+            db.session.commit()
+            return redirect(url_for("member.panel_run", rid=run.id))
+    runs = PanelRun.query.filter_by(user_id=current_user.id).order_by(PanelRun.created_at.desc()).limit(10).all()
+    for r in runs:
+        panel.refresh_status(r)
+    return render_template("member/markt_panel.html", errors=errors, form=form, runs=runs, sizes=sizes, limit=limit,
+                           used=used, unlimited=unlimited, units=panel.UNITS)
+
+
+def _own_run(rid: int) -> PanelRun:
+    run = PanelRun.query.filter_by(id=rid, user_id=current_user.id).first_or_404()
+    return panel.refresh_status(run)
+
+
+@bp.route("/markt-panel/<int:rid>")
+def panel_run(rid):
+    run = _own_run(rid)
+    rows = [{"r": x, "p": x.persona, "a": x.answers} for x in run.responses] if run.status == "done" else []
+    return render_template("member/markt_panel_run.html", run=run, res=run.result or {}, rep=run.report or {}, rows=rows,
+                           units=panel.UNITS, intent_label=panel.INTENT_LABEL,
+                           cost=panel.cost_usd(run) if current_user.is_admin else None)
+
+
+@bp.route("/api/markt-panel/<int:rid>/status")
+def panel_status(rid):
+    run = _own_run(rid)
+    return jsonify(status=run.status, done=run.n_done, requested=run.n_requested, failed=run.n_failed, error=run.error)
+
+
+@bp.route("/markt-panel/<int:rid>/loeschen", methods=["POST"])
+def panel_delete(rid):
+    run = _own_run(rid)
+    if run.status == "running":
+        flash("Der Lauf ist noch aktiv.", "info")
+        return redirect(url_for("member.panel_run", rid=rid))
+    db.session.delete(run)
+    db.session.commit()
+    flash("Panel-Auswertung gelöscht.", "info")
+    return redirect(url_for("member.panel_page"))
 
 
 @bp.route("/sicherheits-check", methods=["GET", "POST"])

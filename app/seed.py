@@ -130,6 +130,19 @@ SECURITY_SERVICE = dict(
     member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
     provider_email="")
 
+PANEL_SERVICE = dict(
+    slug="markt-panel", sort=-1, title="Markt-Panel: Idee oder Produkt an KI-Personas testen",
+    summary="100 fiktive Personas mit unterschiedlichem Alter, Einkommen, Beruf und Lebenslage bewerten dein Produkt — vor dem Launch.",
+    description="Du beschreibst dein Produkt, deine Idee oder ein Update (optional mit ein oder zwei Preisen). Ein synthetisches Panel aus "
+                "bis zu 100 fiktiven Personas — Privatpersonen und Geschäftsentscheider, aus ganz Deutschland oder der Region Rhein-Main — "
+                "beantwortet den Fragebogen: kauft sie, zu welchem Preis, warum nicht, was müsste sich ändern. Du bekommst Kaufabsicht, "
+                "Preiskurve, Auswertung nach Zielgruppen, einen A/B-Preisvergleich, Themen der Bedenken und Empfehlungen von Aiko. "
+                "Wichtig: Die Personas sind KI-generiert und fiktiv. Das Ergebnis liefert Hinweise und Hypothesen für Positionierung, "
+                "Preis und Botschaft; es ersetzt keine Befragung echter Kund:innen und sagt keine Umsätze voraus.",
+    benefits="Feedback in ca. 2 Minuten statt Wochen\nKaufabsicht, Preiskurve und A/B-Preistest\nAuswertung nach Alter, Einkommen, Technikaffinität u. a.\nKonkrete Empfehlungen, was du vor dem Launch ändern solltest",
+    member_benefit="Für Mitglieder: 3 Läufe pro Monat inklusive", price_hint="Mitglieder: 3 Läufe/Monat inklusive",
+    provider_name="Main Power · Aiko", provider_email="")
+
 DEMO_MEMBERS = [
     ("Julia", "Wagner", "Steuerberaterin, eigene Kanzlei", "Steuerberatung",
      "Steuerberatung für Gründer:innen und Selbstständige, Schwerpunkt digitale Buchhaltung",
@@ -210,7 +223,7 @@ def _seed_content() -> None:
     if KnowledgeItem.query.count() == 0:
         for i, (q, a, public) in enumerate(FAQ):
             db.session.add(KnowledgeItem(question=q, answer=a, public=public, sort=i))
-    for s in SERVICES + [SEO_SERVICE, COMPLIANCE_SERVICE, SECURITY_SERVICE]:
+    for s in SERVICES + [PANEL_SERVICE, SEO_SERVICE, COMPLIANCE_SERVICE, SECURITY_SERVICE]:
         if not Service.query.filter_by(slug=s["slug"]).first():
             db.session.add(Service(**s))
     db.session.commit()

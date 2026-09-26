@@ -296,4 +296,30 @@
   document.querySelectorAll("[data-print]").forEach(function (b) {
     b.addEventListener("click", function () { window.print(); });
   });
+
+  // Balken (Breite per CSSOM, CSP-konform)
+  document.querySelectorAll("[data-w]").forEach(function (el) {
+    var w = parseFloat(el.getAttribute("data-w")) || 0;
+    el.style.width = Math.max(0, Math.min(100, w)) + "%";
+  });
+
+  // Markt-Panel: Fortschritt abfragen und bei Abschluss neu laden
+  document.querySelectorAll("[data-panel-progress]").forEach(function (box) {
+    var url = box.getAttribute("data-endpoint");
+    var bar = box.querySelector("[data-panel-bar]");
+    var label = box.querySelector("[data-panel-label]");
+    function tick() {
+      fetch(url, { credentials: "same-origin", headers: { "Accept": "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var pct = d.requested ? Math.round(100 * d.done / d.requested) : 0;
+          bar.style.width = pct + "%";
+          label.textContent = d.done + " von " + d.requested + " Personas haben geantwortet" + (d.status === "running" && d.done >= d.requested ? " — Aiko wertet aus …" : "");
+          if (d.status === "done" || d.status === "failed") { window.location.reload(); return; }
+          setTimeout(tick, 2000);
+        })
+        .catch(function () { setTimeout(tick, 4000); });
+    }
+    tick();
+  });
 })();

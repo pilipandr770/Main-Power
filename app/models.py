@@ -405,6 +405,50 @@ class SeoReport(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
+class PanelRun(db.Model):
+    """Ein Lauf des synthetischen Markt-Panels (fiktive KI-Personas bewerten ein Produkt)."""
+    __tablename__ = "panel_runs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_name = db.Column(db.String(160), nullable=False)
+    description = db.Column(db.Text, default="")
+    audience = db.Column(db.String(20), default="beide")  # privat|business|beide
+    regional = db.Column(db.String(20), default="de")  # de|rhein-main
+    unit = db.Column(db.String(20), default="einmalig")  # einmalig|monat|jahr
+    price_a = db.Column(db.Float)
+    price_b = db.Column(db.Float)
+    n_requested = db.Column(db.Integer, default=100)
+    n_done = db.Column(db.Integer, default=0)
+    n_failed = db.Column(db.Integer, default=0)
+    seed = db.Column(db.Integer, default=1)
+    status = db.Column(db.String(20), default="queued", index=True)  # queued|running|done|failed
+    error = db.Column(db.String(300), default="")
+    model = db.Column(db.String(80), default="")
+    tokens_in = db.Column(db.Integer, default=0)
+    tokens_out = db.Column(db.Integer, default=0)
+    result = db.Column(db.JSON)  # aggregierte Kennzahlen
+    report = db.Column(db.JSON)  # Bericht von Aiko
+    ai = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+    finished_at = db.Column(db.DateTime)
+
+    responses = db.relationship("PanelResponse", backref="run", cascade="all, delete-orphan", order_by="PanelResponse.idx")
+
+
+class PanelResponse(db.Model):
+    __tablename__ = "panel_responses"
+
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey("panel_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    idx = db.Column(db.Integer, default=0)
+    variant = db.Column(db.String(1), default="A")
+    persona = db.Column(db.JSON)
+    answers = db.Column(db.JSON)
+    ok = db.Column(db.Boolean, default=True)
+
+
 class LLMUsage(db.Model):
     """Token-Verbrauch je KI-Aufruf (nur Zähler, keine Inhalte)."""
     __tablename__ = "llm_usage"
@@ -472,6 +516,8 @@ class Setting(db.Model):
     DEFAULTS = {
         "member_events_require_approval": "1",
         "auto_invites": "1",
+        "panel_monthly_limit": "3",   # Markt-Panel-Läufe je Mitglied und Monat (Admins unbegrenzt)
+        "panel_max_personas": "100",  # Obergrenze Personas je Lauf
         "aiko_extra_instructions": "",
         "telegram_group_title": "Main Power Community",
         "announcement": "",

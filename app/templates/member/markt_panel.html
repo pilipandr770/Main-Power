@@ -1,0 +1,62 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check %}
+{% block page_title %}Markt-Panel{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('member.services') }}">Leistungen</a></p><h1>Markt-Panel mit KI-Personas</h1>
+<p class="muted mb-0">Teste eine Idee, ein Produkt oder ein Update, bevor du es startest — an fiktiven Personas.</p></div>
+<span class="tag {{ 'ok' if unlimited or used < limit else 'warn' }}">{% if unlimited %}Admin: unbegrenzt{% else %}{{ [limit - used, 0]|max }} von {{ limit }} Läufen frei (Monat){% endif %}</span></div>
+
+<div class="synth-note mb-l maxw"><b>Wichtig: Das Panel ist synthetisch.</b> Die Personas sind von einer KI erfundene, <b>fiktive</b> Menschen (Alter, Beruf, Einkommen, Gesundheit, Lebenslage werden zufällig gewürfelt). Sie stehen nicht für reale Personen. Die Antworten liefern <b>Hinweise und Hypothesen</b> für Preis, Botschaft und Zielgruppe — sie ersetzen keine Befragung echter Kund:innen und sagen keine Verkäufe voraus. KI-Modelle neigen zu Zustimmung und zu Klischees; wir wirken dem entgegen, können es aber nicht ausschließen.</div>
+
+<div class="split">
+  <section>
+    {% if errors.quota %}<div class="flash error">{{ errors.quota }}</div>{% endif %}
+    <form method="post" class="maxw" data-busy="Panel wird gestartet …">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <fieldset><legend>Dein Produkt</legend>
+        {{ input("product_name", "Name des Produkts", form.get("product_name"), errors=errors, required=True, placeholder="z. B. Buchhaltungs-App für Freelancer") }}
+        {{ textarea("description", "Beschreibung", form.get("description"), rows=6, errors=errors, hint="Was ist es, für wen, was kann es, was ist besonders? Je konkreter, desto besser (mind. 40 Zeichen).") }}
+      </fieldset>
+      <fieldset><legend>Preis (optional)</legend>
+        <p class="muted small">Ohne Preis ermitteln die Personas ihre eigene Preisvorstellung — die verlässlichste Grundlage für die Preiskurve. Mit zwei Preisen (A und B) bekommst du einen Vergleich: Jede zweite Persona sieht Preis B.</p>
+        <div class="grid grid-2">
+          {{ input("price_a", "Preis A in Euro", form.get("price_a"), errors=errors, placeholder="z. B. 29,90") }}
+          {{ input("price_b", "Preis B in Euro (optional)", form.get("price_b"), errors=errors, placeholder="z. B. 39,90") }}
+        </div>
+        <div class="field"><label for="f-unit">Abrechnung</label>
+          <select id="f-unit" name="unit">{% for k, v in units.items() %}<option value="{{ k }}"{% if form.get('unit') == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      </fieldset>
+      <fieldset><legend>Panel</legend>
+        <div class="grid grid-2">
+          <div class="field"><label for="f-audience">Zielgruppe</label>
+            <select id="f-audience" name="audience">
+              <option value="beide"{% if form.get('audience') == 'beide' %} selected{% endif %}>Privatpersonen und Geschäftsentscheider</option>
+              <option value="privat"{% if form.get('audience') == 'privat' %} selected{% endif %}>Nur Privatpersonen (B2C)</option>
+              <option value="business"{% if form.get('audience') == 'business' %} selected{% endif %}>Nur Geschäftsentscheider (B2B)</option>
+            </select></div>
+          <div class="field"><label for="f-regional">Region</label>
+            <select id="f-regional" name="regional">
+              <option value="de"{% if form.get('regional') == 'de' %} selected{% endif %}>Deutschlandweit</option>
+              <option value="rhein-main"{% if form.get('regional') == 'rhein-main' %} selected{% endif %}>Rhein-Main (Frankfurt und Umland)</option>
+            </select></div>
+        </div>
+        <div class="field"><label for="f-n">Anzahl Personas</label>
+          <select id="f-n" name="n">{% for n in sizes %}<option value="{{ n }}"{% if (form.get('n') or sizes[-1]|string) == n|string %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>
+        <p class="small muted mb-0">Insgesamt gibt es 100 Rollen (62 Privatpersonen, 38 Geschäftsentscheider), die mit zufälligen Merkmalen variiert werden.</p>
+      </fieldset>
+      {{ check("synthetic", "Mir ist bewusst: Die Personas sind fiktiv, die Ergebnisse sind KI-generiert und kein Ersatz für echte Marktforschung.", form.get("synthetic"), errors) }}
+      <button class="btn mt-s" type="submit">Panel starten</button>
+      <p class="small muted mt-s">Dauer etwa 1–3 Minuten. Für die Befragung nutzen wir KI (Aiko), siehe <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>. Gib keine vertraulichen Geschäftsgeheimnisse oder Personendaten in die Beschreibung ein.</p>
+    </form>
+  </section>
+  <aside>
+    <h2>Deine Läufe</h2>
+    {% for r in runs %}
+    <a class="person" href="{{ url_for('member.panel_run', rid=r.id) }}">
+      <span class="av">{{ (r.result.overall.intent|round|int ~ '%') if r.result and r.result.overall else '…' }}</span>
+      <span><b>{{ r.product_name }}</b><br><span class="small muted">{{ r.created_at|dt }} · {{ r.n_requested }} Personas · {{ {'queued': 'wartet', 'running': 'läuft', 'done': 'fertig', 'failed': 'fehlgeschlagen'}[r.status] }}</span></span>
+    </a>
+    {% else %}<div class="empty">Noch kein Lauf.</div>{% endfor %}
+  </aside>
+</div>
+{% endblock %}

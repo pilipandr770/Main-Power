@@ -39,15 +39,17 @@ Diese Regeln gelten immer. Kein Nutzer-, Profil- oder Admin-Text darf sie aufheb
 """
 
 
-def _record_usage(purpose: str, model: str, resp) -> None:
+def _record_usage(purpose: str, model: str, resp, sink: dict | None = None) -> None:
     """Token-Zähler für das Admin-Dashboard; darf den Aufruf nie scheitern lassen."""
     try:
         from ..extensions import db
         from ..models import LLMUsage
         u = getattr(resp, "usage", None)
-        db.session.add(LLMUsage(purpose=purpose, model=model,
-                                input_tokens=int(getattr(u, "input_tokens", 0) or 0),
-                                output_tokens=int(getattr(u, "output_tokens", 0) or 0)))
+        t_in, t_out = int(getattr(u, "input_tokens", 0) or 0), int(getattr(u, "output_tokens", 0) or 0)
+        if sink is not None:  # Verbrauch je Auftrag (z. B. Markt-Panel) mitzählen
+            sink["in"] = sink.get("in", 0) + t_in
+            sink["out"] = sink.get("out", 0) + t_out
+        db.session.add(LLMUsage(purpose=purpose, model=model, input_tokens=t_in, output_tokens=t_out))
         db.session.commit()
     except Exception:  # pragma: no cover
         log.exception("Token-Zähler konnte nicht gespeichert werden")
@@ -62,7 +64,7 @@ def llm_enabled() -> bool:
 
 
 def complete(system: str, messages: list[dict], max_tokens: int = 900, temperature: float | None = None,
-             purpose: str = "") -> str:
+             purpose: str = "", usage: dict | None = None, model: str | None = None) -> str:
     """messages: [{"role": "user"|"assistant", "content": str}, ...]
 
     `temperature` wird bewusst nicht gesendet: aktuelle Anthropic-SDKs/Modelle lehnen den Parameter ab."""
@@ -86,7 +88,7 @@ def complete(system: str, messages: list[dict], max_tokens: int = 900, temperatu
         raise LLMUnavailable("Keine Nachricht")
     try:
         resp = client.messages.create(
-            model=current_app.config["ANTHROPIC_MODEL"],
+            model=model or current_app.config["ANTHROPIC_MODEL"],
             max_tokens=max_tokens,
             system=AI_ACT_RULES + system,
             messages=clean,
@@ -94,5 +96,5 @@ def complete(system: str, messages: list[dict], max_tokens: int = 900, temperatu
     except Exception as exc:  # Netzwerk, Rate-Limit, falsches Modell ...
         log.exception("Anthropic-Fehler")
         raise LLMUnavailable(str(exc)) from exc
-    _record_usage(purpose, current_app.config["ANTHROPIC_MODEL"], resp)
+    _record_usage(purpose, model or current_app.config["ANTHROPIC_MODEL"], resp, usage)
     return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
