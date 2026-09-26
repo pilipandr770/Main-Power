@@ -314,7 +314,7 @@ def _fallback_report(result: dict) -> dict:
     s = result["score"]
     verdict = "sehr gut aufgestellt" if s >= 85 else "solide, mit klaren Verbesserungsmöglichkeiten" if s >= 65 \
         else "mit deutlichem Nachholbedarf"
-    return {"zusammenfassung": f"Die geprüfte Seite ist technisch und inhaltlich {verdict} (Score {s}/100). "
+    return {"zusammenfassung": f"Ergebnis der Prüfung: {verdict} (Score {s}/100). "
                                f"Die wichtigsten Hebel stehen unten in der Reihenfolge ihrer Wirkung.",
             "massnahmen": actions, "keyword_hinweise": "", "naechste_schritte":
             "Die Maßnahmen der Reihe nach umsetzen und die Seite danach erneut prüfen lassen.", "ai": False}
@@ -333,6 +333,11 @@ def build_report(result: dict, keywords: list[str]) -> dict:
               "Zeilenumbrüche, keine Aufzählungszeichen.")
     payload = {"url": result["url"], "score": result["score"], "seite": result["facts"], "keywords": keywords,
                "ergebnisse": [{k: f[k] for k in ("cat", "status", "title", "detail", "fix")} for f in result["findings"]]}
+    return ai_report(system, payload, result)
+
+
+def ai_report(system: str, payload: dict, result: dict) -> dict:
+    """Bericht per Modell (JSON) mit zweitem Versuch; ohne KI oder bei Fehlern: regelbasierter Fallback."""
     data = None
     for attempt in (1, 2):
         try:

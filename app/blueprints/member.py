@@ -11,7 +11,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from ..extensions import db, limiter
 from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, SeoReport, Event, IntroRequest, Match, Profile, Registration, Service,
                       ServiceInquiry, Setting, User, utcnow)
-from ..services import aiko, insights, seo_check, matching, media, payments, telegram
+from ..services import aiko, compliance_check, insights, seo_check, matching, media, payments, telegram
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
 from ..services.mailer import send_mail
@@ -511,7 +511,7 @@ def services():
 
 
 # Leistungen mit eigenem Werkzeug statt Anfrageformular
-TOOL_SERVICES = {"seo-check": "member.seo_check_page"}
+TOOL_SERVICES = {"seo-check": "member.seo_check_page", "compliance-check": "member.compliance_check_page"}
 
 
 @bp.route("/leistungen/<slug>", methods=["GET", "POST"])
@@ -556,8 +556,35 @@ def seo_check_page():
                 audit("seo.check", f"user:{current_user.id}", row.url[:200])
                 db.session.commit()
                 return redirect(url_for("member.seo_report", rid=row.id))
-    reports = (SeoReport.query.filter_by(user_id=current_user.id).order_by(SeoReport.created_at.desc()).limit(10).all())
+    reports = (SeoReport.query.filter_by(user_id=current_user.id, kind="seo").order_by(SeoReport.created_at.desc())
+               .limit(10).all())
     return render_template("member/seo_check.html", errors=errors, form=form, reports=reports)
+
+
+@bp.route("/compliance-check", methods=["GET", "POST"])
+@limiter.limit("6 per hour", methods=["POST"])
+def compliance_check_page():
+    errors: dict[str, str] = {}
+    form = request.form
+    if request.method == "POST":
+        if not form.get("authorized"):
+            errors["authorized"] = "Bitte bestätige, dass du diese Website prüfen darfst."
+        if not errors:
+            try:
+                result = compliance_check.analyze(form.get("url", ""))
+            except seo_check.SeoCheckError as exc:
+                errors["url"] = str(exc)
+            else:
+                report = compliance_check.build_report(result)
+                row = SeoReport(user_id=current_user.id, kind="compliance", url=result["url"][:500], score=result["score"],
+                                data={"result": result, "report": report}, ai=report["ai"])
+                db.session.add(row)
+                audit("compliance.check", f"user:{current_user.id}", row.url[:200])
+                db.session.commit()
+                return redirect(url_for("member.seo_report", rid=row.id))
+    reports = (SeoReport.query.filter_by(user_id=current_user.id, kind="compliance")
+               .order_by(SeoReport.created_at.desc()).limit(10).all())
+    return render_template("member/compliance_check.html", errors=errors, form=form, reports=reports)
 
 
 @bp.route("/seo-check/<int:rid>")
@@ -569,10 +596,11 @@ def seo_report(rid):
 @bp.route("/seo-check/<int:rid>/loeschen", methods=["POST"])
 def seo_report_delete(rid):
     row = SeoReport.query.filter_by(id=rid, user_id=current_user.id).first_or_404()
+    kind = row.kind
     db.session.delete(row)
     db.session.commit()
     flash("Bericht gelöscht.", "info")
-    return redirect(url_for("member.seo_check_page"))
+    return redirect(url_for("member.compliance_check_page" if kind == "compliance" else "member.seo_check_page"))
 
 
 # --------------------------------------------------------------------------- Community-Chat (Telegram)

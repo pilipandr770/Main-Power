@@ -106,6 +106,18 @@ SEO_SERVICE = dict(
     member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
     provider_email="")
 
+COMPLIANCE_SERVICE = dict(
+    slug="compliance-check", sort=1, title="Compliance-Check für deine Website",
+    summary="Aiko prüft, ob deine Website die wichtigsten Pflichtangaben und Datenschutz-Grundlagen erfüllt.",
+    description="Du gibst die Adresse deiner Website ein. Wir prüfen automatisch: Impressum (Anschrift, E-Mail, Vertretung, "
+                "Register), Datenschutzerklärung (Pflichtinhalte, eingesetzte Dienste), Cookie-Einwilligung und "
+                "Tracking-Dienste, externe Schriftarten, bei Shops AGB, Widerrufsbelehrung und Barrierefreiheit sowie "
+                "grundlegende Sicherheits-Header. Aiko fasst das in einem verständlichen Bericht zusammen und sortiert "
+                "die Maßnahmen nach Dringlichkeit. Automatische, statische Prüfung — keine Rechtsberatung.",
+    benefits="Bericht in unter einer Minute\nDringlichste Lücken zuerst\nOhne juristisches Vorwissen verständlich\nBerichte lassen sich speichern und ausdrucken",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    provider_email="")
+
 DEMO_MEMBERS = [
     ("Julia", "Wagner", "Steuerberaterin, eigene Kanzlei", "Steuerberatung",
      "Steuerberatung für Gründer:innen und Selbstständige, Schwerpunkt digitale Buchhaltung",
@@ -186,7 +198,7 @@ def _seed_content() -> None:
     if KnowledgeItem.query.count() == 0:
         for i, (q, a, public) in enumerate(FAQ):
             db.session.add(KnowledgeItem(question=q, answer=a, public=public, sort=i))
-    for s in SERVICES + [SEO_SERVICE]:
+    for s in SERVICES + [SEO_SERVICE, COMPLIANCE_SERVICE]:
         if not Service.query.filter_by(slug=s["slug"]).first():
             db.session.add(Service(**s))
     db.session.commit()

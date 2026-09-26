@@ -535,3 +535,70 @@ def test_seo_check_blocks_internal_addresses(client):
         except seo_check.SeoCheckError:
             continue
         raise AssertionError(f"{bad} wurde nicht abgelehnt")
+
+
+SHOP_HTML = b"""<!doctype html><html lang="de"><head><title>Shop</title>
+<script src="https://www.googletagmanager.com/gtag/js?id=G-1"></script><link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+</head><body><h1>Unser Shop</h1><button>In den Warenkorb</button><a href="/kasse">Zur Kasse</a>
+<form action="/n"><input type="email" name="email"><button>Anmelden</button></form>
+<footer><a href="/impressum">Impressum</a> <a href="/datenschutz">Datenschutz</a></footer></body></html>"""
+IMPRESSUM = ("Impressum Musterfirma GmbH Beispielstraße 12 60311 Frankfurt am Main Tel. +49 69 123456 E-Mail: info@musterfirma.de "
+             "vertreten durch die Geschäftsführerin Erika Muster Handelsregister Amtsgericht Frankfurt HRB 12345 USt-IdNr. DE123456789 "
+             + "Angaben gemäß § 5 DDG. " * 5).encode()
+DATENSCHUTZ = ("Datenschutzerklärung Verantwortlicher ist die Musterfirma GmbH. Rechte: Auskunft, Löschung, Widerspruch. "
+               "Beschwerde bei der Aufsichtsbehörde. Rechtsgrundlage Art. 6 DSGVO. Speicherdauer: Daten werden gelöscht. "
+               "Hosting und Server-Logfiles. Auftragsverarbeiter, Empfänger. Cookies und Tracking. " * 25).encode()
+
+
+def _fake_site(pages):
+    from types import SimpleNamespace
+
+    def fake_get(url, max_bytes=0):
+        path = "/" + url.split("//", 1)[1].split("/", 1)[1] if url.count("/") > 2 else "/"
+        body = pages.get(path)
+        if body is None:
+            return SimpleNamespace(status_code=404, headers={}, encoding="utf-8", raw=SimpleNamespace(headers=SimpleNamespace(getlist=lambda k: []))), b"", 0.1, url
+        raw = SimpleNamespace(headers=SimpleNamespace(getlist=lambda k: ["_ga=GA1.2.3; Path=/"] if path == "/" else []))
+        return SimpleNamespace(status_code=200, headers={"Content-Type": "text/html"}, encoding="utf-8", raw=raw), body, 0.3, url
+    return fake_get
+
+
+def test_compliance_check_finds_gaps_and_ok_pages(client, app, monkeypatch):
+    from app.models import SeoReport
+    from app.services import compliance_check, seo_check
+
+    monkeypatch.setattr(seo_check, "_get", _fake_site({"/": SHOP_HTML, "/impressum": IMPRESSUM, "/datenschutz": DATENSCHUTZ}))
+    monkeypatch.setattr(compliance_check, "_get", seo_check._get)
+    res = compliance_check.analyze("https://shop.example")
+    by = {f["key"]: f for f in res["findings"]}
+    assert by["imp"]["status"] == "ok" and by["imp_addr"]["status"] == "ok" and by["imp_reg"]["status"] == "ok"
+    assert by["ds"]["status"] == "ok"
+    assert by["cmp"]["status"] == "fail"            # GTM ohne Consent-Banner
+    assert by["cookies_set"]["status"] == "fail"    # _ga schon beim ersten Aufruf
+    assert by["fonts"]["status"] == "fail"          # Google Fonts extern
+    assert by["ds_tools"]["status"] == "fail"       # GA/GTM/Fonts nicht in der Datenschutzerklärung
+    assert by["widerruf"]["status"] == "fail" and by["agb"]["status"] == "fail"  # Shop ohne AGB/Widerruf
+    assert "Shop" in " ".join(res["facts"]["dienste"] or ["Shop"]) or res["facts"]["shop"]
+    assert 0 < res["score"] < 80
+
+    # Seite ganz ohne Rechtstexte
+    monkeypatch.setattr(seo_check, "_get", _fake_site({"/": b"<html><body><h1>Hallo</h1></body></html>"}))
+    monkeypatch.setattr(compliance_check, "_get", seo_check._get)
+    res = compliance_check.analyze("https://leer.example")
+    by = {f["key"]: f for f in res["findings"]}
+    assert by["imp"]["status"] == "fail" and by["ds"]["status"] == "fail"
+
+    # Route: Katalog, Formular, Bericht, Löschen
+    monkeypatch.setattr(seo_check, "_get", _fake_site({"/": SHOP_HTML, "/impressum": IMPRESSUM, "/datenschutz": DATENSCHUTZ}))
+    monkeypatch.setattr(compliance_check, "_get", seo_check._get)
+    register(client)
+    assert client.get("/app/leistungen/compliance-check").status_code == 302
+    assert "Was geprüft wird" in client.get("/app/compliance-check").get_data(as_text=True)
+    r = client.post("/app/compliance-check", data={"url": "shop.example", "authorized": "1"}, follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert "Compliance-Bericht" in body and "keine Rechtsberatung" in body and "Widerrufsbelehrung" in body
+    with app.app_context():
+        row = SeoReport.query.filter_by(kind="compliance").one()
+        rid = row.id
+    r = client.post(f"/app/seo-check/{rid}/loeschen", follow_redirects=True)
+    assert "Compliance-Check" in r.get_data(as_text=True)

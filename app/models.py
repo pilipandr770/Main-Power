@@ -396,6 +396,7 @@ class SeoReport(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = db.Column(db.String(20), default="seo", nullable=False)  # seo|compliance
     url = db.Column(db.String(500), nullable=False)
     keywords = db.Column(db.String(300), default="")
     score = db.Column(db.Integer, default=0)

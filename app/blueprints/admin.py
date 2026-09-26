@@ -98,7 +98,7 @@ def _llm_usage(now: datetime) -> dict:
         return {"in": int(i), "out": int(o), "total": int(i + o), "calls": int(n), "cost": cost}
 
     labels = {"aiko_public": "Aiko (Website)", "aiko_member": "Aiko (Mitglieder)", "matching": "Matching-Begründungen",
-              "seo_report": "SEO-Check", "profile_coach": "Profil-Coach", "pair_insight": "Kontakt-Assistent",
+              "seo_report": "SEO-/Compliance-Check", "profile_coach": "Profil-Coach", "pair_insight": "Kontakt-Assistent",
               "event_invite": "Termin-Einladungen"}
     rows = (db.session.query(LLMUsage.purpose, func.sum(LLMUsage.input_tokens), func.sum(LLMUsage.output_tokens),
                              func.count(LLMUsage.id)).group_by(LLMUsage.purpose).all())
