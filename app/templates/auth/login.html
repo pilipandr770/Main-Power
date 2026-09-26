@@ -10,6 +10,6 @@
   {{ input("password", "Passwort", type="password", required=True, autocomplete="current-password") }}
   {{ check("remember", "Angemeldet bleiben") }}
   <button class="btn" type="submit">Anmelden</button>
-  <p class="mt-m muted"><a href="{{ url_for('auth.forgot') }}">Passwort vergessen?</a> · Neu hier? <a href="{{ url_for('auth.register') }}">Mitglied werden</a></p>
+  <p class="mt-m muted">{% if cfg.SMTP_HOST %}<a href="{{ url_for('auth.forgot') }}">Passwort vergessen?</a> · {% endif %}Neu hier? <a href="{{ url_for('auth.register') }}">Mitglied werden</a></p>
 </form>
 {% endblock %}

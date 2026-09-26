@@ -37,6 +37,11 @@ Kommunikation mit dem Entwickler: Russisch. UI-Texte, Kommentare im Code und Com
 ### Skalierung
 Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`), Spalten `vector(1024)`, HNSW-Index, `top_matches`/`semantic_search` auf SQL (`<=>`) umstellen. Region (`profiles.region`) ist schon vorhanden → Mandanten/Regionen später per Filter bzw. eigener `communities`-Tabelle.
 
+## Roadmap nach dem MVP (mit Andrii abgestimmt, 26.09.2026)
+Bewusst zurückgestellt, damit MVP und Demo schlank bleiben: Passwort-Reset und E-Mail-Verifizierung (SMTP), 2FA, Stripe,
+Sicherheitsrunde (White-Team-Audit), Cybersecurity-Angebote (automatisierter Blackbox-Pentest-Service, allgemeine Lektionen).
+Ohne SMTP_HOST wird der Link „Passwort vergessen“ im Login ausgeblendet.
+
 ## Offene Punkte / TODO
 - [ ] Tarife/Mitgliedschaften (Stripe Subscriptions) — nach Termin mit Asset am 28.09. klären; aktuell nur Ticketzahlung pro Termin.
 - [ ] Erstattungen bei Abmeldung bezahlter Termine (derzeit manuell).
