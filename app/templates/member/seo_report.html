@@ -50,5 +50,8 @@
 
 {% if report.naechste_schritte %}<section class="mb-l"><h2>Nächste Schritte</h2><p>{{ report.naechste_schritte }}</p></section>{% endif %}
 <p class="small muted">Momentaufnahme der geprüften Seite am {{ r.created_at|dt }}. {% if is_c %}Automatische, statische Prüfung — <b>keine Rechtsberatung</b> und keine Gewähr auf Vollständigkeit; ob deine Website rechtskonform ist, klärt im Zweifel eine Anwältin, ein Anwalt oder ein Datenschutzbeauftragter.{% elif is_s %}Passive Prüfung öffentlich sichtbarer Einstellungen — <b>kein Penetrationstest</b>; interne Systeme, Software-Stände und Zugänge wurden nicht geprüft.{% else %}Keine Garantie für Platzierungen in Suchmaschinen.{% endif %} Der Bericht wurde {{ 'mit KI-Unterstützung (Aiko)' if report.ai else 'automatisch' }} erstellt und ersetzt keine individuelle Beratung.</p>
-<div class="panel no-print"><b>{{ 'Du möchtest die Lücken schließen?' if (is_c or is_s) else 'Möchtest du Hilfe bei der Umsetzung?' }}</b> <span class="muted">Frag Aiko oder schreib uns an <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</span></div>
+<div class="panel no-print"><b>{{ 'Du möchtest die Lücken schließen?' if (is_c or is_s) else 'Möchtest du Hilfe bei der Umsetzung?' }}</b> <span class="muted">Frag Aiko oder schreib uns an <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</span>
+  {% if is_s %}<p class="mb-0 mt-s">Für eine tiefere Prüfung inklusive Penetrationstest übernehmen das unsere Partner von Andrii-IT persönlich, mit Auftrag und individuellem Bericht: <a href="{{ url_for('member.service_detail', slug='cybersecurity-check') }}">Unverbindlich anfragen</a>.</p>
+  {% elif is_c %}<p class="mb-0 mt-s">Für eine persönliche Begleitung bei NIS2 und DSGVO: <a href="{{ url_for('member.service_detail', slug='nis2-dsgvo-compliance') }}">Unverbindlich anfragen</a>.</p>{% endif %}
+</div>
 {% endblock %}
