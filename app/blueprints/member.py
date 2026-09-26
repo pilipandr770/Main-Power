@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
-from flask import (Blueprint, Response, abort, current_app, flash, jsonify, redirect, render_template, request,
+from flask import (Blueprint, Response, session, abort, current_app, flash, jsonify, redirect, render_template, request,
                    send_from_directory, url_for)
-from flask_login import current_user, login_required, logout_user
+from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db, limiter
 from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, Event, IntroRequest, Match, Profile, Registration, Service,
@@ -21,12 +21,55 @@ from .public import upcoming
 bp = Blueprint("member", __name__)
 
 
+# Im Demo-Modus "als Nutzer" gesperrt: Aktionen, die das echte Konto dauerhaft verändern oder Daten herausgeben
+IMPERSONATION_BLOCKED = {"member.delete_account", "member.change_password", "member.export", "member.community_unlink"}
+
+
 @bp.before_request
 @login_required
 def _guard():
+    if session.get("impersonator_id") and request.endpoint in IMPERSONATION_BLOCKED:
+        flash("Im Demo-Modus „als Nutzer“ ist diese Aktion gesperrt.", "info")
+        return redirect(url_for("member.dashboard"))
     if current_user.profile is None:
         current_user.profile = Profile()
         db.session.commit()
+
+
+# --------------------------------------------------------------------------- Demo-Modus: Konten wechseln
+def _impersonator() -> User | None:
+    if not current_app.config.get("ENABLE_IMPERSONATION") or not session.get("impersonator_id"):
+        return None
+    admin = db.session.get(User, int(session["impersonator_id"]))
+    return admin if admin and admin.is_admin and admin.status == "active" else None
+
+
+@bp.route("/als-nutzer/<int:user_id>", methods=["POST"])
+def impersonate_switch(user_id):
+    admin = _impersonator()
+    if admin is None:
+        abort(403)
+    target = db.session.get(User, user_id) or abort(404)
+    if target.status != "active" or (target.is_superadmin and not admin.is_superadmin):
+        abort(403)
+    audit("impersonate.switch", f"user:{target.id}", target.email, actor_id=admin.id)
+    db.session.commit()
+    login_user(target, remember=False)
+    session["impersonator_id"] = admin.id
+    return redirect(request.referrer if request.referrer and request.host in request.referrer else url_for("member.dashboard"))
+
+
+@bp.route("/als-nutzer-beenden", methods=["POST"])
+def impersonate_stop():
+    admin = _impersonator()
+    if admin is None:
+        session.pop("impersonator_id", None)
+        return redirect(url_for("member.dashboard"))
+    audit("impersonate.stop", f"user:{current_user.id}", actor_id=admin.id)
+    db.session.commit()
+    session.pop("impersonator_id", None)
+    login_user(admin, remember=False)
+    return redirect(url_for("admin.users"))
 
 
 # --------------------------------------------------------------------------- Übersicht

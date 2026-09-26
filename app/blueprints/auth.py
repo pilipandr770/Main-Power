@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from flask import (Blueprint, current_app, flash, redirect, render_template, request, url_for)
+from flask import (Blueprint, current_app, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -101,6 +101,7 @@ def login():
 @bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    session.pop("impersonator_id", None)
     logout_user()
     flash("Du bist abgemeldet.", "info")
     return redirect(url_for("public.index"))

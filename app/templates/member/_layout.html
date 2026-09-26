@@ -3,6 +3,19 @@
 {% block title %}{% block page_title %}{% endblock %} — Main Power{% endblock %}
 {% block body %}
 {% set ep = request.endpoint or '' %}
+{% if impersonating %}
+<div class="impersonation" role="status">
+  <span><b>Demo-Modus:</b> Du siehst die Plattform als <b>{{ current_user.full_name }}</b> (angemeldet als {{ impersonating.first_name }}).</span>
+  <form method="post" action="" class="row" data-switch>
+    <label class="sr-only" for="switch-user">Zu anderem Nutzer wechseln</label>
+    <select id="switch-user" data-switch-select aria-label="Zu anderem Nutzer wechseln">
+      {% for u in switch_users %}<option value="{{ url_for('member.impersonate_switch', user_id=u.id) }}"{% if u.id == current_user.id %} selected{% endif %}>{{ u.full_name }}{% if u.profile and u.profile.headline %} — {{ u.profile.headline[:38] }}{% endif %}</option>{% endfor %}
+    </select>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  <form method="post" action="{{ url_for('member.impersonate_stop') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">Zurück zum Admin</button></form>
+</div>
+{% endif %}
 <div class="mobile-bar">{{ logo() }}<button class="btn btn-ghost btn-sm" data-rail-toggle aria-expanded="false">Menü</button></div>
 <div class="app">
   <aside class="rail" aria-label="Mitgliederbereich">

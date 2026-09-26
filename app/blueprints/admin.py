@@ -6,8 +6,8 @@ import json
 import re
 from datetime import datetime, timedelta
 
-from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
-from flask_login import current_user, login_required
+from flask import Blueprint, Response, abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask_login import current_user, login_required, login_user
 from sqlalchemy import func
 
 from ..extensions import db
@@ -192,6 +192,23 @@ def user_edit(user_id):
             return redirect(url_for("admin.user_detail", user_id=u.id))
     return render_template("admin/user_edit.html", u=u, p=p, errors=errors, formats=FORMATS, socials=SOCIALS,
                            form=request.form if request.method == "POST" else None)
+
+
+@bp.route("/mitglieder/<int:user_id>/als-nutzer", methods=["POST"])
+def impersonate(user_id):
+    """Demo-Modus: als dieses Mitglied ansehen (nur mit ENABLE_IMPERSONATION=1)."""
+    if not current_app.config.get("ENABLE_IMPERSONATION"):
+        abort(404)
+    target = db.session.get(User, user_id) or abort(404)
+    if target.id == current_user.id or target.status != "active" or (target.is_superadmin and not current_user.is_superadmin):
+        flash("Dieses Konto kann nicht übernommen werden.", "error")
+        return redirect(url_for("admin.user_detail", user_id=user_id))
+    admin_id = current_user.id
+    audit("impersonate.start", f"user:{target.id}", target.email)
+    db.session.commit()
+    login_user(target, remember=False)
+    session["impersonator_id"] = admin_id
+    return redirect(url_for("member.dashboard"))
 
 
 @bp.route("/mitglieder/<int:user_id>/<action>", methods=["POST"])

@@ -3,7 +3,7 @@ import os
 
 import click
 from dotenv import load_dotenv
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
 from flask_login import current_user
 
 load_dotenv()
@@ -88,10 +88,19 @@ def _register_template_helpers(app: Flask) -> None:
     @app.context_processor
     def inject():
         pending = unread = 0
+        impersonating, switch_users = None, []
+        if current_user.is_authenticated and app.config.get("ENABLE_IMPERSONATION") and session.get("impersonator_id"):
+            from .models import User
+            impersonating = db.session.get(User, int(session["impersonator_id"]))
+            if impersonating and impersonating.is_admin:
+                switch_users = (User.query.filter(User.status == "active", User.role != "superadmin")
+                                .order_by(User.first_name).limit(60).all())
+            else:
+                impersonating = None
         if current_user.is_authenticated:
             pending = IntroRequest.query.filter_by(to_user_id=current_user.id, status="pending").count()
             unread = Notification.query.filter_by(user_id=current_user.id, read_at=None).count()
-        return {"FORMATS": FORMATS, "cfg": app.config, "pending_intros": pending, "unread_invites": unread,
+        return {"FORMATS": FORMATS, "cfg": app.config, "pending_intros": pending, "unread_invites": unread, "impersonating": impersonating, "switch_users": switch_users,
                 "stripe_on": stripe_enabled(), "ai_on": llm_enabled()}
 
 

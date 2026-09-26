@@ -276,4 +276,13 @@
       if (banner) banner.hidden = false;
     });
   });
+
+  // Demo-Modus: Nutzerwechsel per Auswahlfeld
+  document.querySelectorAll("[data-switch-select]").forEach(function (sel) {
+    sel.addEventListener("change", function () {
+      var f = sel.closest("form");
+      f.setAttribute("action", sel.value);
+      f.submit();
+    });
+  });
 })();

@@ -435,3 +435,44 @@ def test_legal_pages_cookie_banner_and_subscriptions(client, app):
     client.post("/app/privatsphaere/loeschen", data={"password": "sehr-sicheres-pw"}, follow_redirects=True)
     with app.app_context():
         assert User.query.filter_by(email="abo@example.com").first() is None
+
+
+def test_admin_impersonation_demo_mode(client, app):
+    from app.models import AuditLog
+    with app.app_context():
+        julia = User.query.filter_by(email="julia.wagner@demo.main-power.local").first().id
+        markus = User.query.filter_by(email="markus.albrecht@demo.main-power.local").first().id
+    login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+          os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
+    # ohne Flag: nicht verfügbar
+    app.config["ENABLE_IMPERSONATION"] = False
+    assert client.post(f"/admin/mitglieder/{julia}/als-nutzer").status_code == 404
+    app.config["ENABLE_IMPERSONATION"] = True
+    assert "Als dieses Mitglied ansehen" in client.get(f"/admin/mitglieder/{julia}").get_data(as_text=True)
+
+    r = client.post(f"/admin/mitglieder/{julia}/als-nutzer", follow_redirects=True)
+    page = r.get_data(as_text=True)
+    assert "Demo-Modus" in page and "Julia" in page and 'data-switch-select' in page
+    # Wechsel zu anderem Nutzer ohne Umweg über den Admin
+    r = client.post(f"/app/als-nutzer/{markus}", follow_redirects=True)
+    assert "Markus Albrecht" in r.get_data(as_text=True)
+    # gesperrte Aktionen im Demo-Modus
+    r = client.post("/app/privatsphaere/loeschen", data={"password": "demo-passwort-123"}, follow_redirects=True)
+    assert "gesperrt" in r.get_data(as_text=True)
+    with app.app_context():
+        assert db.session.get(User, markus) is not None
+    # zurück zum Admin
+    r = client.post("/app/als-nutzer-beenden", follow_redirects=True)
+    assert r.status_code == 200 and "Mitglieder" in r.get_data(as_text=True)
+    assert client.get("/admin/").status_code == 200
+    with app.app_context():
+        admin_id = User.query.filter_by(role="superadmin").first().id
+        acts = [(a.action, a.actor_id) for a in AuditLog.query.filter(AuditLog.action.like("impersonate.%"))]
+        assert ("impersonate.start", admin_id) in acts and ("impersonate.switch", admin_id) in acts \
+            and ("impersonate.stop", admin_id) in acts
+    # normales Mitglied darf nicht wechseln
+    client.post("/logout")
+    login(client, "julia.wagner@demo.main-power.local", "demo-passwort-123")
+    assert client.post(f"/app/als-nutzer/{markus}").status_code == 403
+    assert client.post(f"/admin/mitglieder/{markus}/als-nutzer").status_code == 403
+    app.config["ENABLE_IMPERSONATION"] = False

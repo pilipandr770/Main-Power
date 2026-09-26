@@ -35,6 +35,9 @@
     <div class="panel">
       <h3>Aktionen</h3>
       <a class="btn btn-sm mb-m" href="{{ url_for('admin.user_edit', user_id=u.id) }}">Bearbeiten</a>
+      {% if cfg.ENABLE_IMPERSONATION and u.status == 'active' and u.id != current_user.id and (current_user.is_superadmin or not u.is_superadmin) %}
+      <form method="post" action="{{ url_for('admin.impersonate', user_id=u.id) }}" class="mb-m"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-ghost">Als dieses Mitglied ansehen</button></form>
+      {% endif %}
       {% if u.status == 'active' %}
       <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='sperren') }}" data-confirm="Konto sperren? Die Person wird auch aus dem Telegram-Chat entfernt."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Sperren</button></form>
       {% else %}

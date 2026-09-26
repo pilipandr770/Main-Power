@@ -369,3 +369,9 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
 .cookie-banner p { flex: 1 1 320px; font-size: .92rem; }
 .legal-links { display: flex; flex-wrap: wrap; gap: .3rem .9rem; font-size: .8rem; margin-top: .8rem; }
 .legal-links a { color: var(--ash); }
+
+/* ---------- Demo-Modus: Konten wechseln ---------- */
+.impersonation { position: sticky; top: 0; z-index: 50; display: flex; gap: .8rem 1.2rem; align-items: center; flex-wrap: wrap;
+  justify-content: space-between; padding: .55rem 1rem; background: var(--ember); color: var(--night); font-size: .9rem; }
+.impersonation select { max-width: 320px; }
+.impersonation .btn { background: var(--night); color: var(--bone); border-color: var(--night); }

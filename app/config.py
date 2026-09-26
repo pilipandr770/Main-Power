@@ -76,6 +76,9 @@ class Config:
     SMTP_FROM = os.environ.get("SMTP_FROM", "Main Power <hallo@main-power.org>")
     SMTP_TLS = _bool("SMTP_TLS", True)
 
+    # Demo-Modus: Admins dürfen zwischen Mitgliedskonten wechseln. In Produktion AUS lassen (ENABLE_IMPERSONATION nicht setzen).
+    ENABLE_IMPERSONATION = _bool("ENABLE_IMPERSONATION", False)
+
     # Legal
     IMPRESSUM_URL = os.environ.get("IMPRESSUM_URL", "https://www.main-power.org/impressum")
     CONSENT_VERSION = os.environ.get("CONSENT_VERSION", "2026-09")
