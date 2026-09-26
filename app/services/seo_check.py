@@ -339,7 +339,10 @@ def build_report(result: dict, keywords: list[str]) -> dict:
 def ai_report(system: str, payload: dict, result: dict) -> dict:
     """Bericht per Modell (JSON) mit zweitem Versuch; ohne KI oder bei Fehlern: regelbasierter Fallback."""
     data = None
+    started = time.monotonic()
     for attempt in (1, 2):
+        if attempt == 2 and time.monotonic() - started > 30:
+            break  # Gesamtlaufzeit begrenzen (Proxy-Limit ca. 100 s)
         try:
             raw = complete(system + " Fasse dich kurz: jeder Textwert höchstens zwei Sätze, insgesamt höchstens 6 Maßnahmen." +
                            (" Deine letzte Antwort war kein gültiges JSON (vermutlich zu lang). Antworte kompakter und achte "

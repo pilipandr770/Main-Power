@@ -20,7 +20,7 @@ from .seo_check import SeoCheckError, _assert_public, _f
 log = logging.getLogger(__name__)
 
 TLS, HDR, COO, MAIL, DNS = "Verschlüsselung (TLS)", "HTTP-Sicherheits-Header", "Cookies", "E-Mail-Sicherheit", "DNS und Kontakt"
-DKIM_SELECTORS = ["default", "google", "selector1", "selector2", "k1", "k2", "mail", "s1", "s2", "dkim", "mandrill", "smtp"]
+DKIM_SELECTORS = ["default", "google", "selector1", "selector2", "k1", "s1", "mail", "dkim"]
 SECOND_LEVEL = {"co.uk", "org.uk", "com.au", "co.nz", "com.br", "co.za"}
 
 
@@ -77,7 +77,7 @@ def _txt(name: str) -> list[str]:
     import dns.exception
     import dns.resolver
     r = dns.resolver.Resolver()
-    r.lifetime = 3
+    r.lifetime = 2
     try:
         return ["".join(p.decode() for p in rr.strings) for rr in r.resolve(name, "TXT")]
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.exception.Timeout, Exception):
@@ -88,7 +88,7 @@ def _has(name: str, rtype: str) -> bool:
     import dns.exception
     import dns.resolver
     r = dns.resolver.Resolver()
-    r.lifetime = 3
+    r.lifetime = 2
     try:
         return bool(list(r.resolve(name, rtype)))
     except Exception:
