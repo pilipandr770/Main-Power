@@ -332,6 +332,10 @@ _SYSTEM = ("Du bist ein Berater für Website-Compliance bei Main Power und schre
            "\"konkrete Schritte, 1–3 Sätze\", \"aufwand\": \"gering|mittel|hoch\", \"wirkung\": \"hoch|mittel|niedrig\"}] "
            "(4–7 Einträge, nur echte Schwächen; bei kaum Schwächen weniger), \"keyword_hinweise\": \"\", "
            "\"naechste_schritte\": \"2 Sätze, inkl. Empfehlung zur rechtlichen Prüfung\"}. "
+           "Rechtliche Bezüge: Nenne ausschließlich diese Vorschriften und nur, wo sie zum Prüfpunkt passen: § 5 DDG (Impressum; das "
+           "frühere TMG gilt nicht mehr), Art. 13 und Art. 32 DSGVO, § 25 TDDDG (Cookies/Einwilligung), §§ 312 ff. BGB (Widerruf bei "
+           "Verbraucherverträgen), BFSG (Barrierefreiheit) und Art. 50 KI-VO (nur bei KI-Chatbots). Keine anderen Gesetze, keine "
+           "Paragrafen erfinden, keine allgemeinen Aussagen über Behörden oder die KI-Verordnung bei Sicherheits-Headern. "
            "WICHTIG für gültiges JSON: In Textwerten keine doppelten Anführungszeichen (nutze ‚einfache‘), keine Zeilenumbrüche.")
 
 
@@ -340,6 +344,7 @@ def build_report(result: dict) -> dict:
                "ergebnisse": [{k: f[k] for k in ("cat", "status", "title", "detail", "fix")} for f in result["findings"]
                               if f["status"] != "ok" or f["cat"] == "Pflichtangaben"]}
     rep = seo_check.ai_report(_SYSTEM, payload, result)
+    rep["keyword_hinweise"] = ""  # gibt es beim Compliance-Check nicht
     if not rep["ai"]:
         rep["naechste_schritte"] = ("Setze die Maßnahmen der Reihe nach um und lass Impressum und Datenschutzerklärung "
                                     "zusätzlich rechtlich prüfen. Danach kannst du die Seite erneut prüfen lassen.")
