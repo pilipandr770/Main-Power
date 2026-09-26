@@ -476,3 +476,62 @@ def test_admin_impersonation_demo_mode(client, app):
     assert client.post(f"/app/als-nutzer/{markus}").status_code == 403
     assert client.post(f"/admin/mitglieder/{markus}/als-nutzer").status_code == 403
     app.config["ENABLE_IMPERSONATION"] = False
+
+
+GOOD_HTML = b"""<!doctype html><html lang="de"><head><title>Steuerberatung Frankfurt f\xc3\xbcr Gr\xc3\xbcnder | Kanzlei Wagner</title>
+<meta name="description" content="Steuerberatung f\xc3\xbcr Gr\xc3\xbcnder und Selbstst\xc3\xa4ndige in Frankfurt: digitale Buchhaltung, Holding-Strukturen und klare Preise. Jetzt Erstgespr\xc3\xa4ch buchen.">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="canonical" href="https://kanzlei.example/">
+<meta property="og:title" content="Kanzlei Wagner"><meta property="og:description" content="x"><meta property="og:image" content="/i.jpg">
+<script type="application/ld+json">{"@type":"Organization"}</script></head><body><h1>Steuerberatung f\xc3\xbcr Gr\xc3\xbcnder</h1>
+<h2>Leistungen</h2><h2>Preise</h2><img src="a.jpg" alt="Team"><a href="/kontakt">Kontakt</a><a href="/preise">Preise</a><a href="/blog">Blog</a>
+<p>""" + b"Steuerberatung Gr\xc3\xbcndung Buchhaltung Holding " * 80 + b"</p></body></html>"
+
+
+def test_seo_check_service_and_report(client, app, monkeypatch):
+    from types import SimpleNamespace
+
+    from app.models import SeoReport
+    from app.services import seo_check
+
+    def fake_get(url, max_bytes=0):
+        if url.endswith("/robots.txt"):
+            body = b"User-agent: *\nDisallow: /admin\nSitemap: https://kanzlei.example/sitemap.xml\n"
+        elif url.endswith("/sitemap.xml"):
+            body = b"<urlset></urlset>"
+        else:
+            body = GOOD_HTML
+        return SimpleNamespace(status_code=200, headers={"Content-Type": "text/html"}, encoding="utf-8"), body, 0.4, url
+
+    monkeypatch.setattr(seo_check, "_get", fake_get)
+    register(client)
+    assert client.get("/app/leistungen/seo-check").status_code == 302  # Katalogeintrag führt zum Werkzeug
+    page = client.get("/app/seo-check").get_data(as_text=True)
+    assert "Jetzt prüfen" in page
+
+    # ohne Bestätigung keine Prüfung
+    r = client.post("/app/seo-check", data={"url": "https://kanzlei.example"}, follow_redirects=True)
+    assert "prüfen darfst" in r.get_data(as_text=True)
+
+    r = client.post("/app/seo-check", data={"url": "kanzlei.example", "keywords": "Steuerberatung, Holding, Pizza",
+                                            "authorized": "1"}, follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert r.status_code == 200 and "SEO-Bericht" in body and "Automatischer Bericht" in body  # ohne API-Schlüssel
+    assert "Keyword „Pizza“" in body and "Open Graph" in body
+    with app.app_context():
+        row = SeoReport.query.one()
+        assert row.score >= 80 and row.data["result"]["facts"]["title"].startswith("Steuerberatung")
+        rid = row.id
+    assert client.post(f"/app/seo-check/{rid}/loeschen", follow_redirects=True).status_code == 200
+    with app.app_context():
+        assert SeoReport.query.count() == 0
+
+
+def test_seo_check_blocks_internal_addresses(client):
+    from app.services import seo_check
+    for bad in ["http://127.0.0.1/", "http://localhost/", "http://169.254.169.254/latest/meta-data/", "http://10.0.0.5/",
+                "ftp://example.com/", "http://user:pw@example.com/", "https://example.com:8080/"]:
+        try:
+            seo_check.analyze(bad, [])
+        except seo_check.SeoCheckError:
+            continue
+        raise AssertionError(f"{bad} wurde nicht abgelehnt")

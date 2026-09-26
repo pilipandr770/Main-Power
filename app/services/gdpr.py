@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ..extensions import db
-from ..models import (ChatMessage, IntroRequest, Match, ServiceInquiry, User)
+from ..models import (ChatMessage, IntroRequest, Match, SeoReport, ServiceInquiry, User)
 from ..utils import fmt_dt
 from . import media
 
@@ -30,6 +30,8 @@ def export_user(user: User) -> dict:
                                                                (IntroRequest.to_user_id == user.id))],
         "aiko_chat": [{"rolle": m.role, "text": m.content, "kanal": m.channel, "zeit": fmt_dt(m.created_at)}
                       for m in ChatMessage.query.filter_by(user_id=user.id).order_by(ChatMessage.created_at)],
+        "seo_berichte": [{"url": r.url, "keywords": r.keywords, "score": r.score, "zeit": fmt_dt(r.created_at)}
+                         for r in SeoReport.query.filter_by(user_id=user.id)],
         "anfragen_leistungen": [{"leistung": s.service.title, "nachricht": s.message, "zeit": fmt_dt(s.created_at)}
                                 for s in ServiceInquiry.query.filter_by(user_id=user.id)],
         "hinweis": "Berechnete Matching-Vektoren (Embeddings) sind abgeleitete technische Daten und werden bei "
@@ -43,6 +45,7 @@ def delete_user(user: User) -> None:
     IntroRequest.query.filter((IntroRequest.from_user_id == uid) |
                               (IntroRequest.to_user_id == uid)).delete(synchronize_session=False)
     ChatMessage.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    SeoReport.query.filter_by(user_id=uid).delete(synchronize_session=False)
     ServiceInquiry.query.filter_by(user_id=uid).delete(synchronize_session=False)
     if user.profile and user.profile.photo:
         media.delete_avatar(user.profile.photo)

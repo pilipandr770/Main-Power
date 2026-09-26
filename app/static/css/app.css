@@ -375,3 +375,17 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
   justify-content: space-between; padding: .55rem 1rem; background: var(--ember); color: var(--night); font-size: .9rem; }
 .impersonation select { max-width: 320px; }
 .impersonation .btn { background: var(--night); color: var(--bone); border-color: var(--night); }
+
+/* ---------- SEO-Check ---------- */
+.score-big { font-size: 3.4rem; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.score-big small { font-size: 1.1rem; color: var(--ash); font-weight: 600; }
+.status { display: inline-block; min-width: 3.4rem; text-align: center; }
+.action { border-top: 1px solid var(--line); padding: 1rem 0; display: grid; grid-template-columns: 2.2rem 1fr; gap: .8rem; }
+.action .no { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--ember); color: var(--night); font-weight: 800; }
+.action h3 { margin: 0 0 .3rem; }
+@media print {
+  .rail, .mobile-bar, .cookie-banner, .aiko-fab, .aiko-panel, .impersonation, .no-print { display: none !important; }
+  body, .app, .main { background: #fff !important; color: #000 !important; }
+  .panel, .action, .table-wrap { border-color: #999 !important; background: #fff !important; }
+  a { color: #000 !important; }
+}

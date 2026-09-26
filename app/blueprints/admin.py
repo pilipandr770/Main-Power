@@ -97,7 +97,9 @@ def _llm_usage(now: datetime) -> dict:
         cost = (i * cfg["LLM_PRICE_IN"] + o * cfg["LLM_PRICE_OUT"]) / 1_000_000
         return {"in": int(i), "out": int(o), "total": int(i + o), "calls": int(n), "cost": cost}
 
-    labels = {"aiko_public": "Aiko (Website)", "aiko_member": "Aiko (Mitglieder)", "matching": "Matching-Begründungen"}
+    labels = {"aiko_public": "Aiko (Website)", "aiko_member": "Aiko (Mitglieder)", "matching": "Matching-Begründungen",
+              "seo_report": "SEO-Check", "profile_coach": "Profil-Coach", "pair_insight": "Kontakt-Assistent",
+              "event_invite": "Termin-Einladungen"}
     rows = (db.session.query(LLMUsage.purpose, func.sum(LLMUsage.input_tokens), func.sum(LLMUsage.output_tokens),
                              func.count(LLMUsage.id)).group_by(LLMUsage.purpose).all())
     by_purpose = [{"label": labels.get(pu, pu or "sonstige"), "total": int(i or 0) + int(o or 0), "calls": n}

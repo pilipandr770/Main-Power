@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta
 
 from flask import (Blueprint, Response, session, abort, current_app, flash, jsonify, redirect, render_template, request,
@@ -8,9 +9,9 @@ from flask import (Blueprint, Response, session, abort, current_app, flash, json
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db, limiter
-from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, Event, IntroRequest, Match, Profile, Registration, Service,
+from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, SeoReport, Event, IntroRequest, Match, Profile, Registration, Service,
                       ServiceInquiry, Setting, User, utcnow)
-from ..services import aiko, insights, matching, media, payments, telegram
+from ..services import aiko, insights, seo_check, matching, media, payments, telegram
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
 from ..services.mailer import send_mail
@@ -509,10 +510,16 @@ def services():
     return render_template("member/services.html", items=items)
 
 
+# Leistungen mit eigenem Werkzeug statt Anfrageformular
+TOOL_SERVICES = {"seo-check": "member.seo_check_page"}
+
+
 @bp.route("/leistungen/<slug>", methods=["GET", "POST"])
 @limiter.limit("10 per day", methods=["POST"])
 def service_detail(slug):
     s = Service.query.filter_by(slug=slug, active=True).first_or_404()
+    if slug in TOOL_SERVICES and request.method == "GET":
+        return redirect(url_for(TOOL_SERVICES[slug]))
     if request.method == "POST":
         inq = ServiceInquiry(service_id=s.id, user_id=current_user.id,
                              message=request.form.get("message", "").strip()[:2000])
@@ -524,6 +531,48 @@ def service_detail(slug):
         flash("Danke! Deine Anfrage ist angekommen — wir melden uns innerhalb von zwei Werktagen.", "success")
         return redirect(url_for("member.service_detail", slug=slug))
     return render_template("member/service_detail.html", s=s)
+
+
+# --------------------------------------------------------------------------- SEO-Check
+@bp.route("/seo-check", methods=["GET", "POST"])
+@limiter.limit("6 per hour", methods=["POST"])
+def seo_check_page():
+    errors: dict[str, str] = {}
+    form = request.form
+    if request.method == "POST":
+        if not form.get("authorized"):
+            errors["authorized"] = "Bitte bestätige, dass du diese Website prüfen darfst."
+        keywords = [k.strip()[:60] for k in re.split(r"[,\n;]", form.get("keywords", "")) if k.strip()][:5]
+        if not errors:
+            try:
+                result = seo_check.analyze(form.get("url", ""), keywords)
+            except seo_check.SeoCheckError as exc:
+                errors["url"] = str(exc)
+            else:
+                report = seo_check.build_report(result, keywords)
+                row = SeoReport(user_id=current_user.id, url=result["url"][:500], keywords=", ".join(keywords),
+                                score=result["score"], data={"result": result, "report": report}, ai=report["ai"])
+                db.session.add(row)
+                audit("seo.check", f"user:{current_user.id}", row.url[:200])
+                db.session.commit()
+                return redirect(url_for("member.seo_report", rid=row.id))
+    reports = (SeoReport.query.filter_by(user_id=current_user.id).order_by(SeoReport.created_at.desc()).limit(10).all())
+    return render_template("member/seo_check.html", errors=errors, form=form, reports=reports)
+
+
+@bp.route("/seo-check/<int:rid>")
+def seo_report(rid):
+    row = SeoReport.query.filter_by(id=rid, user_id=current_user.id).first_or_404()
+    return render_template("member/seo_report.html", r=row, result=row.data["result"], report=row.data["report"])
+
+
+@bp.route("/seo-check/<int:rid>/loeschen", methods=["POST"])
+def seo_report_delete(rid):
+    row = SeoReport.query.filter_by(id=rid, user_id=current_user.id).first_or_404()
+    db.session.delete(row)
+    db.session.commit()
+    flash("Bericht gelöscht.", "info")
+    return redirect(url_for("member.seo_check_page"))
 
 
 # --------------------------------------------------------------------------- Community-Chat (Telegram)

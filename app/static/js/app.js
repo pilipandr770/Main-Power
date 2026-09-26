@@ -285,4 +285,15 @@
       f.submit();
     });
   });
+
+  // Formulare mit langer Laufzeit: Button sperren und Hinweistext zeigen
+  document.querySelectorAll("form[data-busy]").forEach(function (f) {
+    f.addEventListener("submit", function () {
+      var b = f.querySelector("button[type=submit]");
+      if (b) { b.disabled = true; b.textContent = f.getAttribute("data-busy"); }
+    });
+  });
+  document.querySelectorAll("[data-print]").forEach(function (b) {
+    b.addEventListener("click", function () { window.print(); });
+  });
 })();

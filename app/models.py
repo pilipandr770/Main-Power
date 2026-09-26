@@ -390,6 +390,20 @@ class Notification(db.Model):
     read_at = db.Column(db.DateTime)
 
 
+class SeoReport(db.Model):
+    """Ergebnis der Leistung „SEO-Check“ (Prüfung einer öffentlichen Seite + Bericht von Aiko)."""
+    __tablename__ = "seo_reports"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    url = db.Column(db.String(500), nullable=False)
+    keywords = db.Column(db.String(300), default="")
+    score = db.Column(db.Integer, default=0)
+    data = db.Column(db.JSON)  # {"result": {...}, "report": {...}}
+    ai = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+
 class LLMUsage(db.Model):
     """Token-Verbrauch je KI-Aufruf (nur Zähler, keine Inhalte)."""
     __tablename__ = "llm_usage"

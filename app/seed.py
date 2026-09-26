@@ -94,6 +94,18 @@ SERVICES = [
          provider_email="info@andrii-it.de"),
 ]
 
+SEO_SERVICE = dict(
+    slug="seo-check", sort=0, title="SEO-Check für deine Website",
+    summary="Aiko prüft deine Seite in einer Minute und liefert einen Bericht mit priorisierten Maßnahmen.",
+    description="Du gibst die Adresse deiner Website (und bis zu fünf Suchbegriffe) ein. Wir prüfen die Seite technisch und "
+                "inhaltlich — HTTPS, Ladezeit, robots.txt und Sitemap, Titel, Beschreibung, Überschriften, Bilder, "
+                "strukturierte Daten, Social-Vorschau und deine Keywords. Aiko fasst das in einem verständlichen "
+                "Bericht zusammen: was gut ist, was fehlt und was du zuerst tun solltest. Eine Momentaufnahme der geprüften "
+                "Seite; wir versprechen keine bestimmten Platzierungen.",
+    benefits="Bericht in unter einer Minute\nKonkrete Maßnahmen, nach Wirkung sortiert\nFür Einsteiger:innen verständlich, ohne SEO-Vorwissen\nBerichte lassen sich speichern und ausdrucken",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    provider_email="")
+
 DEMO_MEMBERS = [
     ("Julia", "Wagner", "Steuerberaterin, eigene Kanzlei", "Steuerberatung",
      "Steuerberatung für Gründer:innen und Selbstständige, Schwerpunkt digitale Buchhaltung",
@@ -174,7 +186,7 @@ def _seed_content() -> None:
     if KnowledgeItem.query.count() == 0:
         for i, (q, a, public) in enumerate(FAQ):
             db.session.add(KnowledgeItem(question=q, answer=a, public=public, sort=i))
-    for s in SERVICES:
+    for s in SERVICES + [SEO_SERVICE]:
         if not Service.query.filter_by(slug=s["slug"]).first():
             db.session.add(Service(**s))
     db.session.commit()

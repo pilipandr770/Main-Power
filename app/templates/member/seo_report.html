@@ -1,0 +1,51 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import width_class %}
+{% block page_title %}SEO-Bericht{% endblock %}
+{% block content %}
+{% set labels = {'ok': 'gut', 'warn': 'prüfen', 'fail': 'kritisch'} %}
+<div class="page-head"><div><p class="muted mb-0 no-print"><a href="{{ url_for('member.seo_check_page') }}">SEO-Check</a></p><h1>SEO-Bericht</h1>
+<p class="muted mb-0">{{ r.url }} · {{ r.created_at|dt }}{% if r.keywords %} · Suchbegriffe: {{ r.keywords }}{% endif %}</p></div>
+<div class="row no-print"><button type="button" class="btn btn-ghost btn-sm" data-print>Drucken / als PDF speichern</button>
+<form method="post" action="{{ url_for('member.seo_report_delete', rid=r.id) }}" data-confirm="Bericht löschen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Löschen</button></form></div></div>
+
+<section class="panel mb-l">
+  <div class="row between">
+    <div class="score-big">{{ result.score }}<small> / 100</small></div>
+    <span class="ai-mark">{{ 'Bericht von Aiko (KI)' if report.ai else 'Automatischer Bericht' }}</span>
+  </div>
+  <div class="progress mt-m"><span class="{{ width_class(result.score) }}"></span></div>
+  <p class="mt-m mb-0">{{ report.zusammenfassung }}</p>
+</section>
+
+{% if report.massnahmen %}
+<section class="mb-l"><h2>Das solltest du zuerst tun</h2>
+  {% for a in report.massnahmen %}
+  <div class="action"><span class="no">{{ loop.index }}</span>
+    <div><h3>{{ a.titel }}</h3>
+      <p class="small muted mb-0">Wirkung: <b>{{ a.wirkung }}</b> · Aufwand: <b>{{ a.aufwand }}</b></p>
+      <p class="mt-s mb-0">{{ a.warum }}</p>
+      {% if a.so_gehts %}<p class="mt-s mb-0"><b>So geht’s:</b> {{ a.so_gehts }}</p>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if report.keyword_hinweise %}<section class="mb-l"><h2>Zu deinen Suchbegriffen</h2><p>{{ report.keyword_hinweise }}</p></section>{% endif %}
+
+<section class="mb-l"><h2>Alle Prüfpunkte</h2>
+  {% for cat in ['Technik', 'Inhalt', 'Snippets & Social', 'Keywords'] %}
+  {% set rows = result.findings|selectattr('cat', 'equalto', cat)|list %}
+  {% if rows %}
+  <h3 class="mt-m">{{ cat }}</h3>
+  <div class="table-wrap"><table><tbody>
+    {% for f in rows %}<tr><td class="nowrap"><span class="tag status {{ {'ok': 'ok', 'warn': 'warn', 'fail': 'ember'}[f.status] }}">{{ labels[f.status] }}</span></td><td><b>{{ f.title }}</b><br><span class="small muted">{{ f.detail }}</span></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% endif %}
+  {% endfor %}
+</section>
+
+{% if report.naechste_schritte %}<section class="mb-l"><h2>Nächste Schritte</h2><p>{{ report.naechste_schritte }}</p></section>{% endif %}
+<p class="small muted">Momentaufnahme der geprüften Seite am {{ r.created_at|dt }}. Keine Garantie für Platzierungen in Suchmaschinen. Der Bericht wurde {{ 'mit KI-Unterstützung (Aiko)' if report.ai else 'automatisch' }} erstellt und ersetzt keine individuelle SEO-Beratung.</p>
+<div class="panel no-print"><b>Möchtest du Hilfe bei der Umsetzung?</b> <span class="muted">Frag Aiko oder schreib uns an <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</span></div>
+{% endblock %}

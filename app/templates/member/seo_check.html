@@ -1,0 +1,28 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check %}
+{% block page_title %}SEO-Check{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('member.services') }}">Leistungen</a></p><h1>SEO-Check für deine Website</h1>
+<p class="muted mb-0">Aiko prüft deine Seite und schreibt dir einen Bericht mit den wichtigsten Maßnahmen.</p></div></div>
+<div class="split">
+  <section>
+    <form method="post" class="maxw" data-busy="Aiko prüft deine Seite … das dauert etwa 20 Sekunden">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ input("url", "Adresse deiner Website", form.get("url"), errors=errors, required=True, placeholder="https://www.deine-seite.de") }}
+      {{ textarea("keywords", "Suchbegriffe (optional)", form.get("keywords"), rows=2, hint="Bis zu fünf, getrennt durch Komma — z. B. Steuerberater Frankfurt, Gründerberatung", errors=errors) }}
+      {{ check("authorized", "Ich darf diese Website prüfen (meine eigene oder mit Auftrag).", form.get("authorized"), errors) }}
+      <button class="btn mt-s" type="submit">Jetzt prüfen</button>
+      <p class="small muted mt-s">Wir rufen nur die eine öffentliche Seite sowie robots.txt und sitemap.xml ab — kein Crawl, keine Anmeldung. Der Bericht ist eine Momentaufnahme; wir versprechen keine bestimmten Platzierungen in Suchmaschinen. Für den Bericht nutzen wir KI (Aiko), siehe <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>.</p>
+    </form>
+  </section>
+  <aside>
+    <h2>Deine Berichte</h2>
+    {% for r in reports %}
+    <a class="person" href="{{ url_for('member.seo_report', rid=r.id) }}">
+      <span class="av">{{ r.score }}</span>
+      <span><b>{{ r.url|replace('https://', '')|replace('http://', '') }}</b><br><span class="small muted">{{ r.created_at|dt }}{% if r.keywords %} · {{ r.keywords }}{% endif %}</span></span>
+    </a>
+    {% else %}<div class="empty">Noch kein Bericht.</div>{% endfor %}
+  </aside>
+</div>
+{% endblock %}
