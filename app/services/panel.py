@@ -327,9 +327,11 @@ def run_worker(app, run_id: int) -> None:
             model = run.model or None
             rows: list[dict] = []
 
+            price_a, price_b = run.price_a, run.price_b  # Werte vorab lesen: ORM-Objekte nie in Threads anfassen
+
             def task(p: pp.Persona):
-                variant = "B" if (run.price_b and p.idx % 2 == 1) else "A"
-                price = run.price_b if variant == "B" else run.price_a
+                variant = "B" if (price_b and p.idx % 2 == 1) else "A"
+                price = price_b if variant == "B" else price_a
                 with app.app_context():
                     return p, variant, ask_persona(p, ctx, price, usage, model)
 
@@ -350,7 +352,7 @@ def run_worker(app, run_id: int) -> None:
                     db.session.commit()
                     rows.append({"p": p.public(), "v": variant, "a": ans})
             rows.sort(key=lambda r: r["p"]["idx"])
-            spec = {"price_a": run.price_a, "price_b": run.price_b}
+            spec = {"price_a": price_a, "price_b": price_b}
             res = aggregate(rows, spec, run.n_requested)
             if not res.get("n_valid"):
                 raise RuntimeError("Keine Persona hat verwertbar geantwortet (KI nicht erreichbar?).")
