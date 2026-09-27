@@ -54,6 +54,10 @@ class Config:
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
     OPENAI_EMBED_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "text-embedding-3-small")
 
+    # Gesetzes-Suche: internes Nachbarprojekt (Qdrant + Bundesrecht-Korpus), nur über Docker-Netzwerk erreichbar.
+    # Leer = Funktion in der Plattform ausgeblendet.
+    LAWS_API_URL = os.environ.get("LAWS_API_URL", "").rstrip("/")
+
     # Events sync from main-power.org
     EVENTS_SYNC_URL = os.environ.get("EVENTS_SYNC_URL", "https://www.main-power.org/api/events")
 
@@ -93,3 +97,4 @@ class TestConfig(Config):
     EMBEDDING_PROVIDER = "local"
     STRIPE_ENABLED = False
     TELEGRAM_BOT_TOKEN = ""
+    LAWS_API_URL = ""

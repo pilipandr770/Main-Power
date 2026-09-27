@@ -1,0 +1,39 @@
+{% extends "member/_layout.html" %}
+{% block page_title %}Gesetzes-Suche{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0 no-print"><a href="{{ url_for('member.laws_page') }}">Gesetzes-Suche</a></p><h1>Gesetzes-Suche</h1>
+<p class="muted mb-0">{{ row.created_at|dt }}{% if row.category %} · {{ row.category }}{% endif %}</p></div>
+<div class="row no-print"><button type="button" class="btn btn-ghost btn-sm" data-print>Drucken / als PDF speichern</button>
+<form method="post" action="{{ url_for('member.law_query_delete', qid=row.id) }}" data-confirm="Anfrage löschen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Löschen</button></form></div></div>
+
+<div class="synth-note mb-l"><b>Keine Rechtsberatung.</b> Die Gesetzestexte unten sind wörtliche Zitate aus der Datenbank des deutschen Bundesrechts (gesetze-im-internet.de), keine KI-Erfindung. Die mit „KI“ gekennzeichnete Erläuterung erklärt nur, was der Text bedeutet — sie bewertet nicht deinen Einzelfall und empfiehlt kein Handeln. Wende dich bei einer verbindlichen Frage an eine Rechtsanwältin oder einen Rechtsanwalt.</div>
+
+<section class="panel mb-l"><h2 class="mb-0">Deine Frage</h2><p class="mt-s mb-0">„{{ row.question }}“</p></section>
+
+{% if row.answer and row.answer.hinweis %}
+<section class="panel mb-l"><div class="row"><h2 class="mb-0">Einordnung</h2><span class="ai-mark">{{ 'Aiko (KI)' if row.ai else 'automatisch' }}</span></div>
+<p class="mt-s mb-0">{{ row.answer.hinweis }}</p></section>
+{% endif %}
+
+<section class="mb-l"><h2>Fundstellen ({{ row.hits|length }})</h2>
+{% for h in row.hits %}
+<div class="panel-flat">
+  <div class="row between">
+    <b>{{ h.law_abbreviation or h.slug }} {{ h.enbez }}</b>
+    {% if h.category and h.category != 'Unclassified' %}<span class="tag">{{ h.category }}</span>{% endif %}
+    {% if h.id in nicht_passend %}<span class="tag warn">nicht einschlägig</span>{% elif h.id in erl_by_id %}<span class="tag ok">passt zur Frage</span>{% endif %}
+  </div>
+  {% if h.titel %}<p class="small muted mb-0">{{ h.law_title }}{% if h.law_title %} — {% endif %}{{ h.titel }}</p>{% endif %}
+  <p class="pre mt-s">{{ h.text }}</p>
+  {% if h.id in erl_by_id %}
+  <div class="mt-s"><span class="ai-mark">Erläuterung · Aiko (KI)</span><p class="mb-0 mt-s">{{ erl_by_id[h.id] }}</p></div>
+  {% elif h.id in nicht_passend %}
+  <p class="small muted mb-0 mt-s">Aiko hält diese Fundstelle für nicht einschlägig zur Frage — der Text steht trotzdem vollständig oben, damit du selbst nachlesen kannst.</p>
+  {% endif %}
+  <p class="small muted mb-0 mt-s">{% if h.stand %}Stand: {{ h.stand|join(', ') }} · {% endif %}<a href="{{ h.source_url }}" rel="noopener nofollow" target="_blank">Amtlicher Text auf gesetze-im-internet.de</a></p>
+</div>
+{% else %}<div class="empty">Keine Fundstellen gefunden.</div>{% endfor %}
+</section>
+
+<p class="small muted">Automatische Fundstellen aus dem deutschen Bundesrecht (Stand siehe je Fundstelle), {{ 'mit Erläuterung von Aiko (KI)' if row.ai else 'ohne KI-Erläuterung' }}. Keine Rechtsberatung und keine Gewähr auf Vollständigkeit oder Aktualität — für eine verbindliche Einschätzung wende dich an eine Rechtsanwältin oder einen Rechtsanwalt.</p>
+{% endblock %}

@@ -776,3 +776,138 @@ def test_panel_parse_robust_and_stale():
     assert panel.parse_answers('{"kaufabsicht":"jein","kaufwahrscheinlichkeit":50}') is None
     ok = panel.parse_answers('```json\n{"kaufabsicht":"vielleicht","kaufwahrscheinlichkeit":"120","max_preis":"1.299,00 €"}\n```')
     assert ok["kaufwahrscheinlichkeit"] == 100.0 and ok["max_preis"] == 1299.0
+
+
+# --------------------------------------------------------------------------- Gesetzes-Suche
+LAW_HITS = [
+    {"slug": "bgb", "law_abbreviation": "BGB", "law_title": "Bürgerliches Gesetzbuch", "category": "Zivilrecht",
+     "enbez": "§ 536", "titel": "Mietminderung bei Sach- und Rechtsmängeln",
+     "text": "Hat die Mietsache zur Zeit der Überlassung an den Mieter einen Mangel ...", "stand": ["Neugefasst durch Bek. v. 2.1.2002"],
+     "source_url": "https://www.gesetze-im-internet.de/bgb/", "score": 0.83},
+    {"slug": "solzg_1995", "law_abbreviation": "SolZG 1995", "law_title": "Solidaritätszuschlaggesetz", "category": "Steuerrecht",
+     "enbez": "§ 3", "titel": "Bemessungsgrundlage", "text": "Bemessungsgrundlage des Solidaritätszuschlags ist ...",
+     "stand": [], "source_url": "https://www.gesetze-im-internet.de/solzg_1995/", "score": 0.41},
+]
+
+
+def _fake_law_response(url, params=None, timeout=0):
+    from types import SimpleNamespace
+
+    def raise_for_status():
+        pass
+
+    return SimpleNamespace(raise_for_status=raise_for_status, json=lambda: LAW_HITS)
+
+
+def _fake_law_explain(system, messages, max_tokens=0, purpose="", **kw):
+    import json as _json
+    return _json.dumps({"erlaeuterungen": [{"id": 1, "text": "§ 536 BGB senkt die Miete automatisch bei einem Mangel."}],
+                        "nicht_passend": [2], "hinweis": ""})
+
+
+def test_laws_search_and_explain_unit(app, monkeypatch):
+    from app.services import laws
+    with app.app_context():
+        app.config["LAWS_API_URL"] = "http://laws-api:8000"
+        assert laws.enabled() is True
+        monkeypatch.setattr(laws.requests, "get", _fake_law_response)
+        hits = laws.search("Mietminderung Schimmel", "Zivilrecht")
+        assert len(hits) == 2 and hits[0]["enbez"] == "§ 536" and hits[0]["id"] == 1
+
+        monkeypatch.setattr(laws, "complete", _fake_law_explain)
+        ans = laws.explain("Mietminderung Schimmel", hits)
+        assert ans["ai"] is True and ans["erlaeuterungen"] == [{"id": 1, "text": "§ 536 BGB senkt die Miete automatisch bei einem Mangel."}]
+        assert ans["nicht_passend"] == [2]
+
+        # ohne KI-Schlüssel: ehrlicher Fallback statt Halluzination
+        def unavailable(*a, **k):
+            raise laws.LLMUnavailable("kein Schlüssel")
+        monkeypatch.setattr(laws, "complete", unavailable)
+        fb = laws.explain("Mietminderung Schimmel", hits)
+        assert fb["ai"] is False and fb["erlaeuterungen"] == [] and "ohne KI-Erläuterung" in fb["hinweis"]
+
+        assert laws.explain("x", [])["hinweis"].startswith("Zu dieser Frage")
+
+
+def test_laws_unavailable_messages(app, monkeypatch):
+    from app.services import laws
+    with app.app_context():
+        app.config["LAWS_API_URL"] = ""
+        with pytest.raises(laws.LawsUnavailable):
+            laws.search("Testfrage genug lang")
+
+        app.config["LAWS_API_URL"] = "http://laws-api:8000"
+        with pytest.raises(laws.LawsUnavailable):
+            laws.search("   ")  # leere Frage
+
+        import requests as req
+
+        def boom(*a, **k):
+            raise req.exceptions.ConnectionError("down")
+        monkeypatch.setattr(laws.requests, "get", boom)
+        with pytest.raises(laws.LawsUnavailable):
+            laws.search("Testfrage genug lang")
+
+
+def test_laws_route_disabled_shows_notice(client):
+    register(client)
+    page = client.get("/app/gesetze").get_data(as_text=True)
+    assert "nicht eingerichtet" in page
+    assert client.get("/app/leistungen/gesetzes-suche", follow_redirects=True).status_code == 200
+
+
+def test_laws_route_full_flow_and_gdpr(client, app, monkeypatch):
+    from app.models import LawQuery, User
+    from app.services import laws
+
+    app.config["LAWS_API_URL"] = "http://laws-api:8000"
+    monkeypatch.setattr(laws.requests, "get", _fake_law_response)
+    monkeypatch.setattr(laws, "complete", _fake_law_explain)
+
+    register(client)
+    assert client.get("/app/leistungen/gesetzes-suche", follow_redirects=False).status_code == 302
+
+    # ohne Bestätigung
+    r = client.post("/app/gesetze", data={"query": "Mietminderung wegen Schimmel in der Wohnung"}, follow_redirects=True)
+    assert "Rechtsberatung" in r.get_data(as_text=True)
+    # zu kurze Frage
+    r = client.post("/app/gesetze", data={"query": "kurz", "kein_ersatz": "1"}, follow_redirects=True)
+    assert "ausführlicher" in r.get_data(as_text=True)
+
+    r = client.post("/app/gesetze", data={"query": "Mietminderung wegen Schimmel in der Wohnung", "category": "Zivilrecht",
+                                          "kein_ersatz": "1"}, follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert "§ 536" in body and "senkt die Miete automatisch" in body
+    assert "nicht einschlägig" in body  # zweite, unpassende Fundstelle bleibt sichtbar, aber markiert
+    with app.app_context():
+        row = LawQuery.query.one()
+        qid = row.id
+        assert row.category == "Zivilrecht" and len(row.hits) == 2 and row.ai is True
+
+    assert "Mietminderung" in client.get("/app/gesetze").get_data(as_text=True)  # taucht im Verlauf auf
+
+    # GDPR: Export enthält die Anfrage, Löschung entfernt sie
+    with app.app_context():
+        from app.services.gdpr import delete_user, export_user
+        u = User.query.filter_by(email="neu@example.com").first()
+        data = export_user(u)
+        assert data["gesetzes_suche"] and data["gesetzes_suche"][0]["kategorie"] == "Zivilrecht"
+        delete_user(u)
+        assert LawQuery.query.count() == 0
+
+    # fremder Zugriff
+    login(client, "julia.wagner@demo.main-power.local", "demo-passwort-123")
+    assert client.get(f"/app/gesetze/{qid}").status_code == 404
+
+
+def test_laws_invalid_category_is_ignored(client, app, monkeypatch):
+    from app.services import laws
+    app.config["LAWS_API_URL"] = "http://laws-api:8000"
+    monkeypatch.setattr(laws.requests, "get", _fake_law_response)
+    monkeypatch.setattr(laws, "complete", _fake_law_explain)
+    register(client)
+    client.post("/app/gesetze", data={"query": "Mietminderung wegen Schimmel in der Wohnung",
+                                      "category": "<script>", "kein_ersatz": "1"})
+    with app.app_context():
+        from app.models import LawQuery
+        assert LawQuery.query.one().category == ""

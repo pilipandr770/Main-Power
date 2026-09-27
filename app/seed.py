@@ -130,6 +130,19 @@ SECURITY_SERVICE = dict(
     member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
     provider_email="")
 
+LAWS_SERVICE = dict(
+    slug="gesetzes-suche", sort=3, title="Gesetzes-Suche: Bundesrecht zitiert und erklärt",
+    summary="Aiko findet passende Paragraphen im deutschen Bundesrecht, zitiert sie wörtlich und erklärt, was sie bedeuten.",
+    description="Du stellst eine Frage oder gibst ein Stichwort ein. Eine semantische Suche über den kompletten deutschen "
+                "Bundesgesetzkorpus (gesetze-im-internet.de) findet passende Paragraphen; Aiko zitiert sie wörtlich und "
+                "erklärt in eigenen Worten, was der Text bedeutet. Wichtig: Das ist keine Rechtsberatung und keine "
+                "Handlungsempfehlung — Aiko bewertet nie deinen Einzelfall, sondern erklärt ausschließlich, was im "
+                "Gesetzestext steht. Kennzeichnung als KI gemäß Art. 50 KI-VO. Für eine verbindliche Einschätzung immer "
+                "eine Rechtsanwältin oder einen Rechtsanwalt konsultieren.",
+    benefits="Wörtliches Zitat mit amtlicher Quelle\nErläuterung in verständlicher Sprache\nKeine Rechtsberatung, keine Handlungsempfehlung\nAnfragen lassen sich speichern und ausdrucken",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    provider_email="")
+
 PANEL_SERVICE = dict(
     slug="markt-panel", sort=-1, title="Markt-Panel: Idee oder Produkt an KI-Personas testen",
     summary="100 fiktive Personas mit unterschiedlichem Alter, Einkommen, Beruf und Lebenslage bewerten dein Produkt — vor dem Launch.",
@@ -223,7 +236,7 @@ def _seed_content() -> None:
     if KnowledgeItem.query.count() == 0:
         for i, (q, a, public) in enumerate(FAQ):
             db.session.add(KnowledgeItem(question=q, answer=a, public=public, sort=i))
-    for s in SERVICES + [PANEL_SERVICE, SEO_SERVICE, COMPLIANCE_SERVICE, SECURITY_SERVICE]:
+    for s in SERVICES + [PANEL_SERVICE, SEO_SERVICE, COMPLIANCE_SERVICE, SECURITY_SERVICE, LAWS_SERVICE]:
         if not Service.query.filter_by(slug=s["slug"]).first():
             db.session.add(Service(**s))
     db.session.commit()

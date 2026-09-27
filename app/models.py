@@ -449,6 +449,23 @@ class PanelResponse(db.Model):
     ok = db.Column(db.Boolean, default=True)
 
 
+class LawQuery(db.Model):
+    """Anfrage an die Gesetzes-Suche: Fundstellen aus dem Bundesrecht-Korpus (verbatim) + Einordnung von Aiko.
+
+    Zitiert und ordnet nur ein — keine Rechtsberatung, keine Handlungsempfehlung (siehe services/laws.py).
+    """
+    __tablename__ = "law_queries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    question = db.Column(db.String(1000), nullable=False)  # heißt bewusst nicht "query" — das überschreibt db.Model.query!
+    category = db.Column(db.String(60), default="")
+    hits = db.Column(db.JSON)  # [{slug, law_abbreviation, law_title, category, enbez, titel, text, stand, source_url, score}]
+    answer = db.Column(db.JSON)  # {erlaeuterungen: [{id, text}], nicht_passend: [...], hinweis, ai}
+    ai = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+
 class LLMUsage(db.Model):
     """Token-Verbrauch je KI-Aufruf (nur Zähler, keine Inhalte)."""
     __tablename__ = "llm_usage"

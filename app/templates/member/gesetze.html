@@ -1,0 +1,41 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import textarea, check %}
+{% block page_title %}Gesetzes-Suche{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('member.services') }}">Leistungen</a></p><h1>Gesetzes-Suche</h1>
+<p class="muted mb-0">Aiko findet passende Stellen im deutschen Bundesrecht, zitiert sie wörtlich und erklärt, was sie bedeuten.</p></div></div>
+
+<div class="synth-note mb-l maxw"><b>Keine Rechtsberatung.</b> Aiko ist eine KI. Sie sucht in einer automatisierten Datenbank des deutschen Bundesrechts (Quelle: gesetze-im-internet.de) und erklärt nur, was im gefundenen Gesetzestext wörtlich steht — sie bewertet nie deinen Einzelfall und gibt keine Handlungsempfehlung. Das ersetzt keine individuelle Rechtsberatung. Wende dich bei einer verbindlichen Frage an eine Rechtsanwältin oder einen Rechtsanwalt.</div>
+
+{% if not available %}
+<div class="empty maxw">Die Gesetzes-Suche ist auf dieser Installation gerade nicht eingerichtet.</div>
+{% else %}
+<div class="split">
+  <section>
+    <form method="post" class="maxw" data-busy="Aiko sucht und ordnet ein … das dauert etwa 15 Sekunden">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ textarea("query", "Deine Frage oder ein Stichwort", form.get("query"), rows=4, errors=errors, hint="Formuliere es wie eine Suchanfrage, z. B. „Kündigungsfrist während der Probezeit“ oder „Wann darf ich eine Rechnung als Kleinunternehmer stellen?“", placeholder="z. B. Mietminderung wegen Schimmel in der Wohnung") }}
+      <div class="field">
+        <label for="f-category">Rechtsgebiet (optional)</label>
+        <select id="f-category" name="category">
+          <option value="">Alle Rechtsgebiete</option>
+          {% for c in categories %}<option value="{{ c }}"{% if form.get('category') == c %} selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      {{ check("kein_ersatz", "Mir ist bewusst: Das ist keine Rechtsberatung, nur Zitate mit Erläuterung.", form.get("kein_ersatz"), errors) }}
+      <button class="btn mt-s" type="submit">Gesetze suchen</button>
+      <p class="small muted mt-s">Deine Frage wird zur Suche und zur Erläuterung an KI-Dienste übermittelt (interne Suche, Anthropic für die Erläuterung — siehe <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>). Gib keine sensiblen persönlichen Daten ein, z. B. zu Gesundheit oder laufenden Verfahren mit Namen Dritter.</p>
+    </form>
+  </section>
+  <aside>
+    <h2>Deine letzten Anfragen</h2>
+    {% for h in history %}
+    <a class="person" href="{{ url_for('member.law_query', qid=h.id) }}">
+      <span class="av">{{ (h.hits|length) if h.hits else 0 }}</span>
+      <span><b>{{ h.question[:70] }}{% if h.question|length > 70 %}…{% endif %}</b><br><span class="small muted">{{ h.created_at|dt }}{% if h.category %} · {{ h.category }}{% endif %}</span></span>
+    </a>
+    {% else %}<div class="empty">Noch keine Anfrage.</div>{% endfor %}
+  </aside>
+</div>
+{% endif %}
+{% endblock %}

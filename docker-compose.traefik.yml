@@ -25,6 +25,7 @@ services:
       FLASK_ENV: production
     ports: ["127.0.0.1:${APP_PORT:-8010}:8000"]
     volumes: ["uploads:/app/instance"]
+    networks: [default, laws_net]
     depends_on:
       db: {condition: service_healthy}
   sync:
@@ -39,3 +40,7 @@ services:
 volumes:
   pgdata:
   uploads:
+networks:
+  default: {}
+  laws_net:
+    external: true  # vom separaten laws_pipeline-Projekt angelegt (Gesetzes-Suche, nur intern erreichbar)

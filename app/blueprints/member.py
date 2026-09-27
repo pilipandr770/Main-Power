@@ -9,9 +9,10 @@ from flask import (Blueprint, Response, session, abort, current_app, flash, json
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db, limiter
-from ..models import (FORMATS, SOCIALS, ChatMessage, Notification, PanelRun, SeoReport, Event, IntroRequest, Match, Profile, Registration, Service,
-                      ServiceInquiry, Setting, User, utcnow)
-from ..services import aiko, compliance_check, insights, panel, security_check, seo_check, matching, media, payments, telegram
+from ..models import (FORMATS, SOCIALS, ChatMessage, Event, IntroRequest, LawQuery, Match, Notification, PanelRun,
+                      Profile, Registration, Service, ServiceInquiry, SeoReport, Setting, User, utcnow)
+from ..services import (aiko, compliance_check, insights, laws, matching, media, panel, payments, security_check,
+                        seo_check, telegram)
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
 from ..services.mailer import send_mail
@@ -512,7 +513,8 @@ def services():
 
 # Leistungen mit eigenem Werkzeug statt Anfrageformular
 TOOL_SERVICES = {"seo-check": "member.seo_check_page", "compliance-check": "member.compliance_check_page",
-                 "sicherheits-check": "member.security_check_page", "markt-panel": "member.panel_page"}
+                 "sicherheits-check": "member.security_check_page", "markt-panel": "member.panel_page",
+                 "gesetzes-suche": "member.laws_page"}
 
 
 @bp.route("/leistungen/<slug>", methods=["GET", "POST"])
@@ -707,6 +709,56 @@ def seo_report_delete(rid):
     flash("Bericht gelöscht.", "info")
     return redirect(url_for({"compliance": "member.compliance_check_page", "security": "member.security_check_page"}
                             .get(kind, "member.seo_check_page")))
+
+
+# --------------------------------------------------------------------------- Gesetzes-Suche
+@bp.route("/gesetze", methods=["GET", "POST"])
+@limiter.limit("15 per hour", methods=["POST"])
+def laws_page():
+    errors: dict[str, str] = {}
+    form = request.form
+    if request.method == "POST":
+        query = form.get("query", "").strip()
+        category = form.get("category", "").strip()
+        if category not in laws.CATEGORIES:
+            category = ""
+        if len(query) < 8:
+            errors["query"] = "Bitte formuliere deine Frage etwas ausführlicher (mindestens 8 Zeichen)."
+        if not form.get("kein_ersatz"):
+            errors["kein_ersatz"] = "Bitte bestätige, dass dir bewusst ist: Das ist keine Rechtsberatung."
+        if not errors:
+            try:
+                hits = laws.search(query, category)
+            except laws.LawsUnavailable as exc:
+                errors["query"] = str(exc)
+            else:
+                answer = laws.explain(query, hits)
+                row = LawQuery(user_id=current_user.id, question=query[:1000], category=category, hits=hits,
+                              answer=answer, ai=answer["ai"])
+                db.session.add(row)
+                audit("laws.search", f"user:{current_user.id}", query[:200])
+                db.session.commit()
+                return redirect(url_for("member.law_query", qid=row.id))
+    history = LawQuery.query.filter_by(user_id=current_user.id).order_by(LawQuery.created_at.desc()).limit(10).all()
+    return render_template("member/gesetze.html", errors=errors, form=form, history=history, categories=laws.CATEGORIES,
+                           available=laws.enabled())
+
+
+@bp.route("/gesetze/<int:qid>")
+def law_query(qid):
+    row = LawQuery.query.filter_by(id=qid, user_id=current_user.id).first_or_404()
+    erl_by_id = {e["id"]: e["text"] for e in (row.answer or {}).get("erlaeuterungen", [])}
+    nicht_passend = set((row.answer or {}).get("nicht_passend", []))
+    return render_template("member/gesetz_treffer.html", row=row, erl_by_id=erl_by_id, nicht_passend=nicht_passend)
+
+
+@bp.route("/gesetze/<int:qid>/loeschen", methods=["POST"])
+def law_query_delete(qid):
+    row = LawQuery.query.filter_by(id=qid, user_id=current_user.id).first_or_404()
+    db.session.delete(row)
+    db.session.commit()
+    flash("Anfrage gelöscht.", "info")
+    return redirect(url_for("member.laws_page"))
 
 
 # --------------------------------------------------------------------------- Community-Chat (Telegram)

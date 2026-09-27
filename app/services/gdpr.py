@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ..extensions import db
-from ..models import (ChatMessage, IntroRequest, Match, PanelRun, SeoReport, ServiceInquiry, User)
+from ..models import (ChatMessage, IntroRequest, LawQuery, Match, PanelRun, SeoReport, ServiceInquiry, User)
 from ..utils import fmt_dt
 from . import media
 
@@ -34,6 +34,8 @@ def export_user(user: User) -> dict:
                          for r in SeoReport.query.filter_by(user_id=user.id)],
         "markt_panel": [{"produkt": r.product_name, "beschreibung": r.description, "personas": r.n_requested, "status": r.status,
                          "zeit": fmt_dt(r.created_at)} for r in PanelRun.query.filter_by(user_id=user.id)],
+        "gesetzes_suche": [{"frage": q.question, "kategorie": q.category, "treffer": len(q.hits or []), "zeit": fmt_dt(q.created_at)}
+                          for q in LawQuery.query.filter_by(user_id=user.id)],
         "anfragen_leistungen": [{"leistung": s.service.title, "nachricht": s.message, "zeit": fmt_dt(s.created_at)}
                                 for s in ServiceInquiry.query.filter_by(user_id=user.id)],
         "hinweis": "Berechnete Matching-Vektoren (Embeddings) sind abgeleitete technische Daten und werden bei "
@@ -50,6 +52,7 @@ def delete_user(user: User) -> None:
     SeoReport.query.filter_by(user_id=uid).delete(synchronize_session=False)
     for run in PanelRun.query.filter_by(user_id=uid):
         db.session.delete(run)
+    LawQuery.query.filter_by(user_id=uid).delete(synchronize_session=False)
     ServiceInquiry.query.filter_by(user_id=uid).delete(synchronize_session=False)
     if user.profile and user.profile.photo:
         media.delete_avatar(user.profile.photo)
