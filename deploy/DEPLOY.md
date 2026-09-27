@@ -40,3 +40,19 @@ Cloudflare не запускает Flask/Docker-приложения на обы
 - Code: `/srv/mainpower` (git pull, dann `docker compose -f docker-compose.traefik.yml up -d --build`). Secrets: `/srv/mainpower/.env` (chmod 600).
 - DNS: A `mainpower` → 187.124.6.120, Cloudflare-Proxy an, `PROXY_HOPS=2`.
 - SSH: eigener Schlüssel `~/.ssh/mainpower_deploy` (in hPanel als `mainpower-claude-deploy` hinterlegt) — nach dem Projekt in hPanel löschen.
+
+## Gesetzes-Suche (internes Nachbarprojekt `laws_pipeline`)
+- Läuft als eigenes Docker-Compose-Projekt unter `/opt/advokat/laws_pipeline` auf demselben VPS: `qdrant` (Vektordatenbank,
+  204.978 Paragraphen aus dem kompletten deutschen Bundesrecht, gesetze-im-internet.de) + `laws-api` (FastAPI-Suche,
+  `GET /search`). Beide **ohne öffentlichen Port**, nur im Docker-Netzwerk `laws_net` erreichbar (in deren `docker-compose.yml`
+  so eingerichtet). Ein dritter Dienst `laws-worker` hält die Daten per Zeitplan aktuell (täglich RSS-Check, wöchentlich voller
+  Refresh) — bewusst NICHT dauerhaft gestartet, um unnötigen Traffic/Kosten zu vermeiden; bei Bedarf manuell:
+  `cd /opt/advokat/laws_pipeline && docker compose up -d laws-worker`.
+- Main Power (`app`-Service) hängt zusätzlich am externen Netzwerk `laws_net` (siehe `docker-compose.traefik.yml`) und ruft
+  intern `http://laws-api:8000` auf (`LAWS_API_URL` in `.env`). **Reihenfolge bei Neuaufsetzen:** zuerst
+  `laws_pipeline` hochfahren (legt das Netzwerk `laws_net` an), erst danach `docker compose -f docker-compose.traefik.yml up -d`
+  für Main Power — sonst schlägt der Start wegen des fehlenden externen Netzwerks fehl.
+- Main Power zitiert die Gesetzestexte unverändert (keine KI-Erfindung) und lässt Aiko nur erläutern, was der Text bedeutet —
+  nie eine Handlungsempfehlung oder Rechtsberatung (siehe `app/services/laws.py`). Bekannte Einschränkung der Datenbasis:
+  vereinzelt Duplikate und thematisch daneben liegende Treffer bei generischen Suchbegriffen; Aiko markiert das im Bericht
+  ehrlich als „nicht einschlägig“, statt zu raten.
