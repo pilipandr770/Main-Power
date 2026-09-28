@@ -37,6 +37,19 @@ Kommunikation mit dem Entwickler: Russisch. UI-Texte, Kommentare im Code und Com
 ### Skalierung
 Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`), Spalten `vector(1024)`, HNSW-Index, `top_matches`/`semantic_search` auf SQL (`<=>`) umstellen. Region (`profiles.region`) ist schon vorhanden → Mandanten/Regionen später per Filter bzw. eigener `communities`-Tabelle.
 
+## Mehrere Klubs (Mandanten, Branch `white-label`)
+- `app/tenancy.py`: alle Tabellen mit `TenantMixin` (`club_id`). Pro Request wird der Klub aus dem Host bestimmt
+  (`Club.domains` oder `<slug>.<PLATFORM_DOMAIN>`, sonst Standardklub). Ein Session-Event filtert JEDE ORM-Abfrage
+  automatisch auf den aktuellen Klub; neue Objekte bekommen `club_id` beim Flush. Klubübergreifend nur bewusst mit
+  `.execution_options(all_clubs=True)`. Hintergrund-Threads/CLI: `with use_club(club): ...`.
+- Branding/Texte/Rechtliches je Klub: `services/club.py` (`club.<feld>` in Templates, Settings `club.*`), Formate in
+  `meeting_formats` (`FORMATS` ist ein DB-Register). Vorlagen `club_presets.py` (mainpower, neutral), Export/Import JSON.
+- Admin: „Klub & Branding“, „Formate“ (nur Superadmin). Betreiber-Konsole `/plattform` (eigene Env-Anmeldung).
+- `flask init-db` migriert eine Einzelklub-DB idempotent (`migrations_mt.py`). `flask create-club`, `flask list-clubs`,
+  CLI-Befehle mit `--club <slug>`.
+- Nicht je Klub: Telegram-Bot, SMTP, Stripe, Anthropic-Key (plattformweit). KI-Verbrauch wird je Klub gezählt.
+- Nie Texte aus dem vertraulichen Main-Power-Konzept in andere Presets übernehmen.
+
 ## Roadmap nach dem MVP (mit Andrii abgestimmt, 26.09.2026)
 Bewusst zurückgestellt, damit MVP und Demo schlank bleiben: Passwort-Reset und E-Mail-Verifizierung (SMTP), 2FA, Stripe,
 Sicherheitsrunde (White-Team-Audit), Cybersecurity-Angebote (automatisierter Blackbox-Pentest-Service, allgemeine Lektionen).
