@@ -40,6 +40,8 @@
       {% if p.asked_for %}<p class="small muted">Wird oft gefragt zu: {{ p.asked_for }}</p>{% endif %}
       {% if p.resources %}<ul class="facts">{% for l in qn.labels(qn.RESOURCES, p.resources) %}<li class="tag">{{ l }}</li>{% endfor %}</ul>{% endif %}
       {% if p.help_mode %}<p class="small muted mt-s mb-0">{{ qn.label(qn.HELP_MODES, p.help_mode) }}</p>{% endif %}</div>{% endif %}
+    {% set answered = [] %}{% for q in qn.club_questions() if q.public and qn.custom_display(p, q) %}{% set _ = answered.append(q) %}{% endfor %}
+    {% if answered %}<div><h3>Bei {{ club.name }}</h3>{% for q in answered %}<p class="mb-0"><b>{{ q.label }}</b> {{ qn.custom_display(p, q) }}</p>{% endfor %}</div>{% endif %}
     {% if p.proud_of %}<div><h3>Worauf {{ u.first_name }} stolz ist</h3><p class="pre">{{ p.proud_of }}</p></div>{% endif %}
     {% if p.talk_topics or p.unknown_fact or p.work_values %}<div><h3>Zum Kennenlernen</h3>
       {% if p.talk_topics %}<p class="mb-0"><b>Kann stundenlang reden über:</b> {{ p.talk_topics }}</p>{% endif %}

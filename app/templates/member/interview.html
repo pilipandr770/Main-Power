@@ -1,0 +1,32 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import width_class with context %}
+{% block page_title %}Profil-Interview{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Profil im Gespräch ausfüllen</h1><p class="muted mb-0">{{ club.assistant_name }} stellt dir eine Frage nach der anderen. Antworte so, wie du es jemandem beim Kaffee erzählen würdest — {{ club.assistant_name }} schlägt daraus Profilangaben vor. Gespeichert wird nur, was du bestätigst.</p></div>
+<div class="small muted">Matching-Qualität <span data-iv-score>{{ p.completeness }}</span> %<div class="progress mt-s"><span class="{{ width_class(p.completeness) }}" data-iv-bar></span></div></div></div>
+
+<div class="interview" data-interview
+     data-next="{{ url_for('member.interview_next') }}" data-answer="{{ url_for('member.interview_answer') }}"
+     data-apply="{{ url_for('member.interview_apply') }}" data-profile="{{ url_for('member.profile') }}"
+     data-name="{{ club.assistant_name }}">
+  <div data-iv-log aria-live="polite"></div>
+  <form class="bubble me" data-iv-form hidden>
+    <label for="iv-answer" class="sr-only">Deine Antwort</label>
+    <textarea id="iv-answer" rows="3" maxlength="2000" placeholder="Deine Antwort …"></textarea>
+    <div class="row between mt-s">
+      <button type="button" class="linkbtn small" data-iv-skip>Überspringen</button>
+      <button class="btn btn-sm" type="submit">Antworten</button>
+    </div>
+  </form>
+  <div class="bubble" data-iv-proposals hidden>
+    <p class="mb-0"><b>Vorschlag für dein Profil</b> <span class="ai-mark" data-iv-ai hidden>KI</span></p>
+    <p class="small muted">Häkchen entfernen, was nicht stimmt. Du kannst alles später im Profil ändern.</p>
+    <div data-iv-list></div>
+    <div class="row between mt-s">
+      <button type="button" class="linkbtn small" data-iv-retry>Anders beantworten</button>
+      <button type="button" class="btn btn-sm" data-iv-accept>Übernehmen</button>
+    </div>
+  </div>
+</div>
+<p class="small muted mt-l">{{ club.assistant_name }} ist eine KI. Vorschläge können danebenliegen — bitte prüfen. Private Angaben (Ziel, Herausforderung, „Schon versucht“, Ausschlüsse) bleiben privat, bis du sie im Profil freigibst. <a href="{{ url_for('member.profile') }}">Zum Profilformular</a></p>
+{% endblock %}

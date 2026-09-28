@@ -305,6 +305,8 @@ class Profile(TenantMixin, db.Model):
     talk_topics = db.Column(db.Text, default="")           # F: Zum Kennenlernen
     unknown_fact = db.Column(db.Text, default="")
     public_fields = db.Column(db.String(200), default="")  # freigegebene Felder aus SHAREABLE_PRIVATE (Opt-in)
+    custom_answers = db.Column(db.JSON)                    # Antworten auf klubeigene Fragen {key: Text | [Optionen]}
+    milestone_set_at = db.Column(db.DateTime)              # Start des aktuellen 90-Tage-Zeitraums
 
     linkedin_url = db.Column(db.String(300), default="")
     xing_url = db.Column(db.String(300), default="")
@@ -356,19 +358,20 @@ class Profile(TenantMixin, db.Model):
 
     @property
     def need_text(self) -> str:
-        from .questionnaire import GOAL_CATEGORIES, PARTNER_TYPES, label, labels
+        from .questionnaire import GOAL_CATEGORIES, PARTNER_TYPES, custom_texts, label, labels
         seeks = labels(PARTNER_TYPES, self.partner_types)
         return " \n".join(filter(None, [
-            self.q_challenge, self.q_looking_for, self.goal_12m, self.milestone_90d,
+            self.q_challenge, self.q_looking_for, self.goal_12m, self.milestone_90d, custom_texts(self)[0],
             ("Sucht: " + ", ".join(seeks)) if seeks else "",
             ("Ziel: " + label(GOAL_CATEGORIES, self.goal_category)) if self.goal_category else ""]))
 
     @property
     def offer_text(self) -> str:
-        from .questionnaire import RESOURCES, ROLES, label, labels
+        from .questionnaire import RESOURCES, ROLES, custom_texts, label, labels
         gives = labels(RESOURCES, self.resources)
         return " \n".join(filter(None, [
             self.headline, label(ROLES, self.role), self.industry, self.q_focus, self.q_can_help, self.asked_for,
+            custom_texts(self)[1],
             self.proud_of, self.expertise, self.bio, ("Bringt ein: " + ", ".join(gives)) if gives else ""]))
 
     @property
@@ -682,6 +685,64 @@ class KnowledgeItem(TenantMixin, db.Model):
     public = db.Column(db.Boolean, default=True)  # auch auf der Startseite / im öffentlichen Chat
     sort = db.Column(db.Integer, default=0)
     active = db.Column(db.Boolean, default=True)
+
+
+class GoalCheckin(TenantMixin, db.Model):
+    """Rückblick auf einen 90-Tage-Meilenstein (vom Mitglied selbst gemeldet) mit Aikos Vorschlag für den nächsten Schritt."""
+    __tablename__ = "goal_checkins"
+
+    STATUS = {"erreicht": "Erreicht", "auf_kurs": "Auf gutem Weg", "haengt": "Hängt gerade", "neu": "Neu ausgerichtet"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    goal = db.Column(db.Text, default="")
+    milestone = db.Column(db.Text, default="")
+    status = db.Column(db.String(20), default="auf_kurs")
+    note = db.Column(db.Text, default="")
+    next_milestone = db.Column(db.Text, default="")
+    ai_feedback = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    @property
+    def status_label(self) -> str:
+        return self.STATUS.get(self.status, self.status)
+
+
+class ClubQuestion(TenantMixin, db.Model):
+    """Zusätzliche Frage eines Klubs im Profil (z. B. „Welche Branche im Verband?“). Antworten in Profile.custom_answers."""
+    __tablename__ = "club_questions"
+    __table_args__ = (db.UniqueConstraint("club_id", "key", name="uq_club_question_key"),)
+
+    KINDS = {"text": "Freitext", "choice": "Auswahl (eine Antwort)", "multi": "Auswahl (mehrere Antworten)"}
+    USES = {"need": "Bedarf (was die Person sucht)", "offer": "Angebot (was die Person bietet)",
+            "none": "Nicht fürs Matching"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(40), nullable=False)
+    label = db.Column(db.String(200), nullable=False)
+    help = db.Column(db.String(300), default="")
+    kind = db.Column(db.String(10), default="text")
+    options = db.Column(db.JSON)          # Liste von Antwortoptionen bei choice/multi
+    use = db.Column(db.String(10), default="none")
+    public = db.Column(db.Boolean, default=True, nullable=False)   # im Profil für andere sichtbar
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    sort = db.Column(db.Integer, default=0)
+
+    @property
+    def option_list(self) -> list[str]:
+        return [str(o) for o in (self.options or []) if str(o).strip()]
+
+    def clean(self, raw) -> str | list[str]:
+        """Eingabe (Formular/KI) auf erlaubte Werte begrenzen."""
+        if self.kind == "text":
+            return str(raw or "").strip()[:600]
+        values = raw if isinstance(raw, list) else [raw]
+        allowed = [o for o in self.option_list if o in {str(v) for v in values}]
+        return allowed if self.kind == "multi" else (allowed[0] if allowed else "")
+
+    def as_dict(self) -> dict:
+        return {"key": self.key, "label": self.label, "help": self.help, "kind": self.kind, "options": self.option_list,
+                "use": self.use, "public": self.public, "active": self.active, "sort": self.sort}
 
 
 class Setting(TenantMixin, db.Model):

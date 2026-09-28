@@ -1,0 +1,26 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
+{% block page_title %}{{ q.label or 'Neue Frage' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('admin.questions') }}">Eigene Fragen</a></p><h1>{{ q.label or 'Neue Frage' }}</h1></div></div>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset><legend>Frage</legend>
+    {{ input("label", "Frage", form.get("label") or q.label, errors=errors, required=True, placeholder="z. B. In welchem Branchenverband bist du aktiv?") }}
+    {{ input("help", "Hinweis (optional)", form.get("help") or q.help, hint="Erscheint klein unter der Frage.") }}
+    {% set kind = form.get("kind") or q.kind %}
+    <div class="field"><label for="f-kind">Art der Antwort</label>
+      <select id="f-kind" name="kind">{% for k, l in q.KINDS.items() %}<option value="{{ k }}"{% if kind == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    {{ textarea("options", "Antwortoptionen (bei Auswahl)", form.get("options") or (q.option_list|join('\n')), rows=5, errors=errors, hint="Eine Option pro Zeile, höchstens 20.") }}
+  </fieldset>
+  <fieldset><legend>Verwendung</legend>
+    {% set use = form.get("use") or q.use %}
+    <div class="field"><label for="f-use">Im Matching berücksichtigen als<span class="hint">Freitexte und Auswahlen fließen dann in Bedarf oder Angebot der Person ein.</span></label>
+      <select id="f-use" name="use">{% for k, l in q.USES.items() %}<option value="{{ k }}"{% if use == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    {{ check("public", "Antwort im Profil für andere Mitglieder zeigen", q.public if not form else form.get("public")) }}
+    {{ check("active", "Aktiv (im Profil sichtbar)", q.active if not form else form.get("active")) }}
+    {{ input("sort", "Reihenfolge", (form.get("sort") or q.sort or 0)|string, type="number") }}
+  </fieldset>
+  <button class="btn" type="submit">Speichern</button>
+</form>
+{% endblock %}

@@ -132,6 +132,45 @@ def clean_choice(field: str, values: list[str]) -> str:
     return ",".join(keep[:limit] if multi else keep[:1])
 
 
+# Grundfelder des Profils (Hub-Fragen und Stammdaten): Spalte -> max. Länge
+BASE_TEXT_FIELDS = {
+    "headline": 160, "company": 160, "industry": 120, "city": 120, "bio": 1500,
+    "q_focus": 800, "q_challenge": 800, "q_can_help": 800, "q_looking_for": 800, "expertise": 500,
+}
+ALL_TEXT_FIELDS = {**BASE_TEXT_FIELDS, **TEXT_FIELDS}
+
+
+def apply_values(profile, values: dict) -> list[str]:
+    """Werte (aus Interview oder KI-Vorschlag) geprüft ins Profil übernehmen. Gibt die geänderten Felder zurück.
+
+    Auswahlfelder als Liste oder kommagetrennt, klubeigene Fragen als "custom:<key>". Unbekanntes wird ignoriert.
+    """
+    from .models import utcnow
+    changed = []
+    custom = {q.key: q for q in club_questions()} if any(k.startswith("custom:") for k in values) else {}
+    answers = dict(profile.custom_answers or {})
+    for field, raw in values.items():
+        if field in ALL_TEXT_FIELDS:
+            new = str(raw or "").strip()[:ALL_TEXT_FIELDS[field]]
+        elif field in CHOICE_FIELDS:
+            items = raw if isinstance(raw, list) else split(str(raw or ""))
+            new = clean_choice(field, [str(i).strip() for i in items])
+        elif field.startswith("custom:") and field[7:] in custom:
+            answers[field[7:]] = custom[field[7:]].clean(raw)
+            changed.append(field)
+            continue
+        else:
+            continue
+        if new != (getattr(profile, field) or ""):
+            if field == "milestone_90d":
+                profile.milestone_set_at = utcnow()
+            setattr(profile, field, new)
+            changed.append(field)
+    if any(f.startswith("custom:") for f in changed):
+        profile.custom_answers = answers
+    return changed
+
+
 # --------------------------------------------------------------------------- Structured Fit
 def _stage_rank(p) -> int:
     return STAGE_ORDER.index(p.stage) if p.stage in STAGE_ORDER else -1
@@ -226,3 +265,32 @@ def shared_facts(a, b) -> list[str]:
     if b.help_mode == "kostenlos":
         out.append("bietet Mitgliedern 30 Minuten kostenlos an")
     return out
+
+
+# --------------------------------------------------------------------------- Klubeigene Fragen
+def club_questions(active_only: bool = True) -> list:
+    """Fragen des aktuellen Klubs (Tenant-Filter greift automatisch)."""
+    from .models import ClubQuestion
+    q = ClubQuestion.query
+    if active_only:
+        q = q.filter_by(active=True)
+    return q.order_by(ClubQuestion.sort, ClubQuestion.id).all()
+
+
+def custom_display(profile, question) -> str:
+    value = (profile.custom_answers or {}).get(question.key)
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value)
+    return str(value or "")
+
+
+def custom_texts(profile) -> tuple[str, str]:
+    """(Bedarf, Angebot) aus den Antworten auf klubeigene Fragen – fließt in die Embeddings ein."""
+    if not profile.custom_answers:
+        return "", ""
+    need, offer = [], []
+    for q in club_questions():
+        text = custom_display(profile, q)
+        if text and q.use in ("need", "offer"):
+            (need if q.use == "need" else offer).append(f"{q.label}: {text}")
+    return " \n".join(need), " \n".join(offer)

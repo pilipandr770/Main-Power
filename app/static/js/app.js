@@ -322,4 +322,114 @@
     }
     tick();
   });
+
+  // Profil-Interview: Frage -> freie Antwort -> Vorschläge bestätigen -> nächste Frage
+  document.querySelectorAll("[data-interview]").forEach(function (box) {
+    var log = box.querySelector("[data-iv-log]"), form = box.querySelector("[data-iv-form]");
+    var input = form.querySelector("textarea"), prop = box.querySelector("[data-iv-proposals]");
+    var list = box.querySelector("[data-iv-list]"), aiMark = box.querySelector("[data-iv-ai]");
+    var score = document.querySelector("[data-iv-score]"), bar = document.querySelector("[data-iv-bar]");
+    var name = box.getAttribute("data-name"), skip = [], current = null, proposals = [];
+
+    function say(text, hint, me) {
+      var b = el("div", "bubble" + (me ? " me" : ""));
+      if (!me) b.appendChild(el("p", "small muted mb-0", name));
+      b.appendChild(el("p", "mb-0", text));
+      if (hint) b.appendChild(el("p", "small muted mb-0 mt-s", hint));
+      log.appendChild(b);
+      b.scrollIntoView({ block: "nearest" });
+    }
+    function progress(c) {
+      if (c == null) return;
+      if (score) score.textContent = c;
+      if (bar) bar.className = "w-" + Math.floor(c / 10) * 10;
+    }
+    function ask(q) {
+      current = q;
+      prop.hidden = true;
+      if (!q) {
+        form.hidden = true;
+        say("Das war's – dein Profil ist jetzt gut gefüllt. Schau dir deine Matches an oder feile im Profil an den Details.");
+        var a = el("a", "btn btn-sm", "Zum Profil");
+        a.href = box.getAttribute("data-profile");
+        log.appendChild(a);
+        return;
+      }
+      var step = "Frage " + (q.done + 1) + " von " + q.total;
+      say(q.question, q.hint ? q.hint + " · " + step : step);
+      form.hidden = false;
+      input.value = "";
+      input.focus();
+    }
+    function next() {
+      postJSON(box.getAttribute("data-next"), { skip: skip }).then(function (res) {
+        progress(res.d.completeness);
+        ask(res.d.question);
+      });
+    }
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var answer = input.value.trim();
+      if (!answer || !current) return;
+      say(answer, null, true);
+      form.hidden = true;
+      var wait = el("p", "muted small", name + " denkt nach …");
+      log.appendChild(wait);
+      postJSON(box.getAttribute("data-answer"), { field: current.field, answer: answer }).then(function (res) {
+        wait.remove();
+        proposals = (res.ok && res.d.proposals) || [];
+        if (!proposals.length) {
+          say("Daraus konnte ich nichts Passendes ableiten. Magst du es anders formulieren – oder die Frage überspringen?");
+          form.hidden = false;
+          return;
+        }
+        list.innerHTML = "";
+        proposals.forEach(function (p, i) {
+          var row = el("label", "proposal check");
+          var cb = el("input");
+          cb.type = "checkbox";
+          cb.checked = true;
+          cb.setAttribute("data-i", i);
+          var span = el("span");
+          span.appendChild(el("b", null, p.label + ": "));
+          span.appendChild(document.createTextNode(p.display));
+          if (p.private) span.appendChild(el("span", "lock", " · privat"));
+          row.appendChild(cb);
+          row.appendChild(span);
+          list.appendChild(row);
+        });
+        aiMark.hidden = !res.d.ai;
+        prop.hidden = false;
+      }).catch(function () {
+        wait.textContent = "Keine Verbindung. Versuch es gleich noch einmal.";
+        form.hidden = false;
+      });
+    });
+    box.querySelector("[data-iv-skip]").addEventListener("click", function () {
+      if (current) skip.push(current.field);
+      say("Überspringen", null, true);
+      next();
+    });
+    box.querySelector("[data-iv-retry]").addEventListener("click", function () {
+      prop.hidden = true;
+      form.hidden = false;
+      input.focus();
+    });
+    box.querySelector("[data-iv-accept]").addEventListener("click", function () {
+      var values = {};
+      list.querySelectorAll("input[data-i]").forEach(function (cb) {
+        if (cb.checked) {
+          var p = proposals[+cb.getAttribute("data-i")];
+          values[p.field] = p.value;
+        }
+      });
+      if (current && !(current.field in values)) skip.push(current.field);
+      postJSON(box.getAttribute("data-apply"), { values: values, skip: skip }).then(function (res) {
+        progress(res.d.completeness);
+        say(res.d.saved && res.d.saved.length ? "Gespeichert. Weiter geht's." : "Alles klar, nichts übernommen.");
+        ask(res.d.question);
+      });
+    });
+    next();
+  });
 })();

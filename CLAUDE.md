@@ -44,6 +44,14 @@ Kommunikation mit dem Entwickler: Russisch. UI-Texte, Kommentare im Code und Com
 - Privat per Standard: Ziel, Meilenstein, Herausforderung, „Schon versucht“ (`public_fields` = Opt-in),
   `not_wanted` immer. Andere Mitglieder sehen sie weder im Profil noch in KI-Texten: Karten für die KI immer über
   `matching.card(p)`; `own=True` nur, wenn die Antwort an die Person selbst geht.
+- Profil-Interview (`services/interview.py`, `/app/profil/interview`): Aiko fragt nach Priorität, KI schlägt Werte
+  vor, gespeichert wird nur Bestätigtes über `questionnaire.apply_values` (prüft Optionen und Längen).
+- Ziel-Check-ins (`services/goals.py`, `/app/ziel`): Meilenstein startet 90-Tage-Zeitraum (`milestone_set_at`);
+  `flask goal-checkins` (Cron täglich) erinnert einmal pro Zeitraum; `GoalCheckin` mit Aiko-Feedback, nur für die Person.
+- Klubeigene Fragen (`ClubQuestion`, Admin „Eigene Fragen“, max. 8): Antworten in `Profile.custom_answers`, optional als
+  Bedarf/Angebot im Matching, im Klub-Export enthalten.
+- Auswertung für die Klubleitung (`services/club_insights.py`, `/admin/auswertung`): nur Summen und sichtbare Texte
+  (anonymisiert, gemischt), keine privaten Felder; Terminideen verlinken auf ein vorbelegtes neues Event.
 
 ### Skalierung
 Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`), Spalten `vector(1024)`, HNSW-Index, `top_matches`/`semantic_search` auf SQL (`<=>`) umstellen. Region (`profiles.region`) ist schon vorhanden → Mandanten/Regionen später per Filter bzw. eigener `communities`-Tabelle.

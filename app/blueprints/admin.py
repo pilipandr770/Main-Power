@@ -10,7 +10,7 @@ from flask import Blueprint, Response, abort, current_app, flash, redirect, rend
 from flask_login import current_user, login_required, login_user
 from sqlalchemy import func
 
-from ..extensions import db
+from ..extensions import db, limiter
 from ..models import (CONSENT_KINDS, FORMATS, ROLES, SOCIALS, AuditLog, ChatMessage, Consent, Event, IntroRequest,
                       KnowledgeItem, LLMUsage, Notification, Profile, Registration, Service, ServiceInquiry, Setting, User, utcnow)
 from ..services import insights, matching, media, telegram
@@ -345,6 +345,11 @@ def event_edit(event_id=None):
     ev = db.session.get(Event, event_id) if event_id else Event(source="admin", created_by_id=current_user.id)
     if ev is None:
         abort(404)
+    if not ev.id and request.method == "GET":  # Vorbelegung, z. B. aus einer Terminidee der Auswertung
+        ev.title = request.args.get("title", "")[:200]
+        ev.description = request.args.get("description", "")[:2000]
+        if request.args.get("format") in FORMATS:
+            ev.format = request.args["format"]
     errors = {}
     if request.method == "POST":
         was_published = bool(ev.id and ev.status == "published")
@@ -779,3 +784,77 @@ def format_edit(fid=None):
                 flash("Format gespeichert.", "success")
                 return redirect(url_for("admin.formats"))
     return render_template("admin/format_form.html", fmt=fmt, errors=errors)
+
+
+# --------------------------------------------------------------------------- Auswertung (Nachfrage/Angebot, Themen)
+from ..models import ClubQuestion  # noqa: E402
+from ..services import club_insights  # noqa: E402
+
+
+@bp.route("/auswertung")
+def analytics():
+    return render_template("admin/analytics.html", ov=club_insights.overview(), report=club_insights.cached_report())
+
+
+@bp.route("/auswertung/analyse", methods=["POST"])
+@limiter.limit("10 per hour")
+def analytics_run():
+    report = club_insights.build_report()
+    audit("insights.report", details=f"ai={report.get('ai')}")
+    db.session.commit()
+    flash("Themen neu ausgewertet." if report.get("ai") else
+          "Themen per Stichwortzählung ausgewertet (KI gerade nicht verfügbar).", "success")
+    return redirect(url_for("admin.analytics") + "#themen")
+
+
+# --------------------------------------------------------------------------- Klubeigene Fragen im Profil
+MAX_QUESTIONS = 8
+
+
+@bp.route("/fragen")
+@superadmin_required
+def questions():
+    items = ClubQuestion.query.order_by(ClubQuestion.sort, ClubQuestion.id).all()
+    return render_template("admin/questions.html", items=items, max_questions=MAX_QUESTIONS)
+
+
+@bp.route("/fragen/neu", methods=["GET", "POST"])
+@bp.route("/fragen/<int:qid>", methods=["GET", "POST"])
+@superadmin_required
+def question_edit(qid=None):
+    q = db.session.get(ClubQuestion, qid) if qid else ClubQuestion(kind="text", use="none", public=True, active=True)
+    if q is None:
+        abort(404)
+    if not q.id and ClubQuestion.query.count() >= MAX_QUESTIONS:
+        flash(f"Höchstens {MAX_QUESTIONS} eigene Fragen – kurze Profile werden eher ausgefüllt.", "error")
+        return redirect(url_for("admin.questions"))
+    errors = {}
+    if request.method == "POST":
+        f = request.form
+        label = f.get("label", "").strip()[:200]
+        kind = f.get("kind") if f.get("kind") in ClubQuestion.KINDS else "text"
+        options = [o.strip()[:80] for o in f.get("options", "").splitlines() if o.strip()][:20]
+        if not label:
+            errors["label"] = "Bitte die Frage eingeben."
+        if kind != "text" and len(options) < 2:
+            errors["options"] = "Mindestens zwei Antwortoptionen, eine pro Zeile."
+        if not q.id:
+            key = club_settings.slug(label)[:40] or "frage"
+            base, i = key, 2
+            while ClubQuestion.query.filter_by(key=key).first():
+                key, i = f"{base[:36]}-{i}", i + 1
+            q.key = key
+        if not errors:
+            q.label, q.kind, q.help = label, kind, f.get("help", "").strip()[:300]
+            q.options = options if kind != "text" else None
+            q.use = f.get("use") if f.get("use") in ClubQuestion.USES else "none"
+            q.public = bool(f.get("public"))
+            q.active = bool(f.get("active"))
+            q.sort = int(f.get("sort")) if (f.get("sort") or "").lstrip("-").isdigit() else (q.sort or 0)
+            db.session.add(q)
+            audit("question.save", f"question:{q.key}", label)
+            db.session.commit()
+            flash("Frage gespeichert. Sie erscheint im Profil unter „Fragen von " + club_settings.settings()["name"] + "“."
+                  if q.active else "Frage gespeichert (inaktiv).", "success")
+            return redirect(url_for("admin.questions"))
+    return render_template("admin/question_form.html", q=q, errors=errors, form=request.form)

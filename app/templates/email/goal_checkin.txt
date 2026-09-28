@@ -1,0 +1,10 @@
+Hallo {{ user.first_name }},
+
+{{ body }}
+
+Zum Check-in: {{ link }}
+
+Deine Angaben zum Ziel sieht niemand außer dir und {{ club.assistant_name }}. Erinnerungen kannst du beenden, indem du den Meilenstein in deinem Profil leerst.
+
+{{ club.tagline }}
+Dein Team von {{ club.name }}

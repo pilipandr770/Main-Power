@@ -1,0 +1,20 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Eigene Fragen{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Eigene Fragen</h1><p class="muted mb-0">Zusätzliche Fragen im Profil deiner Mitglieder, z. B. Verbandszugehörigkeit oder Themen deines Klubs. Höchstens {{ max_questions }} — jede Frage mehr senkt die Zahl vollständiger Profile.</p></div>
+{% if items|length < max_questions %}<a class="btn btn-sm" href="{{ url_for('admin.question_edit') }}">Neue Frage</a>{% endif %}</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Frage</th><th>Art</th><th>Matching</th><th>Sichtbar</th><th>Status</th></tr></thead>
+<tbody>
+{% for q in items %}
+<tr>
+  <td><a href="{{ url_for('admin.question_edit', qid=q.id) }}"><b>{{ q.label }}</b></a>{% if q.option_list %}<br><span class="small muted">{{ q.option_list|join(' · ') }}</span>{% endif %}</td>
+  <td class="small">{{ q.KINDS[q.kind] }}</td>
+  <td class="small">{{ q.USES[q.use] }}</td>
+  <td class="small">{{ 'für Mitglieder' if q.public else 'nur Matching' }}</td>
+  <td><span class="tag {{ 'ok' if q.active else '' }}">{{ 'aktiv' if q.active else 'aus' }}</span></td>
+</tr>
+{% else %}<tr><td colspan="5"><div class="empty">Noch keine eigenen Fragen. Der Standard-Fragebogen deckt Rolle, Ziel, Partnersuche und Angebot bereits ab.</div></td></tr>{% endfor %}
+</tbody></table></div>
+<p class="small muted mt-m">Antworten erscheinen im Profil unter „Fragen von {{ club.name }}“, in der Auswertung (nur Summen) und — je nach Einstellung — im Matching und im Profil-Interview von {{ club.assistant_name }}. Keine Fragen nach Gesundheit, Religion, politischer Meinung oder ähnlich sensiblen Daten (Art. 9 DSGVO).</p>
+{% endblock %}

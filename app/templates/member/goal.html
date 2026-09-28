@@ -1,0 +1,52 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import textarea with context %}
+{% block page_title %}Mein Ziel{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Mein Ziel</h1><p class="muted mb-0">Dein Ziel und dein 90-Tage-Meilenstein. Nur du und {{ club.assistant_name }} sehen das hier — die Klubleitung sieht höchstens anonyme Summen.</p></div>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('member.profile') }}#f-goal_12m">Im Profil bearbeiten</a></div>
+
+<div class="split">
+  <section class="stack">
+    <div class="panel">
+      {% if p.goal_12m %}
+        <p class="small muted mb-0">Ziel für die nächsten 12 Monate{% if p.goal_category %} · {{ qn.label(qn.GOAL_CATEGORIES, p.goal_category) }}{% endif %}</p>
+        <h2 class="mt-s">{{ p.goal_12m }}</h2>
+      {% else %}
+        <h2>Noch kein Ziel eingetragen</h2>
+        <p class="muted">Ein klares Ziel macht aus Kontakten Fortschritt. {{ club.assistant_name }} richtet Empfehlungen und Termine danach aus.</p>
+      {% endif %}
+      {% if p.milestone_90d %}
+        <p class="mb-0"><b>Meilenstein:</b> {{ p.milestone_90d }}</p>
+        <p class="small muted mb-0">{% if due %}Die 90 Tage sind um — Zeit für einen kurzen Check-in.{% elif days_left is not none %}Noch {{ days_left }} Tage im aktuellen Zeitraum.{% endif %}</p>
+      {% endif %}
+      {% if not p.goal_12m or not p.milestone_90d %}<p class="mt-m mb-0"><a class="btn btn-sm" href="{{ url_for('member.interview_page') }}">Mit {{ club.assistant_name }} formulieren</a></p>{% endif %}
+    </div>
+
+    <div id="verlauf">
+      <h2>Verlauf</h2>
+      {% for c in items %}
+      <div class="checkin">
+        <p class="small muted mb-0">{{ c.created_at|dt }} · <span class="tag {{ 'ok' if c.status == 'erreicht' else 'warn' if c.status == 'haengt' else '' }}">{{ c.status_label }}</span></p>
+        <p class="mb-0 mt-s"><b>{{ c.milestone or '—' }}</b></p>
+        {% if c.note %}<p class="small mb-0">{{ c.note }}</p>{% endif %}
+        {% if c.next_milestone %}<p class="small muted mb-0">Nächster Meilenstein: {{ c.next_milestone }}</p>{% endif %}
+        {% if c.ai_feedback %}<div class="panel mt-s"><b>{{ club.assistant_name }}</b> <span class="ai-mark">KI</span><p class="mt-s mb-0 pre">{{ c.ai_feedback }}</p></div>{% endif %}
+      </div>
+      {% else %}<div class="empty">Noch keine Check-ins. Du kannst jederzeit melden, wie es läuft — nicht erst nach 90 Tagen.</div>{% endfor %}
+    </div>
+  </section>
+
+  <aside class="panel">
+    <h2>{{ 'Check-in' if due else 'Fortschritt melden' }}</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field" role="group" aria-labelledby="g-status"><span class="group-label" id="g-status">Wie steht es um deinen Meilenstein?</span>
+        <div class="pills">{% for k, l in statuses.items() %}<label class="pill"><input type="radio" name="status" value="{{ k }}"{% if loop.index == 2 %} checked{% endif %}><span>{{ l }}</span></label>{% endfor %}</div></div>
+      {{ textarea("note", "Was ist passiert? (optional)", "", rows=3, placeholder="z. B. Zwei Pilotkund:innen haben unterschrieben, die dritte zögert beim Preis.") }}
+      {{ textarea("next_milestone", "Nächster Meilenstein (optional)", "", rows=2, hint="Leer lassen, wenn du beim aktuellen bleibst. Der 90-Tage-Zeitraum beginnt neu.") }}
+      <button class="btn" type="submit">Check-in speichern</button>
+      <p class="small muted mt-s mb-0">{{ club.assistant_name }} antwortet mit einem nächsten Schritt und passenden Kontakten (KI-Vorschlag, keine Beratung).</p>
+    </form>
+  </aside>
+</div>
+{% endblock %}

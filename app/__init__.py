@@ -116,6 +116,7 @@ def _register_template_helpers(app: Flask) -> None:
     @app.context_processor
     def inject():
         pending = unread = 0
+        goal_due = False
         impersonating, switch_users = None, []
         from flask import has_request_context
         if not has_request_context():  # z. B. E-Mail-Vorlagen außerhalb eines Requests
@@ -130,8 +131,11 @@ def _register_template_helpers(app: Flask) -> None:
                 impersonating = None
         if current_user.is_authenticated:
             pending = IntroRequest.query.filter_by(to_user_id=current_user.id, status="pending").count()
-            unread = Notification.query.filter_by(user_id=current_user.id, read_at=None).count()
-        return {"FORMATS": FORMATS, "cfg": app.config, "club": club_settings.settings(), "club_obj": current_club(), "pending_intros": pending, "unread_invites": unread, "impersonating": impersonating, "switch_users": switch_users,
+            unread = Notification.query.filter(Notification.user_id == current_user.id, Notification.read_at.is_(None),
+                                               Notification.kind != "goal_checkin").count()
+            from .services.goals import is_due
+            goal_due = bool(current_user.profile and is_due(current_user.profile))
+        return {"FORMATS": FORMATS, "cfg": app.config, "club": club_settings.settings(), "club_obj": current_club(), "pending_intros": pending, "unread_invites": unread, "goal_due": goal_due, "impersonating": impersonating, "switch_users": switch_users,
                 "stripe_on": stripe_enabled(), "ai_on": llm_enabled()}
 
 
@@ -329,6 +333,18 @@ def _register_cli(app: Flask) -> None:
         for c in clubs:
             with use_club(c):
                 click.echo(f"{c.slug}: {reembed_all()} Profile neu eingebettet.")
+
+    @app.cli.command("goal-checkins")
+    @_club_option
+    def goal_checkins_cmd(club_slug):
+        """90-Tage-Erinnerungen verschicken (Cron: täglich). Ohne --club: alle aktiven Klubs."""
+        from .models import Club
+        from .services.goals import send_reminders
+        clubs = [_club_by_slug(club_slug)] if club_slug else \
+            Club.query.execution_options(all_clubs=True).filter_by(status="active").all()
+        for c in clubs:
+            with use_club(c):
+                click.echo(f"{c.slug}: {send_reminders()} Erinnerungen")
 
     @app.cli.command("telegram-set-webhook")
     def tg_webhook():

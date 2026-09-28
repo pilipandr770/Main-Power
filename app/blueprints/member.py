@@ -10,10 +10,10 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from .. import questionnaire
 from ..extensions import db, limiter
-from ..models import (FORMATS, SOCIALS, ChatMessage, Event, IntroRequest, LawQuery, Match, Notification, PanelRun,
-                      Profile, Registration, Service, ServiceInquiry, SeoReport, Setting, User, utcnow)
-from ..services import (aiko, compliance_check, insights, laws, matching, media, panel, payments, security_check,
-                        seo_check, telegram)
+from ..models import (FORMATS, SOCIALS, ChatMessage, Event, GoalCheckin, IntroRequest, LawQuery, Match, Notification,
+                      PanelRun, Profile, Registration, Service, ServiceInquiry, SeoReport, Setting, User, utcnow)
+from ..services import (aiko, compliance_check, goals, insights, interview, laws, matching, media, panel, payments,
+                        security_check, seo_check, telegram)
 from ..services import club as club_settings
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
@@ -92,16 +92,11 @@ def dashboard():
                        Event.status == "published", Event.starts_at >= utcnow() - timedelta(hours=6))
                .order_by(Notification.created_at.desc()).limit(4).all())
     return render_template("member/dashboard.html", p=p, regs=my_regs, matches=matches, incoming=incoming,
-                           events=upcoming(3), announcement=Setting.get("announcement"), invites=invites)
+                           events=upcoming(3), announcement=Setting.get("announcement"), invites=invites,
+                           goal_days=goals.days_left(p))
 
 
 # --------------------------------------------------------------------------- Profil
-PROFILE_TEXT_FIELDS = {
-    "headline": 160, "company": 160, "industry": 120, "city": 120, "bio": 1500,
-    "q_focus": 800, "q_challenge": 800, "q_can_help": 800, "q_looking_for": 800, "expertise": 500,
-}
-
-
 # Anleitung zu den vier Fragen: Wozu, worauf achten, Beispiele (im Profil ausklappbar, Beispiele per Klick einfügbar)
 PROFILE_GUIDE = {
     "q_focus": {
@@ -165,12 +160,13 @@ def profile():
         current_user.first_name = f.get("first_name", current_user.first_name).strip()[:80] or current_user.first_name
         current_user.last_name = f.get("last_name", "").strip()[:80]
         current_user.phone = f.get("phone", "").strip()[:40]
-        for field, limit in PROFILE_TEXT_FIELDS.items():
-            setattr(p, field, f.get(field, "").strip()[:limit])
-        for field, limit in questionnaire.TEXT_FIELDS.items():
-            setattr(p, field, f.get(field, "").strip()[:limit])
-        for field in questionnaire.CHOICE_FIELDS:
-            setattr(p, field, questionnaire.clean_choice(field, f.getlist(field)))
+        values = {field: f.get(field, "") for field in questionnaire.ALL_TEXT_FIELDS}
+        values.update({field: f.getlist(field) for field in questionnaire.CHOICE_FIELDS})
+        values.update({f"custom:{q.key}": (f.getlist(f"custom_{q.key}") if q.kind == "multi" else
+                                           f.get(f"custom_{q.key}", "")) for q in questionnaire.club_questions()})
+        questionnaire.apply_values(p, values)
+        if not p.milestone_90d:
+            p.milestone_set_at = None
         p.public_fields = ",".join(k for k in f.getlist("public_fields") if k in questionnaire.SHAREABLE_PRIVATE)
         p.preferred_formats = ",".join(k for k in f.getlist("formats") if k in FORMATS)
         rejected = []
@@ -381,6 +377,61 @@ def member_detail(user_id):
     shared = [e for e in _upcoming_of(u) if e.id in mine]
     return render_template("member/member_detail.html", u=u, p=u.profile, ir=ir, connected=connected,
                            match=recommended, is_self=False, upcoming_events=[], shared_events=shared)
+
+
+# --------------------------------------------------------------------------- Ziel & 90-Tage-Check-in
+@bp.route("/ziel", methods=["GET", "POST"])
+def goal_page():
+    p = current_user.profile
+    if request.method == "POST":
+        if not p.milestone_90d and not request.form.get("next_milestone", "").strip():
+            flash("Trag zuerst einen Meilenstein ein – dann kannst du den Fortschritt melden.", "error")
+            return redirect(url_for("member.goal_page"))
+        c = goals.record_checkin(current_user, request.form.get("status", "auf_kurs"), request.form.get("note", ""),
+                                 request.form.get("next_milestone", ""), request.form.get("goal"))
+        flash(f"Check-in gespeichert: {c.status_label}. Der nächste 90-Tage-Zeitraum läuft ab heute.", "success")
+        return redirect(url_for("member.goal_page") + "#verlauf")
+    return render_template("member/goal.html", p=p, items=goals.history(current_user),
+                           days_left=goals.days_left(p), due=goals.is_due(p), statuses=GoalCheckin.STATUS)
+
+
+# --------------------------------------------------------------------------- Profil-Interview mit Aiko
+@bp.route("/profil/interview")
+def interview_page():
+    return render_template("member/interview.html", p=current_user.profile)
+
+
+def _interview_skip() -> list[str]:
+    data = request.get_json(silent=True) or {}
+    return [str(s) for s in data.get("skip", []) if isinstance(s, str)][:50]
+
+
+@bp.route("/api/interview/weiter", methods=["POST"])
+def interview_next():
+    return jsonify(question=interview.next_question(current_user.profile, _interview_skip()),
+                   completeness=current_user.profile.completeness)
+
+
+@bp.route("/api/interview/antwort", methods=["POST"])
+@limiter.limit("60 per hour")
+def interview_answer():
+    data = request.get_json(silent=True) or {}
+    field = str(data.get("field", ""))[:60]
+    proposals, ai = interview.extract(current_user.profile, field, str(data.get("answer", "")))
+    return jsonify(proposals=proposals, ai=ai)
+
+
+@bp.route("/api/interview/uebernehmen", methods=["POST"])
+def interview_apply():
+    data = request.get_json(silent=True) or {}
+    values = data.get("values") if isinstance(data.get("values"), dict) else {}
+    p = current_user.profile
+    changed = questionnaire.apply_values(p, values)
+    if changed:
+        p.updated_at = utcnow()
+        matching.refresh_embeddings(p, commit=False)
+        db.session.commit()
+    return jsonify(saved=changed, question=interview.next_question(p, _interview_skip()), completeness=p.completeness)
 
 
 # --------------------------------------------------------------------------- Termine

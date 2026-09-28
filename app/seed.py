@@ -13,7 +13,8 @@ from datetime import datetime, timedelta
 from .extensions import db
 from flask import current_app
 
-from .models import Club, Consent, Event, KnowledgeItem, MeetingFormat, Profile, Service, User, utcnow
+from .models import (Club, Consent, Event, GoalCheckin, KnowledgeItem, MeetingFormat, Profile, Service, User,
+                     utcnow)
 from .tenancy import use_club
 from .services.matching import refresh_embeddings
 
@@ -336,6 +337,18 @@ def _seed_demo_questionnaire() -> None:
         changed.append(p)
     for p in changed:
         refresh_embeddings(p, commit=False)
+        # Demo: Tobias' 90 Tage sind um (Check-in fällig), die anderen laufen noch
+        p.milestone_set_at = utcnow() - timedelta(days=92 if p.user.first_name == "Tobias" else 30)
+    julia = next((p for p in changed if p.user.first_name == "Julia"), None)
+    if julia and not GoalCheckin.query.filter_by(user_id=julia.user_id).first():
+        db.session.add(GoalCheckin(
+            user_id=julia.user_id, goal=julia.goal_12m, milestone="Erste Kooperation mit einer Gründungsagentur.",
+            status="erreicht", note="Vertrag mit einer Agentur aus Offenbach, zwei Mandate darüber gewonnen.",
+            next_milestone=julia.milestone_90d, created_at=utcnow() - timedelta(days=30),
+            ai_feedback="Starker Schritt – eine Kooperation, die direkt Mandate bringt, ist genau der Hebel für dein "
+                        "Ziel. Als Nächstes: Frag die Agentur nach einer gemeinsamen Sprechstunde für Gründer:innen. "
+                        "Leonie arbeitet mit vielen jungen B2B-Teams – ein Austausch mit ihr könnte die zweite "
+                        "Kooperation anstoßen."))
     db.session.commit()
 
 

@@ -30,7 +30,8 @@
       <a href="{{ url_for('member.community') }}" class="{{ 'on' if ep == 'member.community' }}">Community</a>
       <a href="{{ url_for('member.services') }}" class="{{ 'on' if ep.startswith('member.service') }}">Leistungen</a>
       <div class="navlabel">Konto</div>
-      <a href="{{ url_for('member.profile') }}" class="{{ 'on' if ep == 'member.profile' }}">Mein Profil</a>
+      <a href="{{ url_for('member.profile') }}" class="{{ 'on' if ep in ('member.profile', 'member.interview_page') }}">Mein Profil</a>
+      <a href="{{ url_for('member.goal_page') }}" class="{{ 'on' if ep == 'member.goal_page' }}">Mein Ziel{% if goal_due %}<span class="badge">1</span>{% endif %}</a>
       <a href="{{ url_for('member.privacy') }}" class="{{ 'on' if ep == 'member.privacy' }}">Privatsphäre</a>
       {% if current_user.is_admin %}<a href="{{ url_for('admin.dashboard') }}">Adminbereich</a>{% endif %}
     </nav>

@@ -1,0 +1,61 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import width_class with context %}
+{% block page_title %}Auswertung{% endblock %}
+{% macro count_list(rows, total) -%}
+<div class="hbars">{% for r in rows %}
+  <div class="hbar"><span>{{ r.label }}</span><div class="track"><i class="{{ width_class(100 * r.n / (total or 1)) }}"></i></div><span class="num">{{ r.n }}</span></div>
+{% else %}<p class="muted small mb-0">Noch keine Angaben.</p>{% endfor %}</div>
+{%- endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>Auswertung</h1><p class="muted mb-0">Was deine Mitglieder suchen und anbieten — als Grundlage für Programm, Einladungen und Partner. Nur Summen, keine Namen; private Angaben (Ziele, Herausforderungen, Ausschlüsse) fließen nicht ein.</p></div></div>
+
+<div class="kpis mb-l">
+  <div class="kpi"><b>{{ ov.members }}</b><span>aktive Mitglieder</span></div>
+  <div class="kpi"><b>{{ ov.filled_pct }} %</b><span>haben den erweiterten Fragebogen begonnen</span></div>
+  <div class="kpi"><b>{{ ov.with_goal }}</b><span>mit Ziel für die nächsten 12 Monate</span></div>
+  <div class="kpi"><b>{{ ov.with_orders }}</b><span>haben Aufträge zu vergeben</span></div>
+  <div class="kpi"><b>{{ ov.free_help }}</b><span>helfen anderen kostenlos oder als Mentor:in</span></div>
+  <div class="kpi"><b>{{ ov.checkins_total }}</b><span>Ziel-Check-ins (6 Monate)</span></div>
+</div>
+
+<section class="panel mb-l">
+  <div class="row between"><h2 class="mb-0">Partnersuche: Nachfrage und Angebot</h2>
+  <span class="small muted"><span class="key-dot"></span>gesucht <span class="key-dot supply"></span>im Klub vorhanden</span></div>
+  <p class="muted small">„Vorhanden“ zählt Mitglieder, die laut Fragebogen genau das bieten (z. B. Investor:innen: Rolle Investor/in oder Kapital). Oben stehen die größten Lücken.</p>
+  <div class="hbars mt-m">{% for r in ov.market %}
+    <div class="hbar"><span>{{ r.label }}</span>
+      <div class="track"><i class="{{ width_class(r.demand_pct) }}"></i><i class="supply {{ width_class(r.supply_pct) }}"></i></div>
+      <span class="num">{{ r.demand }} / {{ r.supply }}{% if r.gap > 0 %} <span class="tag warn">Lücke</span>{% endif %}</span></div>
+  {% else %}<p class="muted mb-0">Noch keine Angaben zur Partnersuche. Sobald Mitglieder den Fragebogen nutzen, erscheint hier die Übersicht.</p>{% endfor %}</div>
+  {% if ov.gaps %}<p class="small mt-m mb-0"><b>Tipp:</b> Für Lücken lohnt es sich, gezielt Gäste einzuladen oder ein passendes Format anzusetzen — Vorschläge unten unter „Themen und Terminideen“.</p>{% endif %}
+</section>
+
+<div class="grid grid-2 mb-l">
+  <section class="panel"><h2>Ziele der Mitglieder</h2>{{ count_list(ov.goals, ov.members) }}</section>
+  <section class="panel"><h2>Phase der Unternehmen</h2>{{ count_list(ov.stages, ov.members) }}</section>
+  <section class="panel"><h2>Was Mitglieder einbringen</h2>{{ count_list(ov.resources, ov.members) }}</section>
+  <section class="panel"><h2>Rollen</h2>{{ count_list(ov.roles, ov.members) }}</section>
+  <section class="panel"><h2>Sprachen</h2>{{ count_list(ov.languages, ov.members) }}</section>
+  <section class="panel"><h2>Treffen und Zeit</h2>{{ count_list(ov.meeting + ov.time, ov.members) }}</section>
+  {% if ov.checkins %}<section class="panel"><h2>Ziel-Check-ins</h2><p class="muted small">Selbstauskunft der Mitglieder zu ihrem 90-Tage-Meilenstein, letzte 6 Monate.</p>{{ count_list(ov.checkins, ov.checkins_total) }}</section>{% endif %}
+  {% for c in ov.custom %}<section class="panel"><h2>{{ c.label }}</h2>{{ count_list(c.rows, ov.members) }}</section>{% endfor %}
+</div>
+
+<section class="panel" id="themen">
+  <div class="row between"><div><h2 class="mb-0">Themen und Terminideen</h2>{% if report %}<p class="small muted mb-0">Stand {{ report.created_at|replace('T', ' ') }} · {{ report.basis.texte }} Profiltexte von {{ report.basis.mitglieder }} Mitgliedern{% if report.ai %} · <span class="ai-mark">KI</span>{% endif %}</p>{% endif %}</div>
+  <form method="post" action="{{ url_for('admin.analytics_run') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">{{ 'Neu auswerten' if report else 'Themen auswerten' }}</button></form></div>
+  {% if not report %}
+    <p class="muted mt-m mb-0">{{ club.assistant_name }} fasst die sichtbaren Profiltexte („Sucht“, „Kann helfen“) anonym zu Themen zusammen, zeigt Lücken und schlägt drei Termine vor.</p>
+  {% else %}
+  <div class="grid grid-2 mt-m">
+    <div><h3>Gesucht</h3>{% for t in report.nachfrage %}<p class="mb-0">{{ t.thema }} <span class="muted small">· {{ t.anzahl }}</span></p>{% else %}<p class="muted small">—</p>{% endfor %}</div>
+    <div><h3>Angeboten</h3>{% for t in report.angebot %}<p class="mb-0">{{ t.thema }} <span class="muted small">· {{ t.anzahl }}</span></p>{% else %}<p class="muted small">—</p>{% endfor %}</div>
+  </div>
+  {% if report.luecken %}<h3 class="mt-l">Lücken</h3>{% for l in report.luecken %}<p class="mb-0"><b>{{ l.thema }}</b> <span class="muted">— {{ l.hinweis }}</span></p>{% endfor %}{% endif %}
+  {% if report.ideen %}<h3 class="mt-l">Terminideen</h3>
+  {% for i in report.ideen %}<div class="idea row between"><div><b>{{ i.titel }}</b>{% if i.format and FORMATS.get(i.format) %} <span class="tag">{{ FORMATS[i.format].short }}</span>{% endif %}<p class="small muted mb-0">{{ i.warum }}</p></div>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_edit', title=i.titel, description=i.warum, format=i.format) }}">Als Termin anlegen</a></div>{% endfor %}{% endif %}
+  <p class="small muted mt-m mb-0">KI-gestützte Zusammenfassung — bitte vor Entscheidungen prüfen. Die Mitgliedertexte wurden ohne Namen und in zufälliger Reihenfolge übergeben.</p>
+  {% endif %}
+</section>
+{% endblock %}

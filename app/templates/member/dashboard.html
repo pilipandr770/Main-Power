@@ -17,11 +17,20 @@
 </section>
 {% endif %}
 
+{% if p.goal_12m or p.milestone_90d %}
+<section class="panel mb-l">
+  <div class="row between"><h2 class="mb-0">Dein Ziel</h2><a href="{{ url_for('member.goal_page') }}">Verlauf ansehen</a></div>
+  {% if p.goal_12m %}<p class="mt-m mb-0">{{ p.goal_12m }}</p>{% endif %}
+  {% if p.milestone_90d %}<p class="small muted mb-0 mt-s">Meilenstein: {{ p.milestone_90d }}{% if not goal_due and goal_days is not none %} · noch {{ goal_days }} Tage{% endif %}</p>{% endif %}
+  {% if goal_due %}<p class="mt-m mb-0"><span class="tag ember">Check-in fällig</span> Die 90 Tage sind um. Wie weit bist du? <a class="btn btn-sm" href="{{ url_for('member.goal_page') }}">Check-in machen</a></p>{% endif %}
+</section>
+{% endif %}
+
 {% if p.completeness < 70 %}
 <section class="panel mb-l">
   <div class="row between"><h2 class="mb-0">Dein Profil ist zu {{ p.completeness }} % ausgefüllt</h2><a class="btn btn-sm" href="{{ url_for('member.profile') }}">Profil ergänzen</a></div>
   <div class="progress mt-m"><span class="{{ width_class(p.completeness) }}"></span></div>
-  <p class="muted mt-m mb-0">Je genauer du beschreibst, was du suchst und womit du helfen kannst, desto besser passen deine Matches.</p>
+  <p class="muted mt-m mb-0">Je genauer du beschreibst, was du suchst und womit du helfen kannst, desto besser passen deine Matches. Keine Lust auf Formulare? <a href="{{ url_for('member.interview_page') }}">Beantworte {{ club.assistant_name }}s Fragen im Gespräch.</a></p>
 </section>
 {% endif %}
 

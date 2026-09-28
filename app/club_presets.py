@@ -7,7 +7,7 @@ Neue Vorlagen: weiteren Eintrag in PRESETS anlegen.
 from __future__ import annotations
 
 from .extensions import db
-from .models import DEFAULT_FORMATS, KnowledgeItem, MeetingFormat, Setting, invalidate_formats
+from .models import DEFAULT_FORMATS, ClubQuestion, KnowledgeItem, MeetingFormat, Setting, invalidate_formats
 from .services import club as club_settings
 
 
@@ -154,7 +154,8 @@ def export_config() -> dict:
     """Branding, Formate und FAQ des aktuellen Klubs als JSON (zum Übertragen auf einen anderen Klub)."""
     return {"version": 1, "settings": club_settings.export(),
             "formats": [f.as_dict() | {"sort": f.sort} for f in MeetingFormat.query.order_by(MeetingFormat.sort)],
-            "faq": [(k.question, k.answer, k.public) for k in KnowledgeItem.query.order_by(KnowledgeItem.sort)]}
+            "faq": [(k.question, k.answer, k.public) for k in KnowledgeItem.query.order_by(KnowledgeItem.sort)],
+            "questions": [q.as_dict() for q in ClubQuestion.query.order_by(ClubQuestion.sort, ClubQuestion.id)]}
 
 
 FORMAT_FIELDS = {"key", "name", "short", "tagline", "image", "price_cents", "price_note", "rhythm", "description",
@@ -182,5 +183,16 @@ def import_config(data: dict, with_faq: bool = True) -> None:
         formats.append(spec)
     if formats:
         apply_formats(formats)
+    for spec in data.get("questions") or []:
+        if not isinstance(spec, dict) or not spec.get("key") or not spec.get("label"):
+            continue
+        q = ClubQuestion.query.filter_by(key=str(spec["key"])[:40]).first() or ClubQuestion(key=str(spec["key"])[:40])
+        q.label, q.help = str(spec["label"])[:200], str(spec.get("help", ""))[:300]
+        q.kind = spec.get("kind") if spec.get("kind") in ClubQuestion.KINDS else "text"
+        q.options = [str(o)[:80] for o in (spec.get("options") or [])][:20] or None
+        q.use = spec.get("use") if spec.get("use") in ClubQuestion.USES else "none"
+        q.public, q.active = bool(spec.get("public", True)), bool(spec.get("active", True))
+        q.sort = int(spec.get("sort") or 0)
+        db.session.add(q)
     if with_faq and data.get("faq"):
         apply_faq([(str(q)[:300], str(a), bool(p)) for q, a, p in data["faq"]])

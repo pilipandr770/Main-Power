@@ -112,6 +112,12 @@ def _profile_block(user: User) -> str:
         f"Bevorzugte Formate: {p.preferred_formats}",
         f"Matching-Einwilligung: {'ja' if p.allow_matching else 'nein'}",
     ]
+    from ..models import GoalCheckin
+    last = (GoalCheckin.query.filter_by(user_id=user.id)
+            .order_by(GoalCheckin.created_at.desc(), GoalCheckin.id.desc()).first())
+    if last:
+        lines.append(f"Letzter Ziel-Check-in ({last.created_at:%d.%m.%Y}): {last.status_label}"
+                     + (f" – {last.note}" if last.note else ""))
     # Leere Angaben weglassen, damit das Modell nichts hineininterpretiert
     return "\n".join(line for line in lines if line.split(":", 1)[1].strip(" ·"))
 
