@@ -1,0 +1,35 @@
+{% extends "platform/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
+{% block page_title %}{{ klub.name if klub else 'Neuer Klub' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('platform.dashboard') }}">Klubs</a></p><h1>{{ klub.name if klub else 'Neuen Klub anlegen' }}</h1></div></div>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset><legend>Klub</legend>
+    {{ input("name", "Name", form.get("name") or (klub.name if klub else ""), errors=errors, required=True) }}
+    {% if klub %}<p class="small muted">Slug: <b>{{ klub.slug }}</b> (fest)</p>
+    {% else %}{{ input("slug", "Slug (für die Subdomain)", form.get("slug"), errors=errors, required=True, hint="z. B. berlin-founders → berlin-founders.<Plattform-Domain>", placeholder="mein-klub") }}{% endif %}
+    {{ input("domains", "Eigene Domains (optional, kommagetrennt)", form.get("domains") if form else (klub.domains if klub else ""), errors=errors, hint="DNS muss auf diesen Server zeigen; Zertifikat über den Reverse-Proxy.", placeholder="klub.example.de") }}
+    {{ input("contact_email", "Ansprechpartner:in (Vertrag, AVV)", form.get("contact_email") or (klub.contact_email if klub else ""), type="email") }}
+    {% if klub %}
+    <div class="field"><label for="f-plan">Tarif</label><select id="f-plan" name="plan">{% for p in ['pilot', 'pro', 'business'] %}<option value="{{ p }}"{% if klub.plan == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+    {{ textarea("notes", "Interne Notizen", form.get("notes") or klub.notes, rows=3) }}
+    {% endif %}
+  </fieldset>
+  {% if not klub %}
+  <fieldset><legend>Vorlage</legend>
+    <div class="field"><label for="f-preset">Branding, Formate und FAQ</label><select id="f-preset" name="preset">{% for key, p in presets.items() %}<option value="{{ key }}"{% if (form.get('preset') or 'neutral') == key %} selected{% endif %}>{{ p.label }}</option>{% endfor %}</select></div>
+    {{ check("demo", "Demo-Mitglieder anlegen (fiktive Profile, später mit „flask remove-demo --club <slug>“ entfernen)", form.get("demo")) }}
+  </fieldset>
+  <fieldset><legend>Erster Superadmin des Klubs</legend>
+    <div class="grid grid-2">
+      {{ input("admin_first", "Vorname", form.get("admin_first")) }}
+      {{ input("admin_last", "Nachname", form.get("admin_last")) }}
+    </div>
+    {{ input("admin_email", "E-Mail", form.get("admin_email"), type="email", errors=errors, required=True) }}
+    {{ input("admin_password", "Startpasswort", type="password", errors=errors, required=True, hint="Mindestens 10 Zeichen; bitte nach dem ersten Login ändern lassen.") }}
+  </fieldset>
+  {% endif %}
+  <button class="btn" type="submit">{{ 'Speichern' if klub else 'Klub anlegen' }}</button>
+</form>
+{% endblock %}

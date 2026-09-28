@@ -23,6 +23,11 @@ from ..models import User
 log = logging.getLogger(__name__)
 
 
+def _c():
+    from . import club as club_settings
+    return club_settings.settings()
+
+
 def enabled() -> bool:
     return bool(current_app.config.get("TELEGRAM_BOT_TOKEN"))
 
@@ -112,7 +117,7 @@ def handle_update(update: dict) -> None:
         token = parts[1].strip() if len(parts) > 1 else ""
         user = User.query.filter_by(telegram_link_token=token).first() if token else None
         if not user:
-            send(chat_id, "Hallo! Ich bin Aiko, die KI-Assistentin von Main Power. Verbinde bitte zuerst dein Konto "
+            send(chat_id, f"Hallo! Ich bin {_c()['assistant_name']}, die KI-Assistentin von {_c()['name']}. Verbinde bitte zuerst dein Konto "
                           f"über {base}/app/community — dann kann ich dich persönlich begleiten.")
             return
         other = User.query.filter_by(telegram_user_id=tg_user.get("id")).first()
@@ -124,12 +129,12 @@ def handle_update(update: dict) -> None:
         db.session.commit()
         send(chat_id, f"Willkommen, {user.first_name}! Dein Konto ist verbunden. Den Community-Chat kannst du jetzt "
                       f"unter {base}/app/community betreten. Und hier kannst du mir jederzeit schreiben — "
-                      "ich bin Aiko, eine KI, und kenne dein Main-Power-Profil.")
+                      f"ich bin {_c()['assistant_name']}, eine KI, und kenne dein Profil bei {_c()['name']}.")
         return
 
     user = _member_for(tg_user.get("id"))
     if not user:
-        send(chat_id, f"Bitte verbinde zuerst dein Main-Power-Konto: {base}/app/community")
+        send(chat_id, f"Bitte verbinde zuerst dein Konto bei {_c()['name']}: {base}/app/community")
         return
     if text in ("/hilfe", "/help"):
         send(chat_id, "Frag mich z. B.: „Wen sollte ich beim nächsten Hub kennenlernen?“ oder "

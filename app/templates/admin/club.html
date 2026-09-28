@@ -1,0 +1,85 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
+{% block page_title %}Klub &amp; Branding{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Klub &amp; Branding</h1><p class="muted mb-0">Name, Farben, Texte, Bilder und Rechtliches deines Klubs. Änderungen sind sofort auf der Website sichtbar.</p></div>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('public.index') }}" target="_blank" rel="noopener">Website ansehen</a></div>
+
+<div class="split">
+<section>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% macro field(key) -%}{% set f = fields[key] %}{% if f[3] %}{{ textarea(key, f[0], c[key], rows=3) }}{% else %}{{ input(key, f[0], c[key]) }}{% endif %}{%- endmacro %}
+  <fieldset><legend>Identität</legend>
+    <div class="grid grid-2">{{ field("name") }}{{ field("full_name") }}</div>
+    <div class="grid grid-2">{{ field("subtitle") }}{{ field("tagline") }}</div>
+    <div class="grid grid-2">{{ field("city") }}{{ input("accent", fields.accent[0], c.accent, type="color") }}</div>
+    {{ field("assistant_name") }}
+  </fieldset>
+  <fieldset><legend>Kontakt und Rechtliches</legend>
+    {{ field("operator") }}
+    <div class="grid grid-2">{{ field("contact_email") }}{{ field("impressum_url") }}</div>
+    <div class="grid grid-2">{{ field("main_site_url") }}{{ field("privacy_main_url") }}</div>
+    {{ field("instagram_url") }}
+    {% if not c.impressum_url %}<p class="flash error small">Ohne Impressum-Link darf die Website nicht öffentlich betrieben werden (§ 5 DDG).</p>{% endif %}
+  </fieldset>
+  <fieldset><legend>Startseite</legend>
+    {{ field("hero_title") }}{{ field("hero_lead") }}{{ field("meta_description") }}
+    {{ field("steps_meet_text") }}{{ field("formats_title") }}{{ field("formats_intro") }}
+    {{ textarea("testimonials", "Stimmen von Mitgliedern", testimonials, rows=5, hint="Eine pro Zeile: Name | Zitat. Nur echte Zitate mit Einverständnis der Person.") }}
+    {% for key, label in [("hero_images", "Bildbeschreibungen oben"), ("band_images", "Bildbeschreibungen Bildleiste")] %}
+      {% for im in c[key] %}{{ input(key ~ "_alt_" ~ loop.index0, label ~ " " ~ loop.index, im.alt, hint="Für Screenreader") }}{% endfor %}
+    {% endfor %}
+  </fieldset>
+  <fieldset><legend>KI-Assistenz und Registrierung</legend>
+    {{ field("about") }}{{ field("assistant_facts") }}{{ field("values_label") }}
+  </fieldset>
+  <fieldset><legend>Termin-Import (optional)</legend>
+    <div class="grid grid-2">{{ field("events_sync_url") }}{{ field("events_sync_label") }}</div>
+  </fieldset>
+  <button class="btn" type="submit">Speichern</button>
+</form>
+</section>
+
+<aside class="stack">
+  <div class="panel" id="bilder">
+    <h3>Bilder</h3>
+    {% for slot, label in slots.items() %}{% set val = slot_value(slot) %}
+    <div class="panel-flat">
+      <div class="row between"><b>{{ label }}</b>{% if val %}<img class="{{ 'logo-img' if slot == 'logo' else 'thumb' }}" src="{{ val|media }}" alt="">{% else %}<span class="small muted">{{ 'Standard-Logo' if slot == 'logo' else 'leer' }}</span>{% endif %}</div>
+      <form method="post" action="{{ url_for('admin.club_image', slot=slot) }}" enctype="multipart/form-data" class="row mt-s">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="file" name="image" accept="image/png,image/jpeg,image/webp" aria-label="{{ label }} hochladen">
+        <button class="btn btn-ghost btn-sm">Hochladen</button>
+        {% if val %}<button class="linkbtn small" name="remove" value="1">Entfernen</button>{% endif %}
+      </form>
+    </div>
+    {% endfor %}
+    <p class="small muted mb-0 mt-s">JPG, PNG oder WebP bis 5 MB. Logo mit transparentem Hintergrund als PNG. Nur Bilder hochladen, an denen der Klub die Rechte hat.</p>
+  </div>
+
+  <div class="panel">
+    <h3>Vorlage anwenden</h3>
+    <p class="small muted">Setzt Texte, Farben, Bilder und Formate auf eine Vorlage zurück. Mitglieder, Termine und Anmeldungen bleiben unverändert.</p>
+    <form method="post" action="{{ url_for('admin.club_preset') }}" data-confirm="Vorlage anwenden? Deine Branding-Einstellungen werden überschrieben.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="preset" aria-label="Vorlage">{% for key, p in presets.items() %}<option value="{{ key }}">{{ p.label }}</option>{% endfor %}</select>
+      {{ check("replace_faq", "FAQ ebenfalls ersetzen") }}
+      <button class="btn btn-ghost btn-sm">Anwenden</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h3>Konfiguration übertragen</h3>
+    <p class="small muted">Branding, Formate und FAQ als Datei sichern oder in einen anderen Klub übernehmen.</p>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.club_export') }}">Exportieren (JSON)</a>
+    <form method="post" action="{{ url_for('admin.club_import') }}" enctype="multipart/form-data" class="mt-m" data-confirm="Konfiguration importieren? Die aktuellen Branding-Einstellungen werden ersetzt.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="config" accept="application/json,.json" aria-label="Konfigurationsdatei">
+      {{ check("with_faq", "FAQ mit übernehmen", True) }}
+      <button class="btn btn-ghost btn-sm">Importieren</button>
+    </form>
+  </div>
+</aside>
+</div>
+{% endblock %}

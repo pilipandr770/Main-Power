@@ -1,12 +1,12 @@
 {% extends "public/_layout.html" %}
-{% from "partials/_macros.html" import event_row %}
-{% block title %}Main Power — Menschen. Energie. Echte Verbindungen.{% endblock %}
+{% from "partials/_macros.html" import event_row with context %}
+{% block title %}{{ club.name }} — {{ club.hero_title }}{% endblock %}
 {% block content %}
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <h1>Nicht mehr Kontakte. Relevantere Kontakte.</h1>
-      <p class="lead">Die Plattform der Main Power Community in Frankfurt. Du erzählst uns, wo du stehst und was du suchst — wir bringen dich mit den Menschen zusammen, die dir wirklich weiterhelfen. Schon vor dem ersten Treffen.</p>
+      <h1>{{ club.hero_title }}</h1>
+      <p class="lead">{{ club.hero_lead }}</p>
       <div class="row mt-m">
         {% if current_user.is_authenticated %}
           <a class="btn" href="{{ url_for('member.dashboard') }}">Zu meinem Bereich</a>
@@ -17,9 +17,7 @@
       </div>
     </div>
     <div class="hero-photos">
-      <img class="tall" src="{{ url_for('static', filename='img/community-conversation.jpg') }}" alt="Zwei Mitglieder im Gespräch bei einem Main-Power-Abend">
-      <img class="sq" src="{{ url_for('static', filename='img/community-hero.jpg') }}" alt="Main-Power-Frühstück auf einer Hotelterrasse in Frankfurt">
-      <img class="sq" src="{{ url_for('static', filename='img/community-voice.jpg') }}" alt="Eine Teilnehmerin teilt ihre Gedanken in der Runde">
+      {% for im in club.hero_images[:3] %}<img class="{{ 'tall' if loop.first else 'sq' }}" src="{{ im.src|media }}" alt="{{ im.alt }}">{% endfor %}
     </div>
   </div>
 </section>
@@ -39,7 +37,7 @@
       <li><h3>Profil in vier Fragen</h3><p class="muted">Was machst du, wo hakt es gerade, womit kannst du anderen helfen, wonach suchst du konkret? Mehr brauchen wir nicht.</p></li>
       <li><h3>Passende Menschen</h3><p class="muted">Die KI liest Bedarf und Angebot inhaltlich und schlägt dir Menschen vor, die sich gegenseitig weiterbringen — mit Begründung.</p></li>
       <li><h3>Kontakt mit Zustimmung</h3><p class="muted">Du fragst an, die andere Person stimmt zu. Erst dann werden Kontaktdaten geteilt.</p></li>
-      <li><h3>Begegnung im echten Leben</h3><p class="muted">Beim Hub-Frühstück, Stammtisch, Laufen oder im Frauenkreis — mit dem Wissen, wen du treffen solltest.</p></li>
+      <li><h3>Begegnung im echten Leben</h3><p class="muted">{{ club.steps_meet_text }}</p></li>
     </ol>
   </div>
 </section>
@@ -47,13 +45,13 @@
 <section class="section" id="formate">
   <div class="wrap split">
     <div>
-      <h2>Vier Wege, sich wirklich zu begegnen.</h2>
-      <p class="muted">Vier Formate, eine Community. Wähle, was gerade zu deinem Leben passt — oder lerne nach und nach alle Seiten von Main Power kennen.</p>
+      <h2>{{ club.formats_title }}</h2>
+      <p class="muted">{{ club.formats_intro }}</p>
     </div>
     <div>
-      {% for key in ["hub", "stammtisch", "laufen", "frauenkreis"] %}{% set f = FORMATS[key] %}
+      {% for key, f in FORMATS.featured() %}
       <a class="format-card" href="{{ url_for('public.format_page', key=key) }}">
-        <img src="{{ url_for('static', filename='img/' ~ f.image) }}" alt="">
+        <img src="{{ f.image|media }}" alt="">
         <div>
           <h3>{{ f.name }}</h3>
           <div class="small muted mb-m">{{ f.tagline }} · {{ f.price_cents|money }} · {{ f.rhythm }}</div>
@@ -78,15 +76,10 @@
 <section class="section">
   <div class="wrap">
     <div class="photo-band">
-      <img src="{{ url_for('static', filename='img/community-table.jpg') }}" alt="Main-Power-Stammtisch in warmer Restaurantatmosphäre">
-      <img src="{{ url_for('static', filename='img/community-moment.jpg') }}" alt="Offenes Gespräch bei einem Main-Power-Abend">
-      <img src="{{ url_for('static', filename='img/community-voice.jpg') }}" alt="Eine Teilnehmerin spricht in der Gruppe">
+      {% for im in club.band_images[:3] %}<img src="{{ im.src|media }}" alt="{{ im.alt }}">{% endfor %}
     </div>
     <div class="grid grid-2 mt-l">
-      <blockquote class="quote">Die Idee mit den Fragekarten war klasse – sie haben alle vier Energien sehr treffend adressiert und den Einstieg in tiefere Gespräche enorm erleichtert.<cite>Roland</cite></blockquote>
-      <blockquote class="quote">Durch die Möglichkeit Fragen zu stellen entstand ein offener ehrlicher Austausch, abseits von Small Talk.<cite>Sabine</cite></blockquote>
-      <blockquote class="quote">Ich konnte wirklich einiges mitnehmen und bin echt beflügelt!!<cite>Sini</cite></blockquote>
-      <blockquote class="quote">Danke für das Organisieren des coolen Abends. Das mit den Karten im Brief fand ich spaßig :)<cite>Brian</cite></blockquote>
+      {% for t in club.testimonials %}<blockquote class="quote">{{ t.text }}<cite>{{ t.name }}</cite></blockquote>{% endfor %}
     </div>
   </div>
 </section>
@@ -95,7 +88,7 @@
   <div class="wrap split">
     <div>
       <h2>Fragen, die Menschen uns stellen.</h2>
-      <p class="muted">Noch etwas offen? Frag Aiko unten rechts oder schreib uns an <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a> — bei Main Power antworten Menschen.</p>
+      <p class="muted">Noch etwas offen? Frag {{ club.assistant_name }} unten rechts oder schreib uns an <a href="mailto:{{ club.contact_email }}">{{ club.contact_email }}</a> — bei {{ club.name }} antworten Menschen.</p>
     </div>
     <div>
       {% for k in faq %}<details class="faq"><summary>{{ k.question }}</summary><p>{{ k.answer }}</p></details>{% endfor %}

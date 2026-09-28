@@ -245,7 +245,7 @@ def synthesize(run: dict, res: dict, rows: list[dict], usage: dict, model: str |
                             f"Kaufwahrscheinlichkeit bei {ov.get('prob', 0)} %."),
         "bedenken": _theme_fallback(con_t), "nutzen": _theme_fallback(pro_t), "aenderungen": _theme_fallback(chg_t),
         "empfehlungen": [], "zielgruppen_fazit": "", "preis_fazit": "", "verzerrung_hinweis": "", "ai": False}
-    system = ("Du bist Aiko, Analystin der Main Power Community, und wertest ein SYNTHETISCHES Markt-Panel aus (fiktive KI-Personas, "
+    system = ("Du bist Aiko, Analystin von {CLUB}, und wertest ein SYNTHETISCHES Markt-Panel aus (fiktive KI-Personas, "
               "keine echten Menschen). Schreibe für Unternehmer:innen: ruhig, klar, ehrlich, Deutsch, du-Form. Nutze NUR die gelieferten "
               "Zahlen und Aussagen. Behaupte nie, dass das Ergebnis die Meinung realer Gruppen abbildet oder Umsätze vorhersagt; sprich "
               "von Hinweisen und Hypothesen, die mit echten Kund:innen zu prüfen sind. Fasse die Aussagen zu 3–6 Themen je Liste zusammen "
@@ -311,14 +311,22 @@ def start_run(user, form: dict, background: bool = True) -> PanelRun:
     db.session.commit()
     app = current_app._get_current_object()
     if background and not app.config.get("TESTING"):
-        threading.Thread(target=run_worker, args=(app, run.id), daemon=True, name=f"panel-{run.id}").start()
+        threading.Thread(target=run_worker, args=(app, run.id, run.club_id), daemon=True, name=f"panel-{run.id}").start()
     else:
-        run_worker(app, run.id)
+        run_worker(app, run.id, run.club_id)
     return run
 
 
-def run_worker(app, run_id: int) -> None:
+def _enter_club(club_id: int) -> None:
+    """Hintergrund-Threads haben keinen Request: Klub des Laufs explizit setzen (Mandantenfilter, Token-Zuordnung)."""
+    from ..models import Club
+    from ..tenancy import set_club
+    set_club(db.session.get(Club, club_id))
+
+
+def run_worker(app, run_id: int, club_id: int) -> None:
     with app.app_context():
+        _enter_club(club_id)
         run = db.session.get(PanelRun, run_id)
         try:
             run.status = "running"
@@ -336,11 +344,20 @@ def run_worker(app, run_id: int) -> None:
                 variant = "B" if (price_b and p.idx % 2 == 1) else "A"
                 price = price_b if variant == "B" else price_a
                 with app.app_context():
+                    _enter_club(club_id)
                     return p, variant, ask_persona(p, ctx, price, usage, model)
 
-            with ThreadPoolExecutor(max_workers=8) as pool:
-                futures = [pool.submit(task, p) for p in personas]
-                for fut in as_completed(futures):
+            # Tests (SQLite im Speicher, eine gemeinsame Verbindung): nacheinander, sonst parallel
+            workers = 1 if app.config.get("TESTING") else 8
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = [pool.submit(task, p) for p in personas] if workers > 1 else []
+                if workers == 1:
+                    from concurrent.futures import Future
+                    for p in personas:
+                        fut = Future()
+                        fut.set_result(task(p))
+                        futures.append(fut)
+                for fut in (as_completed(futures) if workers > 1 else futures):
                     try:
                         p, variant, ans = fut.result()
                     except Exception:  # pragma: no cover
@@ -369,6 +386,7 @@ def run_worker(app, run_id: int) -> None:
         except Exception as exc:
             log.exception("Markt-Panel %s fehlgeschlagen", run_id)
             db.session.rollback()
+            _enter_club(club_id)
             run = db.session.get(PanelRun, run_id)
             run.status, run.error = "failed", str(exc)[:290]
             db.session.commit()

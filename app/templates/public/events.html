@@ -1,6 +1,6 @@
 {% extends "public/_layout.html" %}
-{% from "partials/_macros.html" import event_row %}
-{% block title %}Termine — Main Power{% endblock %}
+{% from "partials/_macros.html" import event_row with context %}
+{% block title %}Termine — {{ club.name }}{% endblock %}
 {% block content %}
 <section class="hero"><div class="wrap">
   <h1>Alle Termine</h1>

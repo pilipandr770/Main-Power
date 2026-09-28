@@ -1,4 +1,4 @@
-"""Datenmodell der Main Power Plattform.
+"""Datenmodell der Plattform (mandantenfähig: jede Klub-Tabelle trägt club_id, siehe tenancy.py).
 
 Hinweis: Embeddings liegen als JSON-Liste in der Tabelle `profiles`.
 Für 1.000–20.000 Profile reicht In-Memory-Cosinus (numpy) problemlos.
@@ -7,24 +7,26 @@ Ab ~50k Profilen: auf pgvector umstellen (siehe CLAUDE.md, Abschnitt "Skalierung
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from datetime import datetime, timezone
 
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .extensions import db
+from .tenancy import TenantMixin
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-FORMATS = {
+DEFAULT_FORMATS = {
     "hub": {
         "name": "Main Power Hub",
         "short": "Hub",
         "tagline": "Relevante Kontakte",
-        "image": "format-hub.png",
+        "image": "img/format-hub.png",
         "price_cents": 2500,
         "rhythm": "Zunächst monatlich, ab November zweimal im Monat",
         "description": (
@@ -36,7 +38,7 @@ FORMATS = {
         "name": "Main Power Stammtisch",
         "short": "Stammtisch",
         "tagline": "Ehrlicher Austausch",
-        "image": "format-stammtisch.png",
+        "image": "img/format-stammtisch.png",
         "price_cents": 0,
         "rhythm": "Alle zwei Wochen, mittwochs",
         "description": "Ein offener Abend rund um das Thema Energie: ehrliche Gespräche, neue Kontakte, gute Atmosphäre.",
@@ -45,7 +47,7 @@ FORMATS = {
         "name": "Main Power Laufen",
         "short": "Laufen",
         "tagline": "Bewegung & Energie",
-        "image": "format-laufen.png",
+        "image": "img/format-laufen.png",
         "price_cents": 0,
         "rhythm": "Einmal im Monat, samstags um 5:45 Uhr",
         "description": "Gemeinsam den Tag mit Bewegung und guten Gesprächen starten.",
@@ -54,7 +56,7 @@ FORMATS = {
         "name": "Main Power Frauenkreis",
         "short": "Frauenkreis",
         "tagline": "Geschützter Raum",
-        "image": "format-frauenkreis.png",
+        "image": "img/format-frauenkreis.png",
         "price_cents": 0,
         "rhythm": "Einmal im Monat",
         "description": "Ein geschützter Raum für Frauen, die sich austauschen, stärken und vernetzen wollen.",
@@ -63,12 +65,114 @@ FORMATS = {
         "name": "Community-Treffen",
         "short": "Community",
         "tagline": "Von Mitgliedern organisiert",
-        "image": "format-hub.png",
+        "image": "img/format-hub.png",
         "price_cents": 0,
         "rhythm": "Individuell",
         "description": "Treffen, die Mitglieder selbst initiieren — thematisch, klein, konkret.",
     },
 }
+
+
+class Club(db.Model):
+    """Ein Klub (Mandant). Branding und Einstellungen liegen je Klub in `settings` (Schlüssel `club.*`)."""
+    __tablename__ = "clubs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(40), unique=True, nullable=False)  # Subdomain unter PLATFORM_DOMAIN
+    name = db.Column(db.String(120), nullable=False)
+    domains = db.Column(db.String(500), default="")  # eigene Domains, kommagetrennt
+    status = db.Column(db.String(20), default="active", nullable=False)  # active|suspended
+    plan = db.Column(db.String(30), default="pilot")  # pilot|pro|business (Abrechnung folgt)
+    contact_email = db.Column(db.String(255), default="")  # Ansprechpartner:in des Klubs (Vertrag/AVV)
+    notes = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
+    @property
+    def domain_list(self) -> list[str]:
+        return [d.strip().lower() for d in (self.domains or "").replace(";", ",").split(",") if d.strip()]
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == "active"
+
+
+class MeetingFormat(TenantMixin, db.Model):
+    """Veranstaltungsformat eines Klubs (bei Main Power: Hub, Stammtisch, Laufen, Frauenkreis)."""
+    __tablename__ = "meeting_formats"
+    __table_args__ = (db.UniqueConstraint("club_id", "key", name="uq_format_club_key"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(40), nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    short = db.Column(db.String(40), default="")
+    tagline = db.Column(db.String(160), default="")
+    image = db.Column(db.String(200), default="")  # "img/…" (static) oder "upload:<datei>"
+    price_cents = db.Column(db.Integer, default=0)
+    price_note = db.Column(db.String(300), default="")
+    rhythm = db.Column(db.String(160), default="")
+    description = db.Column(db.Text, default="")
+    details = db.Column(db.Text, default="")  # zusätzlicher Absatz auf der Formatseite
+    featured = db.Column(db.Boolean, default=True)  # auf der Startseite zeigen
+    active = db.Column(db.Boolean, default=True)
+    system = db.Column(db.Boolean, default=False)  # "community" (von Mitgliedern organisiert) lässt sich nicht löschen
+    sort = db.Column(db.Integer, default=0)
+
+    def as_dict(self) -> dict:
+        return {"key": self.key, "name": self.name, "short": self.short or self.name, "tagline": self.tagline,
+                "image": self.image, "price_cents": self.price_cents or 0, "price_note": self.price_note,
+                "rhythm": self.rhythm, "description": self.description, "details": self.details,
+                "featured": bool(self.featured), "active": bool(self.active), "system": bool(self.system)}
+
+
+class _FormatRegistry(Mapping):
+    """Formate des aktuellen Klubs wie ein dict (FORMATS["hub"], FORMATS.items(), "hub" in FORMATS).
+
+    Iteration liefert nur aktive Formate; per Schlüssel sind auch deaktivierte abrufbar (für alte Termine).
+    Ohne Klub-Kontext oder ohne Datensätze gelten die Voreinstellungen (DEFAULT_FORMATS).
+    """
+
+    def _data(self) -> dict:
+        from flask import g, has_app_context
+        if not has_app_context():
+            return {k: dict(v, key=k, active=True, featured=k != "community") for k, v in DEFAULT_FORMATS.items()}
+        cached = g.get("_formats")
+        if cached is None:
+            try:
+                rows = MeetingFormat.query.order_by(MeetingFormat.sort, MeetingFormat.id).all()
+            except Exception:  # Tabelle existiert noch nicht (Migration)
+                db.session.rollback()
+                rows = []
+            if rows:
+                cached = {r.key: r.as_dict() for r in rows}
+            else:
+                cached = {k: dict(v, key=k, active=True, featured=k != "community") for k, v in DEFAULT_FORMATS.items()}
+            cached.setdefault("community", dict(DEFAULT_FORMATS["community"], key="community", active=True,
+                                                featured=False, system=True))
+            g._formats = cached
+        return cached
+
+    def __getitem__(self, key):
+        return self._data()[key]
+
+    def __iter__(self):
+        return iter([k for k, v in self._data().items() if v.get("active", True)])
+
+    def __len__(self):
+        return len(list(iter(self)))
+
+    def __contains__(self, key):
+        return key in self._data()
+
+    def featured(self) -> list[tuple[str, dict]]:
+        return [(k, v) for k, v in self._data().items() if v.get("active", True) and v.get("featured") and k != "community"]
+
+
+def invalidate_formats() -> None:
+    from flask import g
+    g.pop("_formats", None)
+
+
+FORMATS = _FormatRegistry()
 
 ROLES = ("member", "admin", "superadmin")
 
@@ -87,11 +191,13 @@ SOCIALS = {
 }
 
 
-class User(UserMixin, db.Model):
+class User(UserMixin, TenantMixin, db.Model):
     __tablename__ = "users"
+    __table_args__ = (db.UniqueConstraint("club_id", "email", name="uq_user_club_email"),
+                      db.UniqueConstraint("club_id", "telegram_user_id", name="uq_user_club_telegram"))
 
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(255), nullable=False, index=True)  # eindeutig je Klub
     password_hash = db.Column(db.String(255), nullable=False)
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False, default="")
@@ -101,7 +207,7 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     last_login_at = db.Column(db.DateTime)
 
-    telegram_user_id = db.Column(db.BigInteger, unique=True, nullable=True)
+    telegram_user_id = db.Column(db.BigInteger, nullable=True, index=True)
     telegram_username = db.Column(db.String(80))
     telegram_link_token = db.Column(db.String(64), unique=True, nullable=True)
 
@@ -152,7 +258,7 @@ class User(UserMixin, db.Model):
         return bool(latest and latest.granted)
 
 
-class Profile(db.Model):
+class Profile(TenantMixin, db.Model):
     __tablename__ = "profiles"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -231,7 +337,7 @@ class Profile(db.Model):
         return bool(self.allow_matching and self.q_can_help and (self.q_looking_for or self.q_challenge))
 
 
-class Consent(db.Model):
+class Consent(TenantMixin, db.Model):
     """Append-only Einwilligungsprotokoll (Art. 7 Abs. 1 DSGVO: Nachweisbarkeit)."""
     __tablename__ = "consents"
 
@@ -247,18 +353,19 @@ class Consent(db.Model):
 
 CONSENT_KINDS = {
     "privacy": "Datenschutzhinweise gelesen, Verarbeitung zur Kontoführung",
-    "values": "Werte und Struktur von Main Power akzeptiert",
+    "values": "Werte und Struktur der Community akzeptiert",
     "matching": "Profil für KI-gestütztes Matching und persönliche Empfehlungen verwenden",
     "directory": "Profil für andere Mitglieder im Mitgliederverzeichnis sichtbar",
     "newsletter": "Informationen zu neuen Terminen per E-Mail",
 }
 
 
-class Event(db.Model):
+class Event(TenantMixin, db.Model):
     __tablename__ = "events"
+    __table_args__ = (db.UniqueConstraint("club_id", "external_id", name="uq_event_club_external"),)
 
     id = db.Column(db.Integer, primary_key=True)
-    external_id = db.Column(db.String(200), unique=True, nullable=True)
+    external_id = db.Column(db.String(200), nullable=True)
     source = db.Column(db.String(20), default="admin")  # sync|admin|member
     format = db.Column(db.String(30), default="community", index=True)
     title = db.Column(db.String(200), nullable=False)
@@ -298,7 +405,7 @@ class Event(db.Model):
         return max(0, self.capacity - len(self.active_registrations))
 
 
-class Registration(db.Model):
+class Registration(TenantMixin, db.Model):
     __tablename__ = "registrations"
     __table_args__ = (db.UniqueConstraint("event_id", "user_id", name="uq_registration"),)
 
@@ -316,7 +423,7 @@ class Registration(db.Model):
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
 
-class Match(db.Model):
+class Match(TenantMixin, db.Model):
     """Cache für berechnete Matches + KI-Begründung (Paar ist gerichtet: für user_id empfohlen)."""
     __tablename__ = "matches"
     __table_args__ = (db.UniqueConstraint("user_id", "other_id", name="uq_match_pair"),)
@@ -333,7 +440,7 @@ class Match(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow)
 
 
-class IntroRequest(db.Model):
+class IntroRequest(TenantMixin, db.Model):
     """Kontaktanfrage: Kontaktdaten werden erst nach ausdrücklichem Opt-in (accepted) geteilt."""
     __tablename__ = "intro_requests"
 
@@ -348,7 +455,7 @@ class IntroRequest(db.Model):
     responded_at = db.Column(db.DateTime)
 
 
-class ChatMessage(db.Model):
+class ChatMessage(TenantMixin, db.Model):
     __tablename__ = "chat_messages"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -359,7 +466,7 @@ class ChatMessage(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
-class PairInsight(db.Model):
+class PairInsight(TenantMixin, db.Model):
     """Zwischengespeicherte KI-Einschätzung 'Was bringt dir dieser Kontakt?' (spart Tokens, ändert sich nur mit den Profilen)."""
     __tablename__ = "pair_insights"
     __table_args__ = (db.UniqueConstraint("user_id", "other_id", name="uq_pair_insight"),)
@@ -373,7 +480,7 @@ class PairInsight(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow)
 
 
-class Notification(db.Model):
+class Notification(TenantMixin, db.Model):
     """Persönliche Hinweise, z. B. KI-Einladung zu einem Termin, der zum Profil passt."""
     __tablename__ = "notifications"
     __table_args__ = (db.UniqueConstraint("user_id", "event_id", "kind", name="uq_notification_event"),)
@@ -390,7 +497,7 @@ class Notification(db.Model):
     read_at = db.Column(db.DateTime)
 
 
-class SeoReport(db.Model):
+class SeoReport(TenantMixin, db.Model):
     """Ergebnis der Leistung „SEO-Check“ (Prüfung einer öffentlichen Seite + Bericht von Aiko)."""
     __tablename__ = "seo_reports"
 
@@ -405,7 +512,7 @@ class SeoReport(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
-class PanelRun(db.Model):
+class PanelRun(TenantMixin, db.Model):
     """Ein Lauf des synthetischen Markt-Panels (fiktive KI-Personas bewerten ein Produkt)."""
     __tablename__ = "panel_runs"
 
@@ -437,7 +544,7 @@ class PanelRun(db.Model):
     responses = db.relationship("PanelResponse", backref="run", cascade="all, delete-orphan", order_by="PanelResponse.idx")
 
 
-class PanelResponse(db.Model):
+class PanelResponse(TenantMixin, db.Model):
     __tablename__ = "panel_responses"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -449,7 +556,7 @@ class PanelResponse(db.Model):
     ok = db.Column(db.Boolean, default=True)
 
 
-class LawQuery(db.Model):
+class LawQuery(TenantMixin, db.Model):
     """Anfrage an die Gesetzes-Suche: Fundstellen aus dem Bundesrecht-Korpus (verbatim) + Einordnung von Aiko.
 
     Zitiert und ordnet nur ein — keine Rechtsberatung, keine Handlungsempfehlung (siehe services/laws.py).
@@ -466,7 +573,7 @@ class LawQuery(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
-class LLMUsage(db.Model):
+class LLMUsage(TenantMixin, db.Model):
     """Token-Verbrauch je KI-Aufruf (nur Zähler, keine Inhalte)."""
     __tablename__ = "llm_usage"
 
@@ -478,11 +585,12 @@ class LLMUsage(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
-class Service(db.Model):
+class Service(TenantMixin, db.Model):
     __tablename__ = "services"
+    __table_args__ = (db.UniqueConstraint("club_id", "slug", name="uq_service_club_slug"),)
 
     id = db.Column(db.Integer, primary_key=True)
-    slug = db.Column(db.String(80), unique=True, nullable=False)
+    slug = db.Column(db.String(80), nullable=False)
     title = db.Column(db.String(160), nullable=False)
     summary = db.Column(db.String(300), default="")
     description = db.Column(db.Text, default="")
@@ -499,7 +607,7 @@ class Service(db.Model):
         return [b.strip() for b in (self.benefits or "").splitlines() if b.strip()]
 
 
-class ServiceInquiry(db.Model):
+class ServiceInquiry(TenantMixin, db.Model):
     __tablename__ = "service_inquiries"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -512,7 +620,7 @@ class ServiceInquiry(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow)
 
 
-class KnowledgeItem(db.Model):
+class KnowledgeItem(TenantMixin, db.Model):
     """FAQ + Wissensbasis für Aiko (öffentlich und intern)."""
     __tablename__ = "knowledge_items"
 
@@ -524,10 +632,12 @@ class KnowledgeItem(db.Model):
     active = db.Column(db.Boolean, default=True)
 
 
-class Setting(db.Model):
+class Setting(TenantMixin, db.Model):
     __tablename__ = "settings"
+    __table_args__ = (db.UniqueConstraint("club_id", "key", name="uq_setting_club_key"),)
 
-    key = db.Column(db.String(80), primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(80), nullable=False)
     value = db.Column(db.Text, default="")
 
     DEFAULTS = {
@@ -536,20 +646,20 @@ class Setting(db.Model):
         "panel_monthly_limit": "3",   # Markt-Panel-Läufe je Mitglied und Monat (Admins unbegrenzt)
         "panel_max_personas": "100",  # Obergrenze Personas je Lauf
         "aiko_extra_instructions": "",
-        "telegram_group_title": "Main Power Community",
+        "telegram_group_title": "",  # leer = Klubname
         "announcement": "",
     }
 
     @classmethod
     def get(cls, key: str, default: str | None = None) -> str:
-        row = db.session.get(cls, key)
+        row = cls.query.filter_by(key=key).first()
         if row is not None:
             return row.value or ""
         return cls.DEFAULTS.get(key, default or "")
 
     @classmethod
     def set(cls, key: str, value: str) -> None:
-        row = db.session.get(cls, key)
+        row = cls.query.filter_by(key=key).first()
         if row is None:
             row = cls(key=key, value=value)
             db.session.add(row)
@@ -557,7 +667,7 @@ class Setting(db.Model):
             row.value = value
 
 
-class AuditLog(db.Model):
+class AuditLog(TenantMixin, db.Model):
     __tablename__ = "audit_log"
 
     id = db.Column(db.Integer, primary_key=True)

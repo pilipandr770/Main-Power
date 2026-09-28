@@ -15,7 +15,7 @@
       <fieldset id="abos">
         <legend>Benachrichtigungen und Abos</legend>
         <label class="check"><input type="checkbox" name="newsletter" value="1"{% if newsletter %} checked{% endif %}><span><b>Termin-Infos per E-Mail</b><br><span class="muted small">Neuigkeiten zu kommenden Terminen. Abbestellen: Häkchen entfernen und speichern.</span></span></label>
-        <label class="check"><input type="checkbox" name="event_invites" value="1"{% if p.event_invites %} checked{% endif %}><span><b>Persönliche Einladungen von Aiko</b><br><span class="muted small">Aiko schlägt dir Termine vor, die zu deinem Profil passen (nur mit Matching-Einwilligung).</span></span></label>
+        <label class="check"><input type="checkbox" name="event_invites" value="1"{% if p.event_invites %} checked{% endif %}><span><b>Persönliche Einladungen von {{ club.assistant_name }}</b><br><span class="muted small">{{ club.assistant_name }} schlägt dir Termine vor, die zu deinem Profil passen (nur mit Matching-Einwilligung).</span></span></label>
         <p class="small muted mb-0">Telegram: {% if telegram_linked %}verbunden — trennen unter <a href="{{ url_for('member.community') }}">Community</a>{% else %}nicht verbunden{% endif %}. Mitgliedschaft: derzeit kostenlos; kostenpflichtige Tarife gibt es noch nicht.</p>
         <button class="btn btn-sm mt-s" type="submit">Speichern</button>
       </fieldset>

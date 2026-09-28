@@ -6,6 +6,7 @@ from flask import (Blueprint, current_app, flash, redirect, render_template, req
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+from ..services import club as club_settings
 from ..extensions import db, limiter
 from ..models import Consent, Profile, User, utcnow
 from ..services.mailer import send_mail
@@ -68,7 +69,7 @@ def register():
             user.last_login_at = utcnow()
             db.session.commit()
             login_user(user)
-            send_mail(user.email, "Willkommen bei Main Power", "welcome", user=user)
+            send_mail(user.email, f"Willkommen bei {club_settings.settings()['name']}", "welcome", user=user)
             flash("Willkommen in der Community! Erzähl uns kurz von dir — daraus entstehen deine Matches.", "success")
             return redirect(url_for("member.profile", welcome=1))
     return render_template("auth/register.html", errors=errors, form=form)
@@ -86,7 +87,7 @@ def login():
         if not user or not user.check_password(request.form.get("password", "")):
             error = "E-Mail oder Passwort stimmen nicht."
         elif user.status != "active":
-            error = "Dieses Konto ist gesperrt. Schreib uns an hallo@main-power.org."
+            error = f"Dieses Konto ist gesperrt. Schreib uns an {club_settings.settings()['contact_email']}."
         else:
             login_user(user, remember=bool(request.form.get("remember")))
             user.last_login_at = utcnow()

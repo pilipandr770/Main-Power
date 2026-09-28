@@ -1,15 +1,15 @@
 {% extends "public/_layout.html" %}
-{% block title %}KI-Hinweis — Main Power{% endblock %}
+{% block title %}KI-Hinweis — {{ club.name }}{% endblock %}
 {% block content %}
 <section class="hero"><div class="wrap maxw stack">
   <h1>Wie wir KI einsetzen</h1>
   <p class="lead">Transparenz nach Art. 50 der KI-Verordnung (EU) 2024/1689.</p>
-  <h2>Aiko ist eine KI</h2>
-  <p>Aiko ist ein KI-System (Large Language Model), kein Mensch. Aiko beantwortet Fragen zu Formaten und Terminen und gibt Mitgliedern persönliche Empfehlungen auf Basis ihres Profils. Antworten können fehlerhaft sein — bei wichtigen Entscheidungen wende dich bitte an das Team unter <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</p>
+  <h2>{{ club.assistant_name }} ist eine KI</h2>
+  <p>{{ club.assistant_name }} ist ein KI-System (Large Language Model), kein Mensch. {{ club.assistant_name }} beantwortet Fragen zu Formaten und Terminen und gibt Mitgliedern persönliche Empfehlungen auf Basis ihres Profils. Antworten können fehlerhaft sein — bei wichtigen Entscheidungen wende dich bitte an das Team unter <a href="mailto:{{ club.contact_email }}">{{ club.contact_email }}</a>.</p>
   <h2>Matching</h2>
   <p>Wenn du eingewilligt hast, wandeln wir deine Profilangaben (Tätigkeit, Herausforderung, Angebot, Suche) in mathematische Vektoren um und vergleichen sie mit anderen Profilen. Daraus entstehen Vorschläge. Es werden keine Entscheidungen mit rechtlicher Wirkung automatisiert getroffen: Ob ein Kontakt zustande kommt, entscheiden immer die beteiligten Menschen.</p>
-  <h2>Was Aiko nicht tut</h2>
-  <p>Aiko gibt keine Kontaktdaten anderer Mitglieder heraus, sammelt keine Daten aus sozialen Netzwerken und nutzt Gespräche nicht zum Training von KI-Modellen.</p>
+  <h2>Was {{ club.assistant_name }} nicht tut</h2>
+  <p>{{ club.assistant_name }} gibt keine Kontaktdaten anderer Mitglieder heraus, sammelt keine Daten aus sozialen Netzwerken und nutzt Gespräche nicht zum Training von KI-Modellen.</p>
   <h2>Anbieter</h2>
   <p>Die Sprachverarbeitung erfolgt über die API von Anthropic auf Grundlage eines Auftragsverarbeitungsvertrags. Details in den <a href="{{ url_for('public.privacy') }}">Datenschutzhinweisen</a>.</p>
 </div></section>

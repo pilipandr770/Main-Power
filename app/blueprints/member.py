@@ -13,6 +13,7 @@ from ..models import (FORMATS, SOCIALS, ChatMessage, Event, IntroRequest, LawQue
                       Profile, Registration, Service, ServiceInquiry, SeoReport, Setting, User, utcnow)
 from ..services import (aiko, compliance_check, insights, laws, matching, media, panel, payments, security_check,
                         seo_check, telegram)
+from ..services import club as club_settings
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
 from ..services.mailer import send_mail
@@ -223,7 +224,7 @@ def request_intro(user_id):
         send_mail(target.email, f"{current_user.first_name} möchte dich kennenlernen", "intro_request",
                   target=target, sender=current_user, ir=ir, link=url_for("member.contacts", _external=True))
         if target.telegram_user_id and telegram.enabled():
-            telegram.send(target.telegram_user_id, f"{current_user.first_name} möchte dich über Main Power "
+            telegram.send(target.telegram_user_id, f"{current_user.first_name} möchte dich über {club_settings.settings()['name']} "
                                                    f"kennenlernen. Antworte hier: {url_for('member.contacts', _external=True)}")
         flash(f"Anfrage an {target.first_name} gesendet. Kontaktdaten werden geteilt, sobald {target.first_name} zustimmt.",
               "success")
@@ -434,12 +435,12 @@ def event_ics(event_id):
     fmt = "%Y%m%dT%H%M%SZ"
     end = ev.ends_at or (ev.starts_at + timedelta(hours=2))
     body = "\r\n".join([
-        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Main Power//Plattform//DE", "BEGIN:VEVENT",
-        f"UID:mp-{ev.id}@main-power.org", f"DTSTAMP:{utcnow():{fmt}}", f"DTSTART:{ev.starts_at:{fmt}}",
-        f"DTEND:{end:{fmt}}", f"SUMMARY:{ev.title}", f"LOCATION:{ev.location or 'Frankfurt am Main'}",
+        "BEGIN:VCALENDAR", "VERSION:2.0", f"PRODID:-//{club_settings.settings()['name']}//Plattform//DE", "BEGIN:VEVENT",
+        f"UID:ev-{ev.id}@{request.host.split(':')[0]}", f"DTSTAMP:{utcnow():{fmt}}", f"DTSTART:{ev.starts_at:{fmt}}",
+        f"DTEND:{end:{fmt}}", f"SUMMARY:{ev.title}", f"LOCATION:{ev.location or club_settings.settings().get('city', '')}",
         "DESCRIPTION:" + (ev.description or "").replace("\n", "\\n")[:900], "END:VEVENT", "END:VCALENDAR", ""])
     return Response(body, mimetype="text/calendar",
-                    headers={"Content-Disposition": f"attachment; filename=main-power-{ev.id}.ics"})
+                    headers={"Content-Disposition": f"attachment; filename={club_settings.slug(club_settings.settings()['name'])}-{ev.id}.ics"})
 
 
 @bp.route("/termine/neu", methods=["GET", "POST"])
@@ -529,7 +530,7 @@ def service_detail(slug):
         db.session.add(inq)
         db.session.commit()
         if s.provider_email:
-            send_mail(s.provider_email, f"Anfrage über Main Power: {s.title}", "service_inquiry",
+            send_mail(s.provider_email, f"Anfrage über {club_settings.settings()['name']}: {s.title}", "service_inquiry",
                       s=s, user=current_user, inq=inq)
         flash("Danke! Deine Anfrage ist angekommen — wir melden uns innerhalb von zwei Werktagen.", "success")
         return redirect(url_for("member.service_detail", slug=slug))
@@ -862,7 +863,7 @@ def privacy():
 def export():
     data = json.dumps(export_user(current_user), ensure_ascii=False, indent=2)
     return Response(data, mimetype="application/json",
-                    headers={"Content-Disposition": "attachment; filename=main-power-meine-daten.json"})
+                    headers={"Content-Disposition": f"attachment; filename={club_settings.slug(club_settings.settings()['name'])}-meine-daten.json"})
 
 
 @bp.route("/privatsphaere/passwort", methods=["POST"])

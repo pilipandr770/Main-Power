@@ -321,7 +321,7 @@ def _fallback_report(result: dict) -> dict:
 
 
 def build_report(result: dict, keywords: list[str]) -> dict:
-    system = ("Du bist ein erfahrener SEO-Berater bei Main Power und schreibst einen Prüfbericht für Unternehmer:innen "
+    system = ("Du bist ein erfahrener SEO-Berater bei {CLUB} und schreibst einen Prüfbericht für Unternehmer:innen "
               "ohne SEO-Vorwissen. Ton: ruhig, klar, wertschätzend, Deutsch, du-Form. Nutze NUR die Prüfergebnisse "
               "(erfinde keine Zahlen, Rankings oder Wettbewerber). Sortiere die Maßnahmen nach Wirkung geteilt durch "
               "Aufwand. Verspreche niemals bestimmte Platzierungen oder Besucherzahlen. Antworte NUR als JSON: "

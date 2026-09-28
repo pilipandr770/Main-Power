@@ -1,6 +1,6 @@
 {% extends "auth/_layout.html" %}
-{% from "partials/_macros.html" import input, check %}
-{% block title %}Anmelden — Main Power{% endblock %}
+{% from "partials/_macros.html" import input, check with context %}
+{% block title %}Anmelden — {{ club.name }}{% endblock %}
 {% block content %}
 <h1>Willkommen zurück</h1>
 <form method="post">

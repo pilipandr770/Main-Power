@@ -1,6 +1,6 @@
 {% extends "public/_layout.html" %}
-{% from "partials/_macros.html" import event_row %}
-{% block title %}{{ f.name }} — Main Power{% endblock %}
+{% from "partials/_macros.html" import event_row with context %}
+{% block title %}{{ f.name }} — {{ club.name }}{% endblock %}
 {% block content %}
 <section class="hero">
   <div class="wrap hero-grid">
@@ -8,11 +8,11 @@
       <p class="muted">{{ f.tagline }}</p>
       <h1>{{ f.name }}</h1>
       <p class="lead">{{ f.description }}</p>
-      <p><b>Teilnahme:</b> {{ f.price_cents|money }}{% if key == 'hub' %} pro Person — davon 18 € für dein Frühstück im Hotel, 7 € Organisationsbeitrag{% endif %}<br><b>Rhythmus:</b> {{ f.rhythm }}</p>
-      {% if key == 'hub' %}<p class="muted">Jede:r stellt sich kurz vor: wer sie ist, wo ihre größte Herausforderung liegt, wobei sie anderen weiterhelfen kann und wonach sie gerade konkret sucht. Unser Ziel: Niemand verlässt ein Hub-Treffen ohne mindestens eine wirklich wertvolle Verbindung.</p>{% endif %}
+      <p><b>Teilnahme:</b> {{ f.price_cents|money }}{% if f.price_note %} — {{ f.price_note }}{% endif %}<br><b>Rhythmus:</b> {{ f.rhythm }}</p>
+      {% if f.details %}<p class="muted pre">{{ f.details }}</p>{% endif %}
       <a class="btn mt-m" href="{{ url_for('auth.register') if not current_user.is_authenticated else url_for('member.events', format=key) }}">Teilnahme anfragen</a>
     </div>
-    <img src="{{ url_for('static', filename='img/' ~ f.image) }}" alt="">
+    <img src="{{ f.image|media }}" alt="">
   </div>
 </section>
 <section class="section"><div class="wrap">

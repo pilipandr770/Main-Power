@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% from "partials/_macros.html" import logo, flashes %}
+{% from "partials/_macros.html" import logo, flashes with context %}
 {% block body %}
 <a class="sr-only" href="#inhalt">Zum Inhalt springen</a>
 <header class="site-head">
   <div class="wrap">
-    {{ logo("Community Frankfurt") }}
+    {{ logo(club.subtitle) }}
     <nav class="site-nav" aria-label="Hauptnavigation">
       <a class="hide-m" href="{{ url_for('public.index') }}#formate">Formate</a>
       <a class="hide-m" href="{{ url_for('public.events') }}">Termine</a>
@@ -25,17 +25,17 @@
 <footer class="site-foot">
   <div class="wrap row between">
     <div>
-      <b class="bone">Geladen bleiben.</b><br>
-      © {{ 2026 }} Main Power Community · Frankfurt am Main
+      <b class="bone">{{ club.tagline }}</b><br>
+      © {{ 2026 }} {{ club.full_name }}{% if club.city %} · {{ club.city }}{% endif %}
     </div>
     <div class="row">
-      <a href="{{ cfg.IMPRESSUM_URL }}">Impressum</a>
+      {% if club.impressum_url %}<a href="{{ club.impressum_url }}">Impressum</a>{% endif %}
       <a href="{{ url_for('public.privacy') }}">Datenschutz</a>
       <a href="{{ url_for('public.terms') }}">Nutzungsbedingungen</a>
       <a href="{{ url_for('public.cookies') }}">Cookies</a>
       <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>
-      <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>
-      <a href="https://instagram.com/mainpowercommunity" rel="noopener">Instagram</a>
+      <a href="mailto:{{ club.contact_email }}">{{ club.contact_email }}</a>
+      {% if club.instagram_url %}<a href="{{ club.instagram_url }}" rel="noopener">Instagram</a>{% endif %}
     </div>
   </div>
 </footer>

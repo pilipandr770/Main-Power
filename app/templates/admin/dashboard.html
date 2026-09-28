@@ -1,5 +1,5 @@
 {% extends "admin/_layout.html" %}
-{% from "partials/_macros.html" import event_row, avatar %}
+{% from "partials/_macros.html" import event_row, avatar with context %}
 {% block page_title %}Übersicht{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Übersicht</h1><div class="row"><span class="tag {{ 'ok' if ai_on else 'warn' }}">KI {{ 'aktiv' if ai_on else 'Demo-Modus' }}</span><span class="tag {{ 'ok' if stripe_on else '' }}">Stripe {{ 'aktiv' if stripe_on else 'aus' }}</span></div></div>
@@ -9,7 +9,7 @@
   <div class="kpi"><b>{{ s.events }}</b><span>kommende Termine{% if s.pending_events %}, {{ s.pending_events }} zur Freigabe{% endif %}</span></div>
   <div class="kpi"><b>{{ s.registrations }}</b><span>aktive Anmeldungen</span></div>
   <div class="kpi"><b>{{ s.intros_accepted }}/{{ s.intros }}</b><span>Kontaktanfragen angenommen</span></div>
-  <div class="kpi"><b>{{ s.chats_week }}</b><span>Fragen an Aiko (7 Tage)</span></div>
+  <div class="kpi"><b>{{ s.chats_week }}</b><span>Fragen an {{ club.assistant_name }} (7 Tage)</span></div>
   <div class="kpi"><b>{{ s.inquiries_new }}</b><span>neue Leistungsanfragen</span></div>
   <div class="kpi"><b>{{ s.telegram }}</b><span>mit Telegram verbunden</span></div>
 </div>

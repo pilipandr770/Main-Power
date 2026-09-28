@@ -244,7 +244,7 @@ def analyze(raw: str) -> dict:
             "facts": {"host": host, "domain": org, "tls": tls.get("version", ""), "aussteller": tls.get("issuer", "")}}
 
 
-_SYSTEM = ("Du bist Berater für IT-Sicherheit bei Main Power und schreibst einen Prüfbericht für Unternehmer:innen ohne "
+_SYSTEM = ("Du bist Berater für IT-Sicherheit bei {CLUB} und schreibst einen Prüfbericht für Unternehmer:innen ohne "
            "Technik-Vorwissen. Ton: ruhig, klar, sachlich, Deutsch, du-Form. Grundlage ist ausschließlich eine PASSIVE Prüfung "
            "öffentlich sichtbarer Einstellungen (TLS, HTTP-Header, Cookies, E-Mail-DNS). Sage klar, dass das KEIN Penetrationstest "
            "und keine Schwachstellenprüfung ist und Systeme, Software-Stände und Zugänge nicht geprüft wurden. Keine Rechtsberatung. "

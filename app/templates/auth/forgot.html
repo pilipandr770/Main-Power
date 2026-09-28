@@ -1,6 +1,6 @@
 {% extends "auth/_layout.html" %}
-{% from "partials/_macros.html" import input %}
-{% block title %}Passwort vergessen — Main Power{% endblock %}
+{% from "partials/_macros.html" import input with context %}
+{% block title %}Passwort vergessen — {{ club.name }}{% endblock %}
 {% block content %}
 <h1>Passwort zurücksetzen</h1>
 <p class="muted">Wir schicken dir einen Link, mit dem du ein neues Passwort festlegst.</p>

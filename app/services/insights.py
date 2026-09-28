@@ -77,7 +77,7 @@ def profile_coach(values: dict) -> dict:
     if not any(clean[k] for k in FIELD_LABELS):
         return {"summary": "Schreib zuerst ein paar Stichworte in die vier Fragen — dann gebe ich dir Feedback.",
                 "tips": [], "ai": False}
-    system = ("Du bist Aiko, Profil-Coach der Main Power Community. Du gibst kurzes, konkretes, wertschätzendes "
+    system = ("Du bist Aiko, Profil-Coach von {CLUB}. Du gibst kurzes, konkretes, wertschätzendes "
               "Feedback zu den Profilantworten, damit das Matching (Bedarf und Angebot) gut funktioniert. "
               "Regeln: du-Form, Deutsch, max. 1–2 Sätze pro Tipp, keine Fantasiefakten, nichts Sensibles abfragen. "
               "Gib für jede Antwort, die konkreter werden sollte, einen Tipp mit einem Formulierungsbeispiel in „…“. "
@@ -138,7 +138,7 @@ def pair_insight(viewer: User, other: User, force: bool = False) -> dict:
     if row and row.version == key and not force and (row.ai or not have_key):
         data = row.data
     else:
-        system = ("Du bist Aiko, die KI der Main Power Community, und beratest Person A vor einem möglichen Kontakt zu "
+        system = ("Du bist Aiko, die KI von {CLUB}, und beratest Person A vor einem möglichen Kontakt zu "
                   "Person B. Nutze NUR die Profildaten. Sei konkret, warm, ohne Übertreibung; du-Form an Person A; "
                   "Deutsch. Liefere:\n- they_help_you: 1–2 Sätze, womit B der Person A konkret helfen kann\n"
                   "- you_help_them: 1–2 Sätze, womit A der Person B nützen kann\n"
@@ -219,7 +219,7 @@ def invite_candidates(ev: Event, limit: int = 8, min_score: float = 0.12) -> lis
         pool = _prefilter(ev, limit=14, min_score=0.03)
         if not pool:
             return []
-        system = ("Du wählst für die Main Power Community aus einer Kandidatenliste die Personen, die zu einem Termin "
+        system = ("Du wählst für {CLUB} aus einer Kandidatenliste die Personen, die zu einem Termin "
                   "wirklich passen, und schreibst je Person 1–2 Sätze Einladungsgrund (du-Form, Deutsch, warm, konkret, "
                   "kein Verkaufston). Passend heißt: die Person kann inhaltlich beitragen (Expert:in) ODER profitiert "
                   "erkennbar vom Thema (z. B. passende Zielgruppe oder aktueller Bedarf). Bewerte jede Person mit relevanz "

@@ -1,0 +1,33 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
+{% block page_title %}{{ fmt.name or 'Neues Format' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('admin.formats') }}">Formate</a></p><h1>{{ fmt.name or 'Neues Format' }}</h1></div></div>
+<form method="post" class="maxw" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset><legend>Format</legend>
+    {{ input("name", "Name", request.form.get("name") or fmt.name, errors=errors, required=True, placeholder="z. B. Business-Frühstück") }}
+    {% if not fmt.id %}{{ input("key", "Schlüssel (optional)", request.form.get("key"), errors=errors, hint="Für Links, z. B. fruehstueck. Leer = aus dem Namen.") }}
+    {% else %}<p class="small muted">Schlüssel: <b>{{ fmt.key }}</b></p>{% endif %}
+    <div class="grid grid-2">
+      {{ input("short", "Kurzname", request.form.get("short") or fmt.short, hint="Für Filter und Etiketten") }}
+      {{ input("tagline", "Unterzeile", request.form.get("tagline") or fmt.tagline) }}
+    </div>
+    <div class="grid grid-2">
+      {{ input("price", "Preis in Euro", request.form.get("price") or ((fmt.price_cents or 0) / 100)|string, errors=errors) }}
+      {{ input("rhythm", "Rhythmus", request.form.get("rhythm") or fmt.rhythm, placeholder="z. B. Einmal im Monat") }}
+    </div>
+    {{ input("price_note", "Hinweis zum Preis (optional)", request.form.get("price_note") or fmt.price_note) }}
+    {{ textarea("description", "Beschreibung", request.form.get("description") or fmt.description, rows=3) }}
+    {{ textarea("details", "Weitere Details für die Formatseite (optional)", request.form.get("details") or fmt.details, rows=4) }}
+    {{ input("sort", "Reihenfolge", (request.form.get("sort") or fmt.sort or 0)|string, type="number") }}
+  </fieldset>
+  <fieldset><legend>Bild und Sichtbarkeit</legend>
+    {% if fmt.image %}<p><img class="thumb" src="{{ fmt.image|media }}" alt=""></p>{% endif %}
+    <div class="field{% if errors.image %} has-error{% endif %}"><label for="f-image">Bild (optional)</label><input id="f-image" type="file" name="image" accept="image/png,image/jpeg,image/webp">{% if errors.image %}<div class="error-text">{{ errors.image }}</div>{% endif %}</div>
+    {{ check("featured", "Auf der Startseite zeigen", fmt.featured if not request.form else request.form.get("featured")) }}
+    {% if not fmt.system %}{{ check("active", "Aktiv (für neue Termine wählbar)", fmt.active if not request.form else request.form.get("active")) }}{% endif %}
+  </fieldset>
+  <button class="btn" type="submit">Speichern</button>
+</form>
+{% endblock %}

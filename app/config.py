@@ -80,6 +80,17 @@ class Config:
     SMTP_FROM = os.environ.get("SMTP_FROM", "Main Power <hallo@main-power.org>")
     SMTP_TLS = _bool("SMTP_TLS", True)
 
+    # Mehrere Klubs (SaaS). Der Klub wird pro Request über den Host bestimmt: eigene Domain (Club.domains) oder
+    # <slug>.<PLATFORM_DOMAIN>. Unbekannte Hosts landen beim Standardklub, außer STRICT_HOSTS=1 (dann 404).
+    DEFAULT_CLUB_SLUG = os.environ.get("DEFAULT_CLUB_SLUG", "mainpower")
+    DEFAULT_CLUB_NAME = os.environ.get("DEFAULT_CLUB_NAME", "Main Power")
+    DEFAULT_CLUB_DOMAINS = os.environ.get("DEFAULT_CLUB_DOMAINS", "")
+    PLATFORM_DOMAIN = os.environ.get("PLATFORM_DOMAIN", "")
+    STRICT_HOSTS = _bool("STRICT_HOSTS", False)
+    # Plattform-Konsole (/plattform): eigene Anmeldung, unabhängig von den Klub-Konten. Leer = Konsole gesperrt.
+    PLATFORM_ADMIN_EMAIL = os.environ.get("PLATFORM_ADMIN_EMAIL", "").strip().lower()
+    PLATFORM_ADMIN_PASSWORD = os.environ.get("PLATFORM_ADMIN_PASSWORD", "")
+
     # Demo-Modus: Admins dürfen zwischen Mitgliedskonten wechseln. In Produktion AUS lassen (ENABLE_IMPERSONATION nicht setzen).
     ENABLE_IMPERSONATION = _bool("ENABLE_IMPERSONATION", False)
 

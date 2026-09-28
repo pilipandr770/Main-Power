@@ -63,7 +63,7 @@
       add("user", text);
       input.value = "";
       button.disabled = true;
-      var wait = add("assistant", "Aiko denkt nach …", true);
+      var wait = add("assistant", "Antwort wird erstellt …", true);
       var body;
       if (mode === "public") {
         history.push({ role: "user", content: text });
@@ -314,7 +314,7 @@
         .then(function (d) {
           var pct = d.requested ? Math.round(100 * d.done / d.requested) : 0;
           bar.style.width = pct + "%";
-          label.textContent = d.done + " von " + d.requested + " Personas haben geantwortet" + (d.status === "running" && d.done >= d.requested ? " — Aiko wertet aus …" : "");
+          label.textContent = d.done + " von " + d.requested + " Personas haben geantwortet" + (d.status === "running" && d.done >= d.requested ? " — Auswertung läuft …" : "");
           if (d.status === "done" || d.status === "failed") { window.location.reload(); return; }
           setTimeout(tick, 2000);
         })

@@ -1,5 +1,5 @@
 {% extends "admin/_layout.html" %}
-{% from "partials/_macros.html" import avatar %}
+{% from "partials/_macros.html" import avatar with context %}
 {% block page_title %}{{ u.full_name }}{% endblock %}
 {% block content %}
 <div class="page-head"><div class="profile-head">{{ avatar(u, "lg") }}<div><h1>{{ u.full_name }}</h1><p class="muted mb-0">{{ u.email }}{% if u.phone %} · {{ u.phone }}{% endif %} · seit {{ u.created_at|dt }} · letzter Login {{ u.last_login_at|dt }}</p></div></div>

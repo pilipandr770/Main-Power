@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head"><div><h1>KI-Einladungen</h1><p class="muted mb-0">{{ ev.title }} · {{ ev|event_date }}</p></div>
 <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.event_attendees', event_id=ev.id) }}">Zurück zum Termin</a></div>
-<p class="muted maxw">Aiko vergleicht Thema und Beschreibung des Termins mit Angebot und Bedarf aller Mitglieder, die dem Matching zugestimmt haben, und lädt passende Personen mit einer persönlichen Begründung ein (in der Plattform, per E-Mail und, falls verbunden, per Telegram). Wer schon angemeldet oder eingeladen ist, wird übersprungen.</p>
+<p class="muted maxw">{{ club.assistant_name }} vergleicht Thema und Beschreibung des Termins mit Angebot und Bedarf aller Mitglieder, die dem Matching zugestimmt haben, und lädt passende Personen mit einer persönlichen Begründung ein (in der Plattform, per E-Mail und, falls verbunden, per Telegram). Wer schon angemeldet oder eingeladen ist, wird übersprungen.</p>
 <div class="split">
   <section>
     <h2>Würde eingeladen ({{ cands|length }})</h2>

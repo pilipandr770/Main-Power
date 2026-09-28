@@ -1,0 +1,23 @@
+{% extends "platform/_layout.html" %}
+{% block page_title %}Klubs{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Klubs</h1><p class="muted mb-0">{{ clubs|length }} Klub{{ 's' if clubs|length != 1 }} auf dieser Installation. Kennzahlen: Mitglieder gesamt, kommende Termine, KI-Verbrauch der letzten 30 Tage.</p></div>
+<a class="btn btn-sm" href="{{ url_for('platform.club_new') }}">Neuen Klub anlegen</a></div>
+<div class="table-wrap"><table>
+<thead><tr><th>Klub</th><th>Adresse</th><th>Tarif</th><th class="num">Mitglieder</th><th class="num">Termine</th><th class="num">KI 30 Tage</th><th>Status</th><th></th></tr></thead>
+<tbody>
+{% for c in clubs %}{% set st = stats.get(c.id, {}) %}
+<tr>
+  <td><a href="{{ url_for('platform.club_edit', cid=c.id) }}"><b>{{ c.name }}</b></a><br><span class="small muted">{{ c.slug }} · seit {{ c.created_at|dt }}</span></td>
+  <td class="small">{% for d in c.domain_list %}<a href="https://{{ d }}/" rel="noopener" target="_blank">{{ d }}</a><br>{% endfor %}{% if platform_domain %}<a href="https://{{ c.slug }}.{{ platform_domain }}/" rel="noopener" target="_blank">{{ c.slug }}.{{ platform_domain }}</a>{% endif %}{% if not c.domain_list and not platform_domain %}<span class="muted">keine Domain</span>{% endif %}</td>
+  <td><span class="tag">{{ c.plan }}</span></td>
+  <td class="num">{{ st.members or 0 }}</td>
+  <td class="num">{{ st.events or 0 }}</td>
+  <td class="num">{{ '{:,}'.format(st.tokens or 0).replace(',', '.') }}<br><span class="small muted">≈ {{ '%.2f'|format(st.cost or 0) }} $</span></td>
+  <td><span class="tag {{ 'ok' if c.status == 'active' else 'warn' }}">{{ 'aktiv' if c.status == 'active' else 'pausiert' }}</span></td>
+  <td><form method="post" action="{{ url_for('platform.club_status', cid=c.id) }}" data-confirm="{{ 'Klub pausieren? Mitglieder sehen dann nur einen Hinweis.' if c.status == 'active' else 'Klub wieder aktivieren?' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn small">{{ 'Pausieren' if c.status == 'active' else 'Aktivieren' }}</button></form></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+<p class="small muted mt-m">Jeder Klub ist eigenständig: eigene Mitglieder, Termine, Einstellungen und Branding; Daten verschiedener Klubs sind technisch getrennt. Branding, Formate und FAQ pflegt der Klub selbst unter Admin → „Klub &amp; Branding“. Jeder Klub ist datenschutzrechtlich Verantwortlicher; die Plattform arbeitet als Auftragsverarbeiter (AVV je Klub abschließen).</p>
+{% endblock %}

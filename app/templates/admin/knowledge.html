@@ -1,7 +1,7 @@
 {% extends "admin/_layout.html" %}
-{% block page_title %}Wissen für Aiko{% endblock %}
+{% block page_title %}Wissen für {{ club.assistant_name }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Wissen für Aiko</h1><p class="muted mb-0">Fragen und Antworten, die Aiko kennt. „Öffentlich“ erscheint auch auf der Startseite und im Chat für Besucher:innen.</p></div></div>
+<div class="page-head"><div><h1>Wissen für {{ club.assistant_name }}</h1><p class="muted mb-0">Fragen und Antworten, die {{ club.assistant_name }} kennt. „Öffentlich“ erscheint auch auf der Startseite und im Chat für Besucher:innen.</p></div></div>
 {% for k in items %}
 <details class="faq">
   <summary>{{ k.question }} {% if not k.active %}<span class="tag">aus</span>{% elif not k.public %}<span class="tag">nur Mitglieder</span>{% endif %}</summary>

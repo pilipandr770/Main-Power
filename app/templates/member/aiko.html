@@ -1,12 +1,12 @@
 {% extends "member/_layout.html" %}
-{% block page_title %}Aiko{% endblock %}
+{% block page_title %}{{ club.assistant_name }}{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Aiko <span class="ai-mark">KI-Assistentin</span></h1><p class="muted mb-0">Kennt dein Profil, die Termine und die Community. Gibt keine Kontaktdaten anderer weiter.</p></div>
+<div class="page-head"><div><h1>{{ club.assistant_name }} <span class="ai-mark">KI-Assistentin</span></h1><p class="muted mb-0">Kennt dein Profil, die Termine und die Community. Gibt keine Kontaktdaten anderer weiter.</p></div>
 <form method="post" action="{{ url_for('member.aiko_clear') }}" data-confirm="Gesamten Chatverlauf löschen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Verlauf löschen</button></form></div>
-{% if not ai_on %}<div class="flash info mb-m">Demo-Modus: Es ist kein KI-Schlüssel hinterlegt. Aiko antwortet aus der Wissensbasis.</div>{% endif %}
+{% if not ai_on %}<div class="flash info mb-m">Demo-Modus: Es ist kein KI-Schlüssel hinterlegt. {{ club.assistant_name }} antwortet aus der Wissensbasis.</div>{% endif %}
 <div class="chat" data-chat data-mode="member" data-endpoint="{{ url_for('member.aiko_api') }}">
   <div class="chat-log" aria-live="polite">
-    {% if not history %}<div class="msg assistant">Hallo {{ current_user.first_name }}, ich bin Aiko. Ich kann dir sagen, wen du kennenlernen solltest, welche Termine zu dir passen, oder dir bei deiner Vorstellung für den Hub helfen. Womit fangen wir an?</div>{% endif %}
+    {% if not history %}<div class="msg assistant">Hallo {{ current_user.first_name }}, ich bin {{ club.assistant_name }}. Ich kann dir sagen, wen du kennenlernen solltest, welche Termine zu dir passen, oder dir bei deiner Vorstellung für den Hub helfen. Womit fangen wir an?</div>{% endif %}
     {% for m in history %}<div class="msg {{ m.role }}"{% if m.role == 'assistant' %} data-raw="{{ m.content }}"{% endif %}>{{ m.content }}</div>{% endfor %}
   </div>
   <div class="suggest">
@@ -16,10 +16,10 @@
     <button type="button" data-suggest="Was fehlt in meinem Profil, damit meine Matches besser werden?">Profil verbessern</button>
   </div>
   <form class="chat-form">
-    <label class="sr-only" for="aiko-input">Nachricht an Aiko</label>
-    <textarea id="aiko-input" maxlength="2000" placeholder="Schreib Aiko …"></textarea>
+    <label class="sr-only" for="aiko-input">Nachricht an {{ club.assistant_name }}</label>
+    <textarea id="aiko-input" maxlength="2000" placeholder="Schreib {{ club.assistant_name }} …"></textarea>
     <button class="btn" type="submit">Senden</button>
   </form>
 </div>
-<p class="small muted mt-s">Aiko ist eine KI und kann sich irren. Verlauf wird gespeichert, damit Aiko den Zusammenhang kennt; du kannst ihn jederzeit löschen.</p>
+<p class="small muted mt-s">{{ club.assistant_name }} ist eine KI und kann sich irren. Verlauf wird gespeichert, damit {{ club.assistant_name }} den Zusammenhang kennt; du kannst ihn jederzeit löschen.</p>
 {% endblock %}

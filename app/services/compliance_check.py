@@ -322,7 +322,7 @@ def analyze(url: str) -> dict:
                       "consent_manager": cmp, "dienste": [n for n, _, _ in found], "https": https}}
 
 
-_SYSTEM = ("Du bist ein Berater für Website-Compliance bei Main Power und schreibst einen Prüfbericht für Unternehmer:innen "
+_SYSTEM = ("Du bist ein Berater für Website-Compliance bei {CLUB} und schreibst einen Prüfbericht für Unternehmer:innen "
            "ohne juristisches Vorwissen. Ton: ruhig, klar, sachlich, Deutsch, du-Form. WICHTIG: Du gibst keine Rechtsberatung. "
            "Formuliere Ergebnisse als Hinweise und Empfehlungen, nenne keine Bußgeld- oder Abmahnsummen und erkläre, dass "
            "die Prüfung automatisch und statisch ist und bei Unsicherheit eine Anwältin, ein Anwalt oder ein Datenschutzbeauftragter "

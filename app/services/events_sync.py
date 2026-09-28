@@ -1,4 +1,4 @@
-"""Import der Termine aus dem Kalender von main-power.org (/api/events, Google-Kalender-basiert)."""
+"""Import der Termine aus der Kalender-Quelle eines Klubs (JSON wie main-power.org/api/events)."""
 from __future__ import annotations
 
 import logging
@@ -29,8 +29,11 @@ def _parse(ts: str) -> datetime:
 
 
 def sync_events() -> dict:
-    url = current_app.config["EVENTS_SYNC_URL"]
-    r = requests.get(url, timeout=15, headers={"User-Agent": "MainPowerPlatform/1.0"})
+    from . import club as club_settings
+    url = club_settings.settings().get("events_sync_url")
+    if not url:
+        return {"created": 0, "updated": 0, "skipped": "keine Quelle"}
+    r = requests.get(url, timeout=15, headers={"User-Agent": "CommunityPlatform/1.0"})
     r.raise_for_status()
     data = r.json()
     created = updated = 0

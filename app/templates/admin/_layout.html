@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "partials/_macros.html" import logo, flashes %}
-{% block title %}{% block page_title %}{% endblock %} — Admin · Main Power{% endblock %}
+{% from "partials/_macros.html" import logo, flashes with context %}
+{% block title %}{% block page_title %}{% endblock %} — Admin · {{ club.name }}{% endblock %}
 {% block body_class %}admin{% endblock %}
 {% block body %}
 {% set ep = request.endpoint or '' %}
@@ -15,12 +15,14 @@
       <a href="{{ url_for('admin.events') }}" class="{{ 'on' if ep.startswith('admin.event') }}">Termine</a>
       <a href="{{ url_for('admin.intros') }}" class="{{ 'on' if ep == 'admin.intros' }}">Kontaktanfragen</a>
       <a href="{{ url_for('admin.services') }}" class="{{ 'on' if ep.startswith('admin.service') }}">Leistungen & Anfragen</a>
-      <a href="{{ url_for('admin.knowledge') }}" class="{{ 'on' if ep == 'admin.knowledge' }}">Wissen für Aiko</a>
+      <a href="{{ url_for('admin.knowledge') }}" class="{{ 'on' if ep == 'admin.knowledge' }}">Wissen für {{ club.assistant_name }}</a>
       <div class="navlabel">Compliance</div>
       <a href="{{ url_for('admin.consents') }}" class="{{ 'on' if ep == 'admin.consents' }}">Einwilligungen</a>
       {% if current_user.is_superadmin %}
       <a href="{{ url_for('admin.audit_log') }}" class="{{ 'on' if ep == 'admin.audit_log' }}">Protokoll</a>
       <a href="{{ url_for('admin.settings') }}" class="{{ 'on' if ep == 'admin.settings' }}">Einstellungen</a>
+      <a href="{{ url_for('admin.club_page') }}" class="{{ 'on' if ep.startswith('admin.club') }}">Klub &amp; Branding</a>
+      <a href="{{ url_for('admin.formats') }}" class="{{ 'on' if ep.startswith('admin.format') }}">Formate</a>
       {% endif %}
       <div class="navlabel">Wechseln</div>
       <a href="{{ url_for('member.dashboard') }}">Mitgliederansicht</a>

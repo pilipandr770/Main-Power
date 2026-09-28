@@ -1,12 +1,12 @@
 {% extends "member/_layout.html" %}
-{% from "partials/_macros.html" import input, check %}
+{% from "partials/_macros.html" import input, check with context %}
 {% block page_title %}Compliance-Check{% endblock %}
 {% block content %}
 <div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('member.services') }}">Leistungen</a></p><h1>Compliance-Check für deine Website</h1>
-<p class="muted mb-0">Aiko prüft, ob die wichtigsten Pflichtangaben und Datenschutz-Grundlagen vorhanden sind.</p></div></div>
+<p class="muted mb-0">{{ club.assistant_name }} prüft, ob die wichtigsten Pflichtangaben und Datenschutz-Grundlagen vorhanden sind.</p></div></div>
 <div class="split">
   <section>
-    <form method="post" class="maxw" data-busy="Aiko prüft deine Seite … das dauert etwa 30 Sekunden">
+    <form method="post" class="maxw" data-busy="{{ club.assistant_name }} prüft deine Seite … das dauert etwa 30 Sekunden">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {{ input("url", "Adresse deiner Website", form.get("url"), errors=errors, required=True, placeholder="https://www.deine-seite.de") }}
       {{ check("authorized", "Ich darf diese Website prüfen (meine eigene oder mit Auftrag).", form.get("authorized"), errors) }}
@@ -22,7 +22,7 @@
         <li><b>Grundschutz:</b> HTTPS und Sicherheits-Header</li>
       </ul>
     </div>
-    <p class="small muted mt-m maxw"><b>Wichtig:</b> Das ist eine automatische, statische Prüfung der öffentlichen Seiten (Startseite und verlinkte Rechtstexte, keine Anmeldung, kein Crawl) und <b>keine Rechtsberatung</b>. Ob Skripte wirklich erst nach Einwilligung laden, kann sie nicht abschließend beurteilen. Für den Bericht nutzen wir KI (Aiko), siehe <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>.</p>
+    <p class="small muted mt-m maxw"><b>Wichtig:</b> Das ist eine automatische, statische Prüfung der öffentlichen Seiten (Startseite und verlinkte Rechtstexte, keine Anmeldung, kein Crawl) und <b>keine Rechtsberatung</b>. Ob Skripte wirklich erst nach Einwilligung laden, kann sie nicht abschließend beurteilen. Für den Bericht nutzen wir KI ({{ club.assistant_name }}), siehe <a href="{{ url_for('public.ai_notice') }}">KI-Hinweis</a>.</p>
   </section>
   <aside>
     <h2>Deine Berichte</h2>

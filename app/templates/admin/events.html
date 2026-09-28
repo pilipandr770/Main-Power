@@ -1,10 +1,10 @@
 {% extends "admin/_layout.html" %}
-{% from "partials/_macros.html" import event_row %}
+{% from "partials/_macros.html" import event_row with context %}
 {% block page_title %}Termine{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Termine</h1>
 <div class="row">
-  <form method="post" action="{{ url_for('admin.events_sync') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Mit main-power.org synchronisieren</button></form>
+  {% if club.events_sync_url %}<form method="post" action="{{ url_for('admin.events_sync') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Mit {{ club.events_sync_label or 'der Quelle' }} abgleichen</button></form>{% endif %}
   <a class="btn btn-sm" href="{{ url_for('admin.event_edit') }}">Neuer Termin</a>
 </div></div>
 <nav class="filters">

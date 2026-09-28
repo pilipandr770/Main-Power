@@ -1,5 +1,5 @@
 {% extends "member/_layout.html" %}
-{% from "partials/_macros.html" import avatar, socials %}
+{% from "partials/_macros.html" import avatar, socials with context %}
 {% block page_title %}{{ u.first_name }}{% endblock %}
 {% block content %}
 {% if is_self %}<div class="flash info mb-m">So sehen andere Mitglieder deine Seite. <a href="{{ url_for('member.profile') }}">Profil bearbeiten</a></div>{% endif %}
@@ -19,7 +19,7 @@
     <div class="panel insight" data-insight data-endpoint="{{ url_for('member.contact_assistant', user_id=u.id) }}" data-target="msg">
       <div class="row between"><div><b>Was bringt euch dieser Kontakt?</b> <span class="ai-mark">KI</span></div>
       <button type="button" class="linkbtn small" data-insight-refresh hidden>Neu einschätzen</button></div>
-      <div class="insight-body mt-s" data-insight-body aria-live="polite"><p class="muted mb-0">Aiko vergleicht dein Profil mit dem von {{ u.first_name }} …</p></div>
+      <div class="insight-body mt-s" data-insight-body aria-live="polite"><p class="muted mb-0">{{ club.assistant_name }} vergleicht dein Profil mit dem von {{ u.first_name }} …</p></div>
     </div>
     {% endif %}
     {% if match and match.reason %}<div class="panel"><b>Warum ihr euch treffen solltet</b> <span class="ai-mark">KI</span><p class="mt-s mb-0">{{ match.reason }}</p>{% if match.opener %}<p class="muted small mt-s mb-0">{{ match.opener }}</p>{% endif %}</div>{% endif %}

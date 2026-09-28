@@ -1,0 +1,16 @@
+{% extends "platform/_layout.html" %}
+{% from "partials/_macros.html" import input with context %}
+{% block page_title %}Anmelden{% endblock %}
+{% block content %}
+<div class="maxw">
+<h1>Betreiber-Konsole</h1>
+<p class="muted">Getrennt von den Klub-Konten. Zugang über PLATFORM_ADMIN_EMAIL / PLATFORM_ADMIN_PASSWORD.</p>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if error %}<div class="flash error mb-m">{{ error }}</div>{% endif %}
+  {{ input("email", "E-Mail", request.form.get("email"), type="email", required=True, autocomplete="username") }}
+  {{ input("password", "Passwort", type="password", required=True, autocomplete="current-password") }}
+  <button class="btn" type="submit">Anmelden</button>
+</form>
+</div>
+{% endblock %}

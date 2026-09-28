@@ -70,7 +70,7 @@ def _llm_reasons(a: Profile, others: list[Profile]) -> dict[int, tuple[str, str]
                 "sucht": p.q_looking_for, "expertise": p.expertise}
 
     system = (
-        "Du bist die Matching-Engine der Main Power Community in Frankfurt. Du erklärst kurz, konkret und "
+        "Du bist die Matching-Engine von {CLUB}. Du erklärst kurz, konkret und "
         "wertschätzend, warum zwei Menschen sich treffen sollten. Ton: ruhig, hochwertig, auf Deutsch, du-Form. "
         "Keine Übertreibungen, keine erfundenen Fakten — nur was in den Profilen steht. "
         "Antworte ausschließlich mit gültigem JSON, ohne Markdown."

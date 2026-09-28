@@ -11,7 +11,7 @@
 <section class="panel mb-l"><h2 class="mb-0">Deine Frage</h2><p class="mt-s mb-0">„{{ row.question }}“</p></section>
 
 {% if row.answer and row.answer.hinweis %}
-<section class="panel mb-l"><div class="row"><h2 class="mb-0">Einordnung</h2><span class="ai-mark">{{ 'Aiko (KI)' if row.ai else 'automatisch' }}</span></div>
+<section class="panel mb-l"><div class="row"><h2 class="mb-0">Einordnung</h2><span class="ai-mark">{{ '' ~ club.assistant_name ~ ' (KI)' if row.ai else 'automatisch' }}</span></div>
 <p class="mt-s mb-0">{{ row.answer.hinweis }}</p></section>
 {% endif %}
 
@@ -26,14 +26,14 @@
   {% if h.titel %}<p class="small muted mb-0">{{ h.law_title }}{% if h.law_title %} — {% endif %}{{ h.titel }}</p>{% endif %}
   <p class="pre mt-s">{{ h.text }}</p>
   {% if h.id in erl_by_id %}
-  <div class="mt-s"><span class="ai-mark">Erläuterung · Aiko (KI)</span><p class="mb-0 mt-s">{{ erl_by_id[h.id] }}</p></div>
+  <div class="mt-s"><span class="ai-mark">Erläuterung · {{ club.assistant_name }} (KI)</span><p class="mb-0 mt-s">{{ erl_by_id[h.id] }}</p></div>
   {% elif h.id in nicht_passend %}
-  <p class="small muted mb-0 mt-s">Aiko hält diese Fundstelle für nicht einschlägig zur Frage — der Text steht trotzdem vollständig oben, damit du selbst nachlesen kannst.</p>
+  <p class="small muted mb-0 mt-s">{{ club.assistant_name }} hält diese Fundstelle für nicht einschlägig zur Frage — der Text steht trotzdem vollständig oben, damit du selbst nachlesen kannst.</p>
   {% endif %}
   <p class="small muted mb-0 mt-s">{% if h.stand %}Stand: {{ h.stand|join(', ') }} · {% endif %}<a href="{{ h.source_url }}" rel="noopener nofollow" target="_blank">Amtlicher Text auf gesetze-im-internet.de</a></p>
 </div>
 {% else %}<div class="empty">Keine Fundstellen gefunden.</div>{% endfor %}
 </section>
 
-<p class="small muted">Automatische Fundstellen aus dem deutschen Bundesrecht (Stand siehe je Fundstelle), {{ 'mit Erläuterung von Aiko (KI)' if row.ai else 'ohne KI-Erläuterung' }}. Keine Rechtsberatung und keine Gewähr auf Vollständigkeit oder Aktualität — für eine verbindliche Einschätzung wende dich an eine Rechtsanwältin oder einen Rechtsanwalt.</p>
+<p class="small muted">Automatische Fundstellen aus dem deutschen Bundesrecht (Stand siehe je Fundstelle), {{ 'mit Erläuterung von ' ~ club.assistant_name ~ ' (KI)' if row.ai else 'ohne KI-Erläuterung' }}. Keine Rechtsberatung und keine Gewähr auf Vollständigkeit oder Aktualität — für eine verbindliche Einschätzung wende dich an eine Rechtsanwältin oder einen Rechtsanwalt.</p>
 {% endblock %}

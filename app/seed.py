@@ -1,4 +1,6 @@
-"""Startdaten: Inhalte von main-power.org, Leistungen, Beispieltermine und (optional) Demo-Mitglieder.
+"""Startdaten je Klub: Branding-Vorlage, Formate, FAQ, Leistungen, Beispieltermine und (optional) Demo-Mitglieder.
+
+Standardklub (DEFAULT_CLUB_SLUG) = Main Power; weitere Klubs legt create_club() an (Plattform-Konsole oder CLI).
 
 Demo-Mitglieder haben E-Mails @demo.main-power.local und lassen sich mit `flask remove-demo` entfernen.
 """
@@ -9,7 +11,10 @@ import os
 from datetime import datetime, timedelta
 
 from .extensions import db
-from .models import Consent, Event, KnowledgeItem, Profile, Service, User, utcnow
+from flask import current_app
+
+from .models import Club, Consent, Event, KnowledgeItem, MeetingFormat, Profile, Service, User, utcnow
+from .tenancy import use_club
 from .services.matching import refresh_embeddings
 
 log = logging.getLogger(__name__)
@@ -59,7 +64,7 @@ SERVICES = [
          benefits="Antworten rund um die Uhr, auch außerhalb der Bürozeiten\nWeniger Routinefragen im Postfach\n"
                   "Leads mit vollständigen Angaben statt halber E-Mails\nHosting in Deutschland, Auftragsverarbeitung inklusive",
          member_benefit="Kostenloses Erstgespräch für Community-Mitglieder",
-         price_hint="Festpreis nach Erstgespräch", provider_name="Andrii-IT · Partner von Main Power",
+         price_hint="Festpreis nach Erstgespräch", provider_name="Andrii-IT",
          provider_email="info@andrii-it.de"),
     dict(slug="cybersecurity-check", sort=2, title="Cybersecurity-Check für Selbstständige & KMU",
          summary="Wie angreifbar ist dein Unternehmen von außen? Ein Check deiner Website, E-Mail-Sicherheit und "
@@ -70,7 +75,7 @@ SERVICES = [
          benefits="Schwachstellen finden, bevor andere es tun\nNachweis für Versicherer und Kund:innen\n"
                   "Priorisierte Maßnahmen statt Panik",
          member_benefit="Kostenloses Erstgespräch für Community-Mitglieder",
-         price_hint="ab Pauschalpreis, je nach Umfang", provider_name="Andrii-IT · Partner von Main Power",
+         price_hint="ab Pauschalpreis, je nach Umfang", provider_name="Andrii-IT",
          provider_email="info@andrii-it.de"),
     dict(slug="nis2-dsgvo-compliance", sort=3, title="NIS2- und DSGVO-Check",
          summary="Bist du von NIS2 betroffen und was musst du konkret tun? Betroffenheitsprüfung, Lückenanalyse "
@@ -80,7 +85,7 @@ SERVICES = [
                      "Ist-Stand und erstellen einen umsetzbaren Plan.",
          benefits="Klarheit über Betroffenheit und Fristen\nDokumentation für Prüfungen\nSchulung der Geschäftsführung",
          member_benefit="Kostenloses Erstgespräch für Community-Mitglieder",
-         price_hint="nach Aufwand", provider_name="Andrii-IT · Partner von Main Power",
+         price_hint="nach Aufwand", provider_name="Andrii-IT",
          provider_email="info@andrii-it.de"),
     dict(slug="ki-verordnung", sort=4, title="KI im Unternehmen — rechtssicher einführen",
          summary="Du nutzt ChatGPT, Chatbots oder KI-Tools? Wir prüfen, welche Pflichten aus KI-Verordnung und "
@@ -90,7 +95,7 @@ SERVICES = [
                      "und liefern Nutzungsrichtlinie und Schulung.",
          benefits="Überblick über eingesetzte KI-Tools\nNutzungsrichtlinie für dein Team\nNachweis der KI-Kompetenz",
          member_benefit="Kostenloses Erstgespräch für Community-Mitglieder",
-         price_hint="Paketpreis", provider_name="Andrii-IT · Partner von Main Power",
+         price_hint="Paketpreis", provider_name="Andrii-IT",
          provider_email="info@andrii-it.de"),
 ]
 
@@ -103,7 +108,7 @@ SEO_SERVICE = dict(
                 "Bericht zusammen: was gut ist, was fehlt und was du zuerst tun solltest. Eine Momentaufnahme der geprüften "
                 "Seite; wir versprechen keine bestimmten Platzierungen.",
     benefits="Bericht in unter einer Minute\nKonkrete Maßnahmen, nach Wirkung sortiert\nFür Einsteiger:innen verständlich, ohne SEO-Vorwissen\nBerichte lassen sich speichern und ausdrucken",
-    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="KI-Assistenz Aiko",
     provider_email="")
 
 COMPLIANCE_SERVICE = dict(
@@ -115,7 +120,7 @@ COMPLIANCE_SERVICE = dict(
                 "grundlegende Sicherheits-Header. Aiko fasst das in einem verständlichen Bericht zusammen und sortiert "
                 "die Maßnahmen nach Dringlichkeit. Automatische, statische Prüfung — keine Rechtsberatung.",
     benefits="Bericht in unter einer Minute\nDringlichste Lücken zuerst\nOhne juristisches Vorwissen verständlich\nBerichte lassen sich speichern und ausdrucken",
-    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="KI-Assistenz Aiko",
     provider_email="")
 
 SECURITY_SERVICE = dict(
@@ -127,7 +132,7 @@ SECURITY_SERVICE = dict(
                 "deine Agentur oder dein Mailanbieter umstellen sollte. Es gibt keinen Portscan und keine Angriffe — "
                 "das ist ausdrücklich kein Penetrationstest.",
     benefits="Bericht in unter einer Minute\nPassiv: keine Tests gegen deine Systeme\nKonkrete Aufgaben für Hoster und Mailanbieter\nBerichte lassen sich speichern und ausdrucken",
-    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="KI-Assistenz Aiko",
     provider_email="")
 
 LAWS_SERVICE = dict(
@@ -140,7 +145,7 @@ LAWS_SERVICE = dict(
                 "Gesetzestext steht. Kennzeichnung als KI gemäß Art. 50 KI-VO. Für eine verbindliche Einschätzung immer "
                 "eine Rechtsanwältin oder einen Rechtsanwalt konsultieren.",
     benefits="Wörtliches Zitat mit amtlicher Quelle\nErläuterung in verständlicher Sprache\nKeine Rechtsberatung, keine Handlungsempfehlung\nAnfragen lassen sich speichern und ausdrucken",
-    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="Main Power · Aiko",
+    member_benefit="Für Mitglieder kostenlos", price_hint="Kostenlos für Mitglieder", provider_name="KI-Assistenz Aiko",
     provider_email="")
 
 PANEL_SERVICE = dict(
@@ -154,7 +159,7 @@ PANEL_SERVICE = dict(
                 "Preis und Botschaft; es ersetzt keine Befragung echter Kund:innen und sagt keine Umsätze voraus.",
     benefits="Feedback in ca. 2 Minuten statt Wochen\nKaufabsicht, Preiskurve und A/B-Preistest\nAuswertung nach Alter, Einkommen, Technikaffinität u. a.\nKonkrete Empfehlungen, was du vor dem Launch ändern solltest",
     member_benefit="Für Mitglieder: 3 Läufe pro Monat inklusive", price_hint="Mitglieder: 3 Läufe/Monat inklusive",
-    provider_name="Main Power · Aiko", provider_email="")
+    provider_name="KI-Assistenz Aiko", provider_email="")
 
 DEMO_MEMBERS = [
     ("Julia", "Wagner", "Steuerberaterin, eigene Kanzlei", "Steuerberatung",
@@ -232,10 +237,12 @@ DEMO_MEMBERS = [
 ]
 
 
-def _seed_content() -> None:
+def _seed_content(preset: str = "mainpower") -> None:
+    from .club_presets import apply_faq, apply_formats, preset_faq, preset_formats
+    if MeetingFormat.query.count() == 0:
+        apply_formats(preset_formats(preset))
     if KnowledgeItem.query.count() == 0:
-        for i, (q, a, public) in enumerate(FAQ):
-            db.session.add(KnowledgeItem(question=q, answer=a, public=public, sort=i))
+        apply_faq(preset_faq(preset))
     for s in SERVICES + [PANEL_SERVICE, SEO_SERVICE, COMPLIANCE_SERVICE, SECURITY_SERVICE, LAWS_SERVICE]:
         if not Service.query.filter_by(slug=s["slug"]).first():
             db.session.add(Service(**s))
@@ -243,29 +250,37 @@ def _seed_content() -> None:
 
 
 def _seed_events() -> None:
-    try:
-        from .services.events_sync import sync_events
-        res = sync_events()
-        log.info("Termine von main-power.org importiert: %s", res)
-    except Exception as exc:
-        log.warning("Termin-Sync nicht möglich (%s) — lege Beispieltermine an", exc)
+    from .services import club as club_settings
+    if club_settings.settings().get("events_sync_url"):
+        try:
+            from .services.events_sync import sync_events
+            res = sync_events()
+            log.info("Termine importiert: %s", res)
+        except Exception as exc:
+            log.warning("Termin-Sync nicht möglich (%s) — lege Beispieltermine an", exc)
     if Event.query.filter(Event.starts_at >= utcnow()).count() == 0:
-        base = datetime.utcnow().replace(hour=7, minute=0, second=0, microsecond=0)
-        samples = [
-            ("hub", "Main Power Hub", 12, 2500, "Hotel in Frankfurt (wird bekanntgegeben)"),
-            ("stammtisch", "Main Power Stammtisch", 5, 0, "Frankfurt am Main"),
-            ("laufen", "Main Power Laufen", 8, 0, "Treffpunkt Mainufer"),
-            ("frauenkreis", "Main Power Frauenkreis", 15, 0, "Frankfurt am Main"),
-        ]
         from .models import FORMATS
-        for fmt, title, days, price, loc in samples:
-            db.session.add(Event(format=fmt, title=title, description=FORMATS[fmt]["description"],
-                                 starts_at=base + timedelta(days=days), price_cents=price, location=loc,
-                                 status="published", source="admin", capacity=24 if fmt == "hub" else None))
+        base = utcnow().replace(hour=7, minute=0, second=0, microsecond=0)
+        city = club_settings.settings().get("city") or ""
+        for i, (key, f) in enumerate(FORMATS.featured()[:4]):
+            db.session.add(Event(format=key, title=f["name"], description=f["description"],
+                                 starts_at=base + timedelta(days=5 + 4 * i), price_cents=f["price_cents"], location=city,
+                                 status="published", source="admin", capacity=24 if f["price_cents"] else None))
         db.session.commit()
 
 
+def _first_paid_event():
+    return (Event.query.filter(Event.starts_at >= utcnow(), Event.price_cents > 0).order_by(Event.starts_at).first()
+            or Event.query.filter(Event.starts_at >= utcnow()).order_by(Event.starts_at).first())
+
+
+def _preferred_formats() -> str:
+    from .models import FORMATS
+    return ",".join(k for k, _ in FORMATS.featured()[:2])
+
+
 def _seed_admin() -> None:
+    """Erster Superadmin des Standardklubs (aus .env)."""
     email = os.environ.get("ADMIN_EMAIL", "admin@main-power.local").lower()
     if User.query.filter_by(email=email).first():
         return
@@ -290,8 +305,8 @@ def _seed_demo_members() -> None:
         u.set_password("demo-passwort-123")
         u.profile = Profile(headline=headline, industry=industry, q_focus=focus, q_challenge=challenge,
                             q_can_help=can_help, q_looking_for=looking, expertise=expertise,
-                            preferred_formats="hub,stammtisch", allow_matching=True, visible_in_directory=True,
-                            bio=f"{first} ist Teil der Main Power Community (Demo-Profil).")
+                            preferred_formats=_preferred_formats(), allow_matching=True, visible_in_directory=True,
+                            bio=f"{first} ist Teil der {_club_name()} (Demo-Profil).")
         db.session.add(u)
         for kind in ("privacy", "values", "matching", "directory"):
             db.session.add(Consent(user=u, kind=kind, granted=True, version="demo", source="seed"))
@@ -302,7 +317,7 @@ def _seed_demo_members() -> None:
 
     # Demo-Mitglieder zum nächsten Hub anmelden -> Matching-Konsole hat Daten
     from .models import Registration
-    hub = Event.query.filter(Event.format == "hub", Event.starts_at >= utcnow()).order_by(Event.starts_at).first()
+    hub = _first_paid_event()
     if hub:
         for u in User.query.filter(User.email.like(f"%@{DEMO_DOMAIN}")).limit(9):
             db.session.add(Registration(event_id=hub.id, user_id=u.id, status="reserved", amount_cents=hub.price_cents))
@@ -340,7 +355,7 @@ DEMO_SCENARIOS = [
     ("Oleg", "Petrenko", "Import/Export-Händler", "Handel",
      "Handel mit Baustoffen zwischen Deutschland und Osteuropa", "Zahlungsausfälle bei Neukunden",
      "Kontakte zu Lieferanten in Osteuropa", "Inkasso- und Rechtsberatung", "Handel, Import, Export", "gesperrt"),
-    ("Lisa", "Team", "Community-Managerin, Main Power", "Community",
+    ("Lisa", "Team", "Community-Managerin", "Community",
      "Organisation der Main-Power-Formate und Betreuung der Mitglieder",
      "Passende Gäste für jedes Format finden", "Fragen zu Formaten, Terminen und Anmeldung",
      "Expert:innen für Themen-Frühstücke", "Community, Events, Moderation", "moderator"),
@@ -358,9 +373,9 @@ def _seed_demo_scenarios() -> None:
         matching_on = kind in ("normal", "gesperrt", "moderator")
         u.profile = Profile(headline=headline, industry=industry, q_focus=focus, q_challenge=challenge,
                             q_can_help=can_help, q_looking_for=looking, expertise=expertise,
-                            preferred_formats="hub,stammtisch", allow_matching=matching_on,
+                            preferred_formats=_preferred_formats(), allow_matching=matching_on,
                             visible_in_directory=matching_on and kind != "gesperrt",
-                            bio=f"{first} ist Teil der Main Power Community (Demo-Profil)." if headline else "")
+                            bio=f"{first} ist Teil der {_club_name()} (Demo-Profil)." if headline else "")
         if kind == "gesperrt":
             u.status = "blocked"
         if kind == "moderator":
@@ -390,7 +405,7 @@ def _seed_demo_scenarios() -> None:
                                     responded_at=now if status != "pending" else None))
 
     # Anmeldungen: bezahlt, Warteliste-ähnlich (reserviert) und storniert
-    hub = Event.query.filter(Event.format == "hub", Event.starts_at >= now).order_by(Event.starts_at).first()
+    hub = _first_paid_event()
     if hub:
         for who, status in [(("Ivan", "Kovalenko"), "paid"), (("Mariam", "Haddad"), "registered"),
                             (("Hannah", "Vogel"), "reserved"), (("Petra", "Lang"), "cancelled")]:
@@ -436,18 +451,67 @@ def _seed_demo_avatars() -> None:
     db.session.commit()
 
 
-def seed(demo: bool = True) -> None:
-    db.create_all()
-    _seed_content()
+def _club_name() -> str:
+    from .services import club as club_settings
+    return club_settings.settings().get("full_name") or "Community"
+
+
+def ensure_default_club() -> Club:
+    """Standardklub (Main Power) anlegen, falls es noch keinen gibt — hält bestehende Installationen lauffähig."""
+    slug = current_app.config.get("DEFAULT_CLUB_SLUG", "mainpower")
+    club = Club.query.execution_options(all_clubs=True).filter_by(slug=slug).first()
+    if club is None:
+        club = Club(slug=slug, name=current_app.config.get("DEFAULT_CLUB_NAME", "Main Power"),
+                    domains=current_app.config.get("DEFAULT_CLUB_DOMAINS", ""))
+        db.session.add(club)
+        db.session.commit()
+    return club
+
+
+def _seed_club(demo: bool, preset: str) -> None:
+    _seed_content(preset)
     _seed_events()
-    _seed_admin()
     if demo:
         _seed_demo_members()
         _seed_demo_scenarios()
         _seed_demo_avatars()
-    admin = User.query.filter_by(role="superadmin").first()
-    if admin and admin.profile and not admin.profile.embed_need:
-        refresh_embeddings(admin.profile)
+
+
+def seed(demo: bool = True, club: Club | None = None, preset: str = "mainpower") -> None:
+    db.create_all()
+    club = club or ensure_default_club()
+    with use_club(club):
+        _seed_club(demo=False, preset=preset)
+        if club.slug == current_app.config.get("DEFAULT_CLUB_SLUG", "mainpower"):
+            _seed_admin()
+        if demo:
+            _seed_club(demo=True, preset=preset)
+        admin = User.query.filter_by(role="superadmin").first()
+        if admin and admin.profile and not admin.profile.embed_need:
+            refresh_embeddings(admin.profile)
+
+
+def create_club(slug: str, name: str, admin_email: str, admin_password: str, admin_first: str = "Admin",
+                admin_last: str = "", domains: str = "", preset: str = "neutral", demo: bool = False,
+                contact_email: str = "") -> Club:
+    """Neuen Klub mit Vorlage, Leistungen und erstem Superadmin anlegen (Plattform-Konsole, CLI)."""
+    from .club_presets import apply_preset
+    from .services import club as club_settings
+    club = Club(slug=slug, name=name, domains=domains, contact_email=contact_email or admin_email)
+    db.session.add(club)
+    db.session.commit()
+    with use_club(club):
+        apply_preset(preset, replace_faq=True)
+        club_settings.save({"name": name, "full_name": name, "contact_email": contact_email or admin_email})
+        db.session.commit()
+        _seed_club(demo=demo, preset=preset)
+        admin = User(email=admin_email.lower(), first_name=admin_first or "Admin", last_name=admin_last,
+                     role="superadmin")
+        admin.set_password(admin_password)
+        admin.profile = Profile(headline=f"Organisation, {name}", company=name, industry="Community & Netzwerk")
+        db.session.add(admin)
+        db.session.commit()
+    return club
 
 
 def remove_demo() -> int:

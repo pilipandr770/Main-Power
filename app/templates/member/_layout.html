@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "partials/_macros.html" import logo, flashes %}
-{% block title %}{% block page_title %}{% endblock %} — Main Power{% endblock %}
+{% from "partials/_macros.html" import logo, flashes with context %}
+{% block title %}{% block page_title %}{% endblock %} — {{ club.name }}{% endblock %}
 {% block body %}
 {% set ep = request.endpoint or '' %}
 {% if impersonating %}
@@ -23,7 +23,7 @@
     <nav>
       <a href="{{ url_for('member.dashboard') }}" class="{{ 'on' if ep == 'member.dashboard' }}">Übersicht{% if unread_invites %}<span class="badge">{{ unread_invites }}</span>{% endif %}</a>
       <a href="{{ url_for('member.matches') }}" class="{{ 'on' if ep == 'member.matches' }}">Meine Matches</a>
-      <a href="{{ url_for('member.aiko_page') }}" class="{{ 'on' if ep == 'member.aiko_page' }}">Aiko fragen</a>
+      <a href="{{ url_for('member.aiko_page') }}" class="{{ 'on' if ep == 'member.aiko_page' }}">{{ club.assistant_name }} fragen</a>
       <a href="{{ url_for('member.events') }}" class="{{ 'on' if ep.startswith('member.event') }}">Termine</a>
       <a href="{{ url_for('member.contacts') }}" class="{{ 'on' if ep == 'member.contacts' }}">Kontakte{% if pending_intros %}<span class="badge">{{ pending_intros }}</span>{% endif %}</a>
       <a href="{{ url_for('member.directory') }}" class="{{ 'on' if ep in ('member.directory','member.member_detail') }}">Mitglieder</a>
@@ -38,7 +38,7 @@
       <b>{{ current_user.full_name }}</b><br>
       <span class="muted small">{{ current_user.email }}</span>
       <form method="post" action="{{ url_for('auth.logout') }}" class="mt-s"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Abmelden</button></form>
-      <div class="legal-links"><a href="{{ cfg.IMPRESSUM_URL }}">Impressum</a><a href="{{ url_for('public.privacy') }}">Datenschutz</a><a href="{{ url_for('public.terms') }}">Bedingungen</a><a href="{{ url_for('public.cookies') }}">Cookies</a><a href="{{ url_for('member.privacy') }}#konto-loeschen">Konto löschen</a></div>
+      <div class="legal-links">{% if club.impressum_url %}<a href="{{ club.impressum_url }}">Impressum</a>{% endif %}<a href="{{ url_for('public.privacy') }}">Datenschutz</a><a href="{{ url_for('public.terms') }}">Bedingungen</a><a href="{{ url_for('public.cookies') }}">Cookies</a><a href="{{ url_for('member.privacy') }}#konto-loeschen">Konto löschen</a></div>
     </div>
   </aside>
   <main class="main" id="inhalt">

@@ -1,12 +1,12 @@
 {% macro logo(sub=None) -%}
-<a class="logo" href="{{ url_for('public.index') }}" aria-label="Main Power Startseite">
-  <svg viewBox="0 0 64 32" aria-hidden="true"><path d="M32 16C25.2 4.8 20 2 13.8 2 6.9 2 3 8.3 3 16s3.9 14 10.8 14C20 30 25.2 27.2 32 16Zm0 0C38.8 4.8 44 2 50.2 2 57.1 2 61 8.3 61 16s-3.9 14-10.8 14C44 30 38.8 27.2 32 16Z" fill="none" stroke="#fe4716" stroke-width="4"/></svg>
-  <span>Main Power{% if sub %} <small>{{ sub }}</small>{% endif %}</span>
+<a class="logo" href="{{ url_for('public.index') }}" aria-label="{{ club.name }} Startseite">
+  {% if club.logo %}<img class="logo-img" src="{{ club.logo|media }}" alt="">{% else %}<svg viewBox="0 0 64 32" aria-hidden="true"><path d="M32 16C25.2 4.8 20 2 13.8 2 6.9 2 3 8.3 3 16s3.9 14 10.8 14C20 30 25.2 27.2 32 16Zm0 0C38.8 4.8 44 2 50.2 2 57.1 2 61 8.3 61 16s-3.9 14-10.8 14C44 30 38.8 27.2 32 16Z" fill="none" stroke="currentColor" stroke-width="4"/></svg>{% endif %}
+  <span>{{ club.name }}{% if sub %} <small>{{ sub }}</small>{% endif %}</span>
 </a>
 {%- endmacro %}
 
 {% macro loop_svg() -%}
-<svg viewBox="0 0 64 32" aria-hidden="true"><path d="M32 16C25.2 4.8 20 2 13.8 2 6.9 2 3 8.3 3 16s3.9 14 10.8 14C20 30 25.2 27.2 32 16Zm0 0C38.8 4.8 44 2 50.2 2 57.1 2 61 8.3 61 16s-3.9 14-10.8 14C44 30 38.8 27.2 32 16Z" fill="none" stroke="#fe4716" stroke-width="4"/></svg>
+<svg viewBox="0 0 64 32" aria-hidden="true"><path d="M32 16C25.2 4.8 20 2 13.8 2 6.9 2 3 8.3 3 16s3.9 14 10.8 14C20 30 25.2 27.2 32 16Zm0 0C38.8 4.8 44 2 50.2 2 57.1 2 61 8.3 61 16s-3.9 14-10.8 14C44 30 38.8 27.2 32 16Z" fill="none" stroke="currentColor" stroke-width="4"/></svg>
 {%- endmacro %}
 
 {% macro flashes() -%}

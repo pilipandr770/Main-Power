@@ -586,3 +586,196 @@ def reembed():
     db.session.commit()
     flash(f"{n} Profile neu berechnet.", "success")
     return redirect(url_for("admin.settings"))
+
+
+# --------------------------------------------------------------------------- Klub & Branding (White-Label)
+from ..club_presets import PRESETS, apply_preset, export_config, import_config  # noqa: E402
+from ..models import MeetingFormat, invalidate_formats  # noqa: E402
+from ..services import club as club_settings  # noqa: E402
+
+IMAGE_SLOTS = {"logo": "Logo", **{f"hero{i}": f"Startseite oben, Bild {i}" for i in (1, 2, 3)},
+               **{f"band{i}": f"Bildleiste, Bild {i}" for i in (1, 2, 3)}}
+
+
+def _slot_get(c, slot):
+    if slot == "logo":
+        return c.logo
+    key, idx = ("hero_images" if slot.startswith("hero") else "band_images"), int(slot[-1]) - 1
+    items = c[key]
+    return items[idx]["src"] if idx < len(items) else ""
+
+
+def _slot_set(slot, ref):
+    c = club_settings.settings()
+    if slot == "logo":
+        club_settings.save({"logo": ref})
+        return
+    key, idx = ("hero_images" if slot.startswith("hero") else "band_images"), int(slot[-1]) - 1
+    items = [dict(i) for i in c[key]]
+    while len(items) <= idx:
+        items.append({"src": "", "alt": ""})
+    items[idx]["src"] = ref
+    club_settings.save({key: [i for i in items if i.get("src")]})
+
+
+@bp.route("/klub", methods=["GET", "POST"])
+@superadmin_required
+def club_page():
+    if request.method == "POST":
+        f = request.form
+        values = {k: f.get(k, "") for k in club_settings.TEXT_FIELDS}
+        if not club_settings.HEX.match(values.get("accent", "")):
+            values["accent"] = club_settings.settings()["accent"]
+        testimonials = []
+        for line in f.get("testimonials", "").splitlines():
+            if "|" in line:
+                name, text = line.split("|", 1)
+                if name.strip() and text.strip():
+                    testimonials.append({"name": name.strip()[:60], "text": text.strip()[:400]})
+        values["testimonials"] = testimonials[:8]
+        c = club_settings.settings()
+        for key in ("hero_images", "band_images"):
+            items = [dict(i) for i in c[key]]
+            for i, item in enumerate(items):
+                item["alt"] = f.get(f"{key}_alt_{i}", item.get("alt", "")).strip()[:160]
+            values[key] = items
+        club_settings.save(values)
+        audit("club.settings")
+        db.session.commit()
+        flash("Klub-Einstellungen gespeichert.", "success")
+        return redirect(url_for("admin.club_page"))
+    c = club_settings.settings()
+    return render_template("admin/club.html", c=c, fields=club_settings.TEXT_FIELDS, presets=PRESETS,
+                           slots=IMAGE_SLOTS, slot_value=lambda s: _slot_get(c, s),
+                           testimonials="\n".join(f"{t['name']} | {t['text']}" for t in c.testimonials))
+
+
+@bp.route("/klub/bild/<slot>", methods=["POST"])
+@superadmin_required
+def club_image(slot):
+    if slot not in IMAGE_SLOTS:
+        abort(404)
+    old = _slot_get(club_settings.settings(), slot)
+    if request.form.get("remove"):
+        media.delete_club_image(old)
+        _slot_set(slot, "")
+        flash(f"{IMAGE_SLOTS[slot]} entfernt.", "info")
+    else:
+        upload = request.files.get("image")
+        if not upload or not upload.filename:
+            flash("Bitte eine Bilddatei auswählen.", "error")
+            return redirect(url_for("admin.club_page") + "#bilder")
+        try:
+            ref = media.save_club_image(upload, "logo" if slot == "logo" else "photo")
+        except media.PhotoError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("admin.club_page") + "#bilder")
+        media.delete_club_image(old)
+        _slot_set(slot, ref)
+        flash(f"{IMAGE_SLOTS[slot]} aktualisiert.", "success")
+    audit("club.image", slot)
+    db.session.commit()
+    return redirect(url_for("admin.club_page") + "#bilder")
+
+
+@bp.route("/klub/vorlage", methods=["POST"])
+@superadmin_required
+def club_preset():
+    name = request.form.get("preset")
+    if name not in PRESETS:
+        abort(400)
+    apply_preset(name, replace_faq=bool(request.form.get("replace_faq")))
+    audit("club.preset", name)
+    db.session.commit()
+    flash(f"Vorlage „{PRESETS[name]['label']}“ angewendet.", "success")
+    return redirect(url_for("admin.club_page"))
+
+
+@bp.route("/klub/export")
+@superadmin_required
+def club_export():
+    data = json.dumps(export_config(), ensure_ascii=False, indent=2)
+    audit("club.export")
+    db.session.commit()
+    name = club_settings.slug(club_settings.settings()["name"])
+    return Response(data, mimetype="application/json",
+                    headers={"Content-Disposition": f"attachment; filename=klub-{name}.json"})
+
+
+@bp.route("/klub/import", methods=["POST"])
+@superadmin_required
+def club_import():
+    upload = request.files.get("config")
+    try:
+        data = json.loads((upload.read(1_000_000) if upload else b"").decode("utf-8"))
+        import_config(data, with_faq=bool(request.form.get("with_faq")))
+    except (ValueError, UnicodeDecodeError) as exc:
+        db.session.rollback()
+        flash(f"Import fehlgeschlagen: {exc}", "error")
+        return redirect(url_for("admin.club_page"))
+    audit("club.import")
+    db.session.commit()
+    flash("Konfiguration übernommen. Hochgeladene Bilder bitte neu hochladen.", "success")
+    return redirect(url_for("admin.club_page"))
+
+
+# --------------------------------------------------------------------------- Formate
+@bp.route("/formate")
+@superadmin_required
+def formats():
+    if MeetingFormat.query.count() == 0:  # ältere Installation: aus der aktuellen Liste anlegen
+        from ..club_presets import apply_formats, preset_formats
+        apply_formats(preset_formats("mainpower"))
+        db.session.commit()
+    items = MeetingFormat.query.order_by(MeetingFormat.sort, MeetingFormat.id).all()
+    return render_template("admin/formats.html", items=items)
+
+
+@bp.route("/formate/neu", methods=["GET", "POST"])
+@bp.route("/formate/<int:fid>", methods=["GET", "POST"])
+@superadmin_required
+def format_edit(fid=None):
+    fmt = db.session.get(MeetingFormat, fid) if fid else MeetingFormat(active=True, featured=True)
+    if fmt is None:
+        abort(404)
+    errors = {}
+    if request.method == "POST":
+        f = request.form
+        key = club_settings.slug(f.get("key", "") or f.get("name", ""))[:40] if not fmt.id else fmt.key
+        if not f.get("name", "").strip():
+            errors["name"] = "Bitte einen Namen angeben."
+        if not fmt.id and MeetingFormat.query.filter_by(key=key).first():
+            errors["key"] = "Diesen Schlüssel gibt es schon."
+        try:
+            price = int(round(float((f.get("price") or "0").replace(",", ".")) * 100))
+            if price < 0:
+                raise ValueError
+        except ValueError:
+            errors["price"] = "Bitte einen Preis in Euro angeben (z. B. 25 oder 0)."
+            price = 0
+        if not errors:
+            fmt.key = key
+            for field, limit in (("name", 120), ("short", 40), ("tagline", 160), ("rhythm", 160), ("price_note", 300)):
+                setattr(fmt, field, f.get(field, "").strip()[:limit])
+            fmt.description = f.get("description", "").strip()[:2000]
+            fmt.details = f.get("details", "").strip()[:4000]
+            fmt.price_cents = price
+            fmt.sort = int(f.get("sort")) if (f.get("sort") or "").lstrip("-").isdigit() else (fmt.sort or 0)
+            fmt.featured = bool(f.get("featured"))
+            fmt.active = True if fmt.system else bool(f.get("active"))
+            upload = request.files.get("image")
+            if upload and upload.filename:
+                try:
+                    ref = media.save_club_image(upload, "photo")
+                    media.delete_club_image(fmt.image)
+                    fmt.image = ref
+                except media.PhotoError as exc:
+                    errors["image"] = str(exc)
+            if not errors:
+                db.session.add(fmt)
+                audit("format.save", f"format:{fmt.key}")
+                db.session.commit()
+                invalidate_formats()
+                flash("Format gespeichert.", "success")
+                return redirect(url_for("admin.formats"))
+    return render_template("admin/format_form.html", fmt=fmt, errors=errors)

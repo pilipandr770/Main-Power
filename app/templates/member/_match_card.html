@@ -1,4 +1,4 @@
-{% from "partials/_macros.html" import loop_svg, avatar %}
+{% from "partials/_macros.html" import loop_svg, avatar with context %}
 {% set o = m.other %}
 <article class="match">
   <div class="bond" aria-hidden="true">{{ avatar(current_user) }}{{ loop_svg() }}{{ avatar(o, "them") }}</div>
@@ -21,7 +21,7 @@
         <form method="post" action="{{ url_for('member.request_intro', user_id=o.id) }}" class="mt-m">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <label for="msg-{{ o.id }}">Kurze Nachricht an {{ o.first_name }}<span class="hint">Optional. Kontaktdaten werden erst nach Zustimmung geteilt.</span></label>
-          <textarea id="msg-{{ o.id }}" name="message" rows="3" maxlength="1000">Hallo {{ o.first_name }}, Aiko hat uns vorgeschlagen — ich würde mich gern kurz mit dir austauschen.</textarea>
+          <textarea id="msg-{{ o.id }}" name="message" rows="3" maxlength="1000">Hallo {{ o.first_name }}, {{ club.assistant_name }} hat uns vorgeschlagen — ich würde mich gern kurz mit dir austauschen.</textarea>
           <button class="btn btn-sm mt-s" type="submit">Anfrage senden</button>
         </form>
       </details>

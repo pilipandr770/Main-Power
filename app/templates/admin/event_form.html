@@ -1,9 +1,9 @@
 {% extends "admin/_layout.html" %}
-{% from "partials/_macros.html" import input, textarea, check %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
 {% block page_title %}{{ 'Termin bearbeiten' if ev.id else 'Neuer Termin' }}{% endblock %}
 {% block content %}
 <div class="page-head"><h1>{{ 'Termin bearbeiten' if ev.id else 'Neuer Termin' }}</h1></div>
-{% if ev.source == 'sync' %}<div class="flash info mb-m">Dieser Termin stammt aus dem Kalender von main-power.org. Titel, Zeit und Beschreibung werden beim nächsten Sync überschrieben — Ort, Kapazität und Online-Link bleiben erhalten, wenn sie dort leer sind.</div>{% endif %}
+{% if ev.source == 'sync' %}<div class="flash info mb-m">Dieser Termin stammt aus dem Kalender von {{ club.events_sync_label or 'der Quelle' }}. Titel, Zeit und Beschreibung werden beim nächsten Sync überschrieben — Ort, Kapazität und Online-Link bleiben erhalten, wenn sie dort leer sind.</div>{% endif %}
 <form method="post" class="maxw">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {{ input("title", "Titel", ev.title, errors=errors, required=True) }}

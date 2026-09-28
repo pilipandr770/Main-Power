@@ -1,11 +1,11 @@
 Hallo {{ user.first_name }},
 
-willkommen in der Main Power Community!
+willkommen bei {{ club.full_name }}!
 
 Dein nächster Schritt: Beantworte in deinem Profil die vier Fragen — daraus entstehen deine persönlichen Matches.
 {{ config.BASE_URL }}/app/profil
 
-Fragen? Schreib uns an {{ config.CONTACT_EMAIL }} oder frag Aiko direkt auf der Plattform.
+Fragen? Schreib uns an {{ config.CONTACT_EMAIL }} oder frag {{ club.assistant_name }} direkt auf der Plattform.
 
-Geladen bleiben.
-Dein Main Power Team
+{{ club.tagline }}
+Dein Team von {{ club.name }}

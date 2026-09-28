@@ -4,4 +4,4 @@ Hallo {{ sender.first_name }},
 {{ link }}
 
 Viel Energie für euer Gespräch!
-Dein Main Power Team
+Dein Team von {{ club.name }}

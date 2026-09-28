@@ -1,6 +1,6 @@
 {% extends "auth/_layout.html" %}
-{% from "partials/_macros.html" import input %}
-{% block title %}Neues Passwort — Main Power{% endblock %}
+{% from "partials/_macros.html" import input with context %}
+{% block title %}Neues Passwort — {{ club.name }}{% endblock %}
 {% block content %}
 <h1>Neues Passwort</h1>
 <form method="post">

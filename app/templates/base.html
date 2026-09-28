@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>{% block title %}Main Power{% endblock %}</title>
-  <meta name="description" content="{% block description %}Menschen. Energie. Echte Verbindungen. Die Plattform der Main Power Community Frankfurt.{% endblock %}">
+  <title>{% block title %}{{ club.name }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ club.meta_description }}{% endblock %}">
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('public.club_css') }}">
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">

@@ -1,13 +1,13 @@
 {% extends "member/_layout.html" %}
-{% from "partials/_macros.html" import event_row, width_class %}
+{% from "partials/_macros.html" import event_row, width_class with context %}
 {% block page_title %}Übersicht{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Hallo {{ current_user.first_name }}.</h1><p class="muted mb-0">Geladen bleiben.</p></div></div>
+<div class="page-head"><div><h1>Hallo {{ current_user.first_name }}.</h1><p class="muted mb-0">{{ club.tagline }}</p></div></div>
 {% if announcement %}<div class="flash info mb-l">{{ announcement }}</div>{% endif %}
 
 {% if invites %}
 <section class="panel mb-l">
-  <div class="row"><h2 class="mb-0">Aiko lädt dich ein</h2><span class="ai-mark">KI</span></div>
+  <div class="row"><h2 class="mb-0">{{ club.assistant_name }} lädt dich ein</h2><span class="ai-mark">KI</span></div>
   {% for n in invites %}
   <div class="invite">
     <a href="{{ url_for('member.event_detail', event_id=n.event.id) }}"><b>{{ n.event.title }}</b></a> <span class="small muted">{{ n.event|event_date }}</span>{% if not n.read_at %} <span class="tag ember">neu</span>{% endif %}
@@ -40,7 +40,7 @@
       {% for m in matches %}{% with compact=True %}{% include "member/_match_card.html" %}{% endwith %}{% else %}
       <div class="empty">
         {% if not p.allow_matching %}Matching ist ausgeschaltet. <a href="{{ url_for('member.privacy') }}">Unter Privatsphäre aktivieren</a>, um passende Menschen vorgeschlagen zu bekommen.
-        {% else %}Beantworte die vier Fragen in deinem <a href="{{ url_for('member.profile') }}">Profil</a> — dann zeigt dir Aiko, wen du kennenlernen solltest.{% endif %}
+        {% else %}Beantworte die vier Fragen in deinem <a href="{{ url_for('member.profile') }}">Profil</a> — dann zeigt dir {{ club.assistant_name }}, wen du kennenlernen solltest.{% endif %}
       </div>{% endfor %}
     </div>
   </section>
@@ -50,8 +50,8 @@
     <h2 class="mt-l">Als Nächstes</h2>
     {% for ev in events %}{{ event_row(ev, url_for('member.event_detail', event_id=ev.id)) }}{% endfor %}
     <div class="panel mt-l">
-      <div class="row between"><b>Aiko fragen</b><span class="ai-mark">KI</span></div>
-      <p class="muted small mt-s">„Wen sollte ich beim nächsten Hub kennenlernen?“ — Aiko kennt dein Profil und die Termine.</p>
+      <div class="row between"><b>{{ club.assistant_name }} fragen</b><span class="ai-mark">KI</span></div>
+      <p class="muted small mt-s">„Wen sollte ich beim nächsten Hub kennenlernen?“ — {{ club.assistant_name }} kennt dein Profil und die Termine.</p>
       <a class="btn btn-sm" href="{{ url_for('member.aiko_page') }}">Chat öffnen</a>
     </div>
   </section>

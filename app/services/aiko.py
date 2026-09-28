@@ -1,4 +1,4 @@
-"""Aiko — KI-Assistentin der Main Power Community.
+"""KI-Assistenz eines Klubs (Standardname Aiko; Name, Klub und Fakten aus den Klub-Einstellungen).
 
 Zwei Modi:
 - public: Besucher:innen ohne Konto. Keine Speicherung auf dem Server, kein Zugriff auf Mitgliederdaten.
@@ -18,9 +18,8 @@ from ..extensions import db
 from ..models import FORMATS, ChatMessage, Event, KnowledgeItem, Service, Setting, User, utcnow
 from .llm import LLMUnavailable, complete
 
-BASE_PERSONA = """Du bist Aiko, die KI-Assistentin der Main Power Community in Frankfurt am Main.
-Main Power bringt Unternehmer:innen, Expert:innen und Freelancer in kuratierten Offline-Formaten zusammen.
-Leitgedanke: „Nicht mehr Kontakte. Relevantere Kontakte.“ Markenversprechen: „Geladen bleiben.“
+BASE_PERSONA = """Du bist {assistant}, die KI-Assistentin von {club}{city}.
+{about}
 
 Ton: ruhig, hochwertig, klar, warm — nie aufdringlich, nie werblich überdreht. Du-Form. Deutsch, außer die Person
 schreibt eindeutig in einer anderen Sprache. Kurze Absätze, maximal ca. 120 Wörter, außer es wird mehr verlangt.
@@ -28,12 +27,25 @@ schreibt eindeutig in einer anderen Sprache. Kurze Absätze, maximal ca. 120 Wö
 Regeln:
 - Du bist eine KI und sagst das offen, wenn danach gefragt wird oder es relevant ist.
 - Erfinde keine Termine, Preise, Personen oder Leistungen. Nutze nur den Kontext unten. Wenn du etwas nicht weißt,
-  verweise auf hallo@main-power.org.
+  verweise auf {contact}.
 - Keine Rechts-, Steuer- oder Medizinberatung — verweise auf passende Fachleute (gern aus der Community).
 - Gib niemals Kontaktdaten (E-Mail, Telefon, Social-Media-Links) anderer Mitglieder heraus. Für Kontakt immer auf
   die Funktion „Kontakt anfragen“ auf der Plattform verweisen — Kontaktdaten werden erst nach Zustimmung geteilt.
 - Frage nicht nach sensiblen Daten (Gesundheit, Religion, Finanzen, Ausweisnummern).
 """
+
+
+def _contact() -> str:
+    from . import club as club_settings
+    return club_settings.settings().get("contact_email") or "das Team"
+
+
+def _persona() -> str:
+    from . import club as club_settings
+    c = club_settings.settings()
+    return BASE_PERSONA.format(assistant=c["assistant_name"], club=c["full_name"],
+                               city=f" in {c['city']}" if c.get("city") else "", about=c.get("about") or "",
+                               contact=c.get("contact_email") or "das Team")
 
 
 def _formats_block() -> str:
@@ -43,7 +55,10 @@ def _formats_block() -> str:
             continue
         price = "kostenlos" if not f["price_cents"] else f"{f['price_cents'] / 100:.0f} € pro Person"
         lines.append(f"- {f['name']} ({price}; {f['rhythm']}): {f['description']}")
-    lines.append("- Hub-Preis: 25 € = 18 € Frühstück im Hotel + 7 € Organisationsbeitrag.")
+    from . import club as club_settings
+    facts = club_settings.settings().get("assistant_facts")
+    if facts:
+        lines.append("- " + facts)
     return "\n".join(lines)
 
 
@@ -118,14 +133,14 @@ def _fallback_answer(message: str, public_only: bool) -> str:
             best, best_score = k, score
     if best:
         return best.answer + "\n\n_(Aiko läuft im Demo-Modus ohne KI-Anbindung.)_"
-    return ("Das kann ich im Demo-Modus leider nicht beantworten. Schreib uns gern an hallo@main-power.org.\n\n"
-            "_(Aiko läuft im Demo-Modus ohne KI-Anbindung.)_")
+    return ("Das kann ich im Demo-Modus leider nicht beantworten. Schreib uns gern an " + _contact() + ".\n\n"
+            "_(Die KI-Assistenz läuft im Demo-Modus ohne KI-Anbindung.)_")
 
 
 def answer_public(history: list[dict]) -> str:
     history = [h for h in history if h.get("role") in ("user", "assistant")][-10:]
     last = next((h["content"] for h in reversed(history) if h["role"] == "user"), "")
-    system = (BASE_PERSONA + "\nModus: Öffentliche Website. Die Person ist (noch) kein eingeloggtes Mitglied. "
+    system = (_persona() + "\nModus: Öffentliche Website. Die Person ist (noch) kein eingeloggtes Mitglied. "
               "Hilf, das passende Format zu finden und lade — wenn es passt — zur Registrierung ein, damit sie ein "
               f"Profil anlegen und passende Kontakte erhalten kann. Registrierung: {url_for('auth.register', _external=True)}\n"
               "Du hast KEINEN Zugriff auf Mitgliederdaten.\n\n"
@@ -146,12 +161,13 @@ def answer_member(user: User, message: str, channel: str = "web") -> str:
                .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc()).limit(14).all())
     msgs = [{"role": m.role, "content": m.content} for m in reversed(history)]
 
-    base = current_app.config["BASE_URL"]
-    system = (BASE_PERSONA + f"\nModus: Persönlicher Chat mit dem Mitglied {user.first_name}"
+    from flask import request
+    base = request.host_url.rstrip("/") if request else current_app.config["BASE_URL"]
+    system = (_persona() + f"\nModus: Persönlicher Chat mit dem Mitglied {user.first_name}"
               f" (Kanal: {channel}). Du kennst das Profil und gibst persönliche, konkrete Empfehlungen: "
               "passende Formate und Termine, passende Mitglieder aus der Liste unten (nur Vorname + Initial, Rolle, "
               "warum), Tipps für die Vorstellungsrunde im Hub, und — nur wenn es wirklich zum Bedarf passt — "
-              "passende Leistungen aus dem Main-Power-Ökosystem.\n"
+              "passende Leistungen aus dem Ökosystem des Klubs.\n"
               "Wenn das Profil lückenhaft ist, stelle eine gezielte Rückfrage und empfiehl, das Profil zu ergänzen "
               f"({base}/app/profil).\nKontakt zu Mitgliedern nur über „Kontakt anfragen“ ({base}/app/matches).\n\n"
               f"# Profil des Mitglieds\n{_profile_block(user)}\n\n"

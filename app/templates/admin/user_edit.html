@@ -1,5 +1,5 @@
 {% extends "admin/_layout.html" %}
-{% from "partials/_macros.html" import input, textarea %}
+{% from "partials/_macros.html" import input, textarea with context %}
 {% block page_title %}{{ u.full_name }} bearbeiten{% endblock %}
 {% block content %}
 {% set v = form if form else None %}

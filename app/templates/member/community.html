@@ -1,5 +1,5 @@
 {% extends "member/_layout.html" %}
-{% from "partials/_macros.html" import avatar %}
+{% from "partials/_macros.html" import avatar with context %}
 {% block page_title %}Community{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Community</h1><p class="muted mb-0">Wer ist gerade dabei, wer kommt wohin — und wie du mit allen im Gespräch bleibst.</p></div>
@@ -42,7 +42,7 @@
 <section class="maxw"><h2>Community-Chat</h2>
 <p class="muted">{{ group_title }} — ein geschlossener Telegram-Chat nur für verifizierte Mitglieder.</p>
 {% if not tg %}
-  <div class="empty">Der Community-Chat wird gerade eingerichtet. Bis dahin erreichst du das Team unter <a href="mailto:{{ cfg.CONTACT_EMAIL }}">{{ cfg.CONTACT_EMAIL }}</a>.</div>
+  <div class="empty">Der Community-Chat wird gerade eingerichtet. Bis dahin erreichst du das Team unter <a href="mailto:{{ club.contact_email }}">{{ club.contact_email }}</a>.</div>
 {% else %}
 <ol class="steps">
   <li>
@@ -65,8 +65,8 @@
     {% else %}<p class="muted">Zuerst Schritt 1 abschließen.</p>{% endif %}
   </li>
   <li>
-    <h3>Aiko in Telegram</h3>
-    <p class="muted">Schreib dem Bot direkt — Aiko antwortet mit dem Wissen aus deinem Profil, auch unterwegs.</p>
+    <h3>{{ club.assistant_name }} in Telegram</h3>
+    <p class="muted">Schreib dem Bot direkt — {{ club.assistant_name }} antwortet mit dem Wissen aus deinem Profil, auch unterwegs.</p>
   </li>
 </ol>
 {% endif %}

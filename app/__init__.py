@@ -3,7 +3,7 @@ import os
 
 import click
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, session
+from flask import Flask, abort, render_template, request, session
 from flask_login import current_user
 
 load_dotenv()
@@ -30,17 +30,39 @@ def create_app(config_object=Config) -> Flask:
     login_manager.init_app(app)
     csrf.init_app(app)
     limiter.init_app(app)
+    from . import tenancy
+    tenancy.install(app)
+
+    @app.before_request
+    def _bind_club():
+        """Klub aus dem Host bestimmen — vor allen anderen Handlern, damit jede Abfrage auf ihn begrenzt ist."""
+        if request.endpoint == "static":
+            return None
+        if request.path.startswith("/plattform"):
+            tenancy.set_club(None)  # Plattform-Konsole arbeitet klubübergreifend (eigene Anmeldung)
+            return None
+        club = tenancy.resolve_request_club(request.host)
+        if club is None:
+            abort(404)
+        tenancy.set_club(club)
+        if not club.is_active and not request.path.startswith("/healthz"):
+            return render_template("public/error.html", code=503,
+                                   msg="Dieser Klub ist gerade pausiert. Bitte versuch es später erneut."), 503
+        return None
 
     from .models import User
 
     @login_manager.user_loader
     def load_user(uid):
-        return db.session.get(User, int(uid))
+        user = db.session.get(User, int(uid))
+        # Sitzung eines anderen Klubs (z. B. gleiche Domain nach Umzug) nie übernehmen
+        return user if user is not None and user.club_id == tenancy.current_club_id() else None
 
     from .blueprints.admin import bp as admin_bp
     from .blueprints.auth import bp as auth_bp
     from .blueprints.member import bp as member_bp
     from .blueprints.public import bp as public_bp
+    from .blueprints.platform import bp as platform_bp
     from .blueprints.webhooks import bp as webhooks_bp
 
     app.register_blueprint(public_bp)
@@ -48,6 +70,7 @@ def create_app(config_object=Config) -> Flask:
     app.register_blueprint(member_bp, url_prefix="/app")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(webhooks_bp, url_prefix="/webhooks")
+    app.register_blueprint(platform_bp, url_prefix="/plattform")
     csrf.exempt(webhooks_bp)
 
     _register_static_busting(app)
@@ -83,12 +106,18 @@ def _register_template_helpers(app: Flask) -> None:
     from .utils import fmt_dt, fmt_event_date, money, to_local
 
     from .services.matching import fit_label
-    app.jinja_env.filters.update(event_date=fmt_event_date, dt=fmt_dt, money=money, local=to_local, fit=fit_label)
+    from .services import club as club_settings
+    from .tenancy import current_club
+    app.jinja_env.filters.update(event_date=fmt_event_date, dt=fmt_dt, money=money, local=to_local, fit=fit_label,
+                                 media=club_settings.media_url)
 
     @app.context_processor
     def inject():
         pending = unread = 0
         impersonating, switch_users = None, []
+        from flask import has_request_context
+        if not has_request_context():  # z. B. E-Mail-Vorlagen außerhalb eines Requests
+            return {"FORMATS": FORMATS, "cfg": app.config, "club": club_settings.settings(), "club_obj": current_club()}
         if current_user.is_authenticated and app.config.get("ENABLE_IMPERSONATION") and session.get("impersonator_id"):
             from .models import User
             impersonating = db.session.get(User, int(session["impersonator_id"]))
@@ -100,7 +129,7 @@ def _register_template_helpers(app: Flask) -> None:
         if current_user.is_authenticated:
             pending = IntroRequest.query.filter_by(to_user_id=current_user.id, status="pending").count()
             unread = Notification.query.filter_by(user_id=current_user.id, read_at=None).count()
-        return {"FORMATS": FORMATS, "cfg": app.config, "pending_intros": pending, "unread_invites": unread, "impersonating": impersonating, "switch_users": switch_users,
+        return {"FORMATS": FORMATS, "cfg": app.config, "club": club_settings.settings(), "club_obj": current_club(), "pending_intros": pending, "unread_invites": unread, "impersonating": impersonating, "switch_users": switch_users,
                 "stripe_on": stripe_enabled(), "ai_on": llm_enabled()}
 
 
@@ -175,28 +204,73 @@ def add_missing_columns() -> list[str]:
     return added
 
 
+def _club_option(fn):
+    """--club <slug> für CLI-Befehle; ohne Angabe gilt der Standardklub."""
+    return click.option("--club", "club_slug", default=None, help="Klub-Slug (Standard: DEFAULT_CLUB_SLUG)")(fn)
+
+
+def _club_by_slug(slug):
+    from .models import Club
+    from .seed import ensure_default_club
+    if not slug:
+        return ensure_default_club()
+    club = Club.query.execution_options(all_clubs=True).filter_by(slug=slug).first()
+    if club is None:
+        raise click.ClickException(f"Klub '{slug}' nicht gefunden")
+    return club
+
+
 def _register_cli(app: Flask) -> None:
+    from .tenancy import use_club
+
     @app.cli.command("init-db")
     def init_db():
-        """Tabellen anlegen und fehlende Spalten ergänzen (für Produktion später: flask db migrate/upgrade)."""
-        db.create_all()
+        """Tabellen anlegen, Mandanten-Migration ausführen und fehlende Spalten ergänzen."""
+        from .migrations_mt import migrate_multitenant
+        for line in migrate_multitenant():
+            click.echo(line)
         for c in add_missing_columns():
             click.echo(f"Spalte ergaenzt: {c}")
         click.echo("Datenbank initialisiert.")
 
+    @app.cli.command("list-clubs")
+    def list_clubs():
+        """Alle Klubs mit Domains und Status."""
+        from .models import Club
+        for c in Club.query.execution_options(all_clubs=True).order_by(Club.id):
+            click.echo(f"{c.id:>3}  {c.slug:<20} {c.status:<10} {c.name}  [{c.domains}]")
+
+    @app.cli.command("create-club")
+    @click.argument("slug")
+    @click.argument("name")
+    @click.option("--admin-email", required=True)
+    @click.option("--admin-password", prompt=True, hide_input=True, confirmation_prompt=True)
+    @click.option("--domains", default="")
+    @click.option("--preset", default="neutral")
+    @click.option("--demo/--no-demo", default=False)
+    def create_club_cmd(slug, name, admin_email, admin_password, domains, preset, demo):
+        """Neuen Klub mit Vorlage und erstem Superadmin anlegen."""
+        from .seed import create_club
+        club = create_club(slug, name, admin_email, admin_password, domains=domains, preset=preset, demo=demo)
+        click.echo(f"Klub {club.slug} (id {club.id}) angelegt.")
+
     @app.cli.command("seed")
     @click.option("--demo/--no-demo", default=True, help="Demo-Mitglieder anlegen")
-    def seed_cmd(demo):
-        """Formate, FAQ, Leistungen, Beispieltermine (+ Demo-Mitglieder)."""
+    @_club_option
+    def seed_cmd(demo, club_slug):
+        """Formate, FAQ, Leistungen, Beispieltermine (+ Demo-Mitglieder) für einen Klub."""
         from .seed import seed
-        seed(demo=demo)
+        db.create_all()
+        seed(demo=demo, club=_club_by_slug(club_slug))
         click.echo("Seed abgeschlossen.")
 
     @app.cli.command("remove-demo")
-    def remove_demo_cmd():
-        """Alle Demo-Mitglieder (@demo.main-power.local) löschen — vor dem Go-live."""
+    @_club_option
+    def remove_demo_cmd(club_slug):
+        """Alle Demo-Mitglieder eines Klubs löschen — vor dem Go-live."""
         from .seed import remove_demo
-        click.echo(f"{remove_demo()} Demo-Konten gelöscht.")
+        with use_club(_club_by_slug(club_slug)):
+            click.echo(f"{remove_demo()} Demo-Konten gelöscht.")
 
     @app.cli.command("create-admin")
     @click.argument("email")
@@ -204,7 +278,14 @@ def _register_cli(app: Flask) -> None:
     @click.option("--first-name", default="Asset")
     @click.option("--last-name", default="Beissenov")
     @click.option("--role", default="superadmin", type=click.Choice(["admin", "superadmin"]))
-    def create_admin(email, password, first_name, last_name, role):
+    @_club_option
+    def create_admin(email, password, first_name, last_name, role, club_slug):
+        """Admin-Konto in einem Klub anlegen oder Passwort setzen."""
+        with use_club(_club_by_slug(club_slug)):
+            _create_admin(email, password, first_name, last_name, role)
+        click.echo(f"{role} {email} bereit.")
+
+    def _create_admin(email, password, first_name, last_name, role):
         from .models import Profile, User
         u = User.query.filter_by(email=email.lower()).first()
         if not u:
@@ -215,19 +296,37 @@ def _register_cli(app: Flask) -> None:
         u.role = role
         u.status = "active"
         db.session.commit()
-        click.echo(f"{role} {email} bereit.")
 
     @app.cli.command("sync-events")
-    def sync_cmd():
-        """Termine von main-power.org importieren (Cron: stündlich)."""
+    @_club_option
+    def sync_cmd(club_slug):
+        """Termine aus der Quelle jedes Klubs importieren (Cron: stündlich). Ohne --club: alle aktiven Klubs."""
+        from .models import Club
+        from .services import club as club_settings
         from .services.events_sync import sync_events
-        click.echo(sync_events())
+        if club_slug:
+            clubs = [_club_by_slug(club_slug)]
+        else:
+            clubs = Club.query.execution_options(all_clubs=True).filter_by(status="active").all()
+        for c in clubs:
+            with use_club(c):
+                if not club_settings.settings().get("events_sync_url"):
+                    continue
+                try:
+                    click.echo(f"{c.slug}: {sync_events()}")
+                except Exception as exc:  # eine kaputte Quelle darf die anderen Klubs nicht blockieren
+                    click.echo(f"{c.slug}: Fehler {exc}")
 
     @app.cli.command("reembed")
-    def reembed_cmd():
-        """Alle Profil-Embeddings neu berechnen (nach Providerwechsel)."""
+    @_club_option
+    def reembed_cmd(club_slug):
+        """Profil-Embeddings neu berechnen (nach Providerwechsel). Ohne --club: alle Klubs."""
+        from .models import Club
         from .services.matching import reembed_all
-        click.echo(f"{reembed_all()} Profile neu eingebettet.")
+        clubs = [_club_by_slug(club_slug)] if club_slug else Club.query.execution_options(all_clubs=True).all()
+        for c in clubs:
+            with use_club(c):
+                click.echo(f"{c.slug}: {reembed_all()} Profile neu eingebettet.")
 
     @app.cli.command("telegram-set-webhook")
     def tg_webhook():
@@ -238,7 +337,9 @@ def _register_cli(app: Flask) -> None:
         click.echo(f"Webhook gesetzt: {url}")
 
     @app.cli.command("telegram-poll")
-    def tg_poll():
-        """Lokale Entwicklung ohne öffentliche URL."""
+    @_club_option
+    def tg_poll(club_slug):
+        """Lokale Entwicklung ohne öffentliche URL (Telegram-Bot gehört derzeit zu einem Klub)."""
         from .services import telegram
-        telegram.poll_forever()
+        with use_club(_club_by_slug(club_slug)):
+            telegram.poll_forever()

@@ -1,5 +1,5 @@
 {% extends "member/_layout.html" %}
-{% from "partials/_macros.html" import avatar %}
+{% from "partials/_macros.html" import avatar with context %}
 {% block page_title %}Markt-Panel: {{ run.product_name }}{% endblock %}
 {% block content %}
 {% set unit = units.get(run.unit, '') %}
@@ -34,7 +34,7 @@
 </div>
 {% if res.n_valid < res.n_requested %}<p class="small muted">Bei {{ res.n_requested - res.n_valid }} Personas war die Antwort nicht verwertbar; sie fehlen in der Auswertung.</p>{% endif %}
 
-<section class="panel mb-l"><div class="row"><h2 class="mb-0">Zusammenfassung</h2><span class="ai-mark">{{ 'von Aiko (KI)' if rep.ai else 'automatisch' }}</span></div>
+<section class="panel mb-l"><div class="row"><h2 class="mb-0">Zusammenfassung</h2><span class="ai-mark">{{ 'von ' ~ club.assistant_name ~ ' (KI)' if rep.ai else 'automatisch' }}</span></div>
   <p class="mt-m mb-0">{{ rep.zusammenfassung }}</p></section>
 
 <div class="split mb-l">

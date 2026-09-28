@@ -1,4 +1,4 @@
-Neue Anfrage über die Main Power Plattform
+Neue Anfrage über die Plattform von {{ club.name }}
 
 Leistung: {{ s.title }}
 Von: {{ user.full_name }} <{{ user.email }}>{% if user.phone %}, Tel. {{ user.phone }}{% endif %}

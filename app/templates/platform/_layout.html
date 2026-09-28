@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import flashes with context %}
+{% block title %}{% block page_title %}{% endblock %} — Plattform{% endblock %}
+{% block body %}
+<header class="site-head">
+  <div class="wrap row between">
+    <a class="logo" href="{{ url_for('platform.dashboard') }}"><span>Klub-Plattform <small>Betreiber-Konsole</small></span></a>
+    {% if session.get('platform_admin') %}
+    <form method="post" action="{{ url_for('platform.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Abmelden</button></form>
+    {% endif %}
+  </div>
+</header>
+<main class="wrap section" id="inhalt">{{ flashes() }}{% block content %}{% endblock %}</main>
+{% endblock %}

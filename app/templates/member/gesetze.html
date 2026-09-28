@@ -1,18 +1,18 @@
 {% extends "member/_layout.html" %}
-{% from "partials/_macros.html" import textarea, check %}
+{% from "partials/_macros.html" import textarea, check with context %}
 {% block page_title %}Gesetzes-Suche{% endblock %}
 {% block content %}
 <div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('member.services') }}">Leistungen</a></p><h1>Gesetzes-Suche</h1>
-<p class="muted mb-0">Aiko findet passende Stellen im deutschen Bundesrecht, zitiert sie wörtlich und erklärt, was sie bedeuten.</p></div></div>
+<p class="muted mb-0">{{ club.assistant_name }} findet passende Stellen im deutschen Bundesrecht, zitiert sie wörtlich und erklärt, was sie bedeuten.</p></div></div>
 
-<div class="synth-note mb-l maxw"><b>Keine Rechtsberatung.</b> Aiko ist eine KI. Sie sucht in einer automatisierten Datenbank des deutschen Bundesrechts (Quelle: gesetze-im-internet.de) und erklärt nur, was im gefundenen Gesetzestext wörtlich steht — sie bewertet nie deinen Einzelfall und gibt keine Handlungsempfehlung. Das ersetzt keine individuelle Rechtsberatung. Wende dich bei einer verbindlichen Frage an eine Rechtsanwältin oder einen Rechtsanwalt.</div>
+<div class="synth-note mb-l maxw"><b>Keine Rechtsberatung.</b> {{ club.assistant_name }} ist eine KI. Sie sucht in einer automatisierten Datenbank des deutschen Bundesrechts (Quelle: gesetze-im-internet.de) und erklärt nur, was im gefundenen Gesetzestext wörtlich steht — sie bewertet nie deinen Einzelfall und gibt keine Handlungsempfehlung. Das ersetzt keine individuelle Rechtsberatung. Wende dich bei einer verbindlichen Frage an eine Rechtsanwältin oder einen Rechtsanwalt.</div>
 
 {% if not available %}
 <div class="empty maxw">Die Gesetzes-Suche ist auf dieser Installation gerade nicht eingerichtet.</div>
 {% else %}
 <div class="split">
   <section>
-    <form method="post" class="maxw" data-busy="Aiko sucht und ordnet ein … das dauert etwa 15 Sekunden">
+    <form method="post" class="maxw" data-busy="{{ club.assistant_name }} sucht und ordnet ein … das dauert etwa 15 Sekunden">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {{ textarea("query", "Deine Frage oder ein Stichwort", form.get("query"), rows=4, errors=errors, hint="Formuliere es wie eine Suchanfrage, z. B. „Kündigungsfrist während der Probezeit“ oder „Wann darf ich eine Rechnung als Kleinunternehmer stellen?“", placeholder="z. B. Mietminderung wegen Schimmel in der Wohnung") }}
       <div class="field">

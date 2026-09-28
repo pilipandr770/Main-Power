@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, Response, abort, jsonify, render_template, request, send_from_directory
 
 from ..extensions import csrf, limiter
 from ..models import FORMATS, Event, KnowledgeItem, utcnow
-from ..services import aiko
+from ..services import aiko, media
+from ..services import club as club_settings
 
 bp = Blueprint("public", __name__)
 
@@ -56,6 +57,26 @@ def terms():
 @bp.route("/ki-hinweis")
 def ai_notice():
     return render_template("public/ai_notice.html")
+
+
+@bp.route("/club.css")
+@limiter.exempt
+def club_css():
+    """Farben des Klubs als CSS-Variablen (eigene Datei, weil die CSP keine Inline-Styles erlaubt)."""
+    resp = Response(club_settings.css(), mimetype="text/css")
+    resp.headers["Cache-Control"] = "public, max-age=300"
+    return resp
+
+
+@bp.route("/klub/medien/<name>")
+@limiter.exempt
+def club_media(name):
+    """Öffentliche Bilder des Klubs (Logo, Startseite, Formate) — nur aus dem Ordner des aktuellen Klubs."""
+    if "/" in name or "\\" in name or ".." in name or not name.endswith((".png", ".jpg")):
+        abort(404)
+    resp = send_from_directory(media.club_media_dir(), name, max_age=86400)
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 @bp.route("/healthz")

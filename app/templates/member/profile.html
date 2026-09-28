@@ -1,5 +1,5 @@
 {% extends "member/_layout.html" %}
-{% from "partials/_macros.html" import input, textarea, width_class, avatar %}
+{% from "partials/_macros.html" import input, textarea, width_class, avatar with context %}
 {% block page_title %}Mein Profil{% endblock %}
 {% macro guide_box(key) -%}
 {% set g = guide[key] %}
@@ -39,7 +39,7 @@
     {{ textarea("q_looking_for", "Wonach suchst du konkret?", p.q_looking_for, placeholder="z. B. Eine Anwältin für internationales Vertragsrecht.") }}
     {{ guide_box("q_looking_for") }}
     <div class="coach panel mt-m" data-coach data-endpoint="{{ url_for('member.profile_coach') }}">
-      <div class="row between"><div><b>Aiko-Feedback</b> <span class="ai-mark">KI</span><p class="small muted mb-0">Aiko liest deine Antworten und sagt dir, wo mehr Konkretes bessere Matches bringt.</p></div>
+      <div class="row between"><div><b>{{ club.assistant_name }}-Feedback</b> <span class="ai-mark">KI</span><p class="small muted mb-0">{{ club.assistant_name }} liest deine Antworten und sagt dir, wo mehr Konkretes bessere Matches bringt.</p></div>
       <button type="button" class="btn btn-ghost btn-sm" data-coach-run>Feedback holen</button></div>
       <div class="coach-out mt-s" data-coach-out aria-live="polite"></div>
     </div>

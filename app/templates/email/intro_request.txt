@@ -1,10 +1,10 @@
 Hallo {{ target.first_name }},
 
-{{ sender.full_name }}{% if sender.profile and sender.profile.headline %} ({{ sender.profile.headline }}){% endif %} möchte dich über Main Power kennenlernen.
+{{ sender.full_name }}{% if sender.profile and sender.profile.headline %} ({{ sender.profile.headline }}){% endif %} möchte dich über {{ club.name }} kennenlernen.
 {% if ir.message %}
 Nachricht:
 „{{ ir.message }}“
 {% endif %}
 Ob ihr Kontaktdaten austauscht, entscheidest du: {{ link }}
 
-Dein Main Power Team
+Dein Team von {{ club.name }}

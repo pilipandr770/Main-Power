@@ -1,5 +1,5 @@
 {% extends "admin/_layout.html" %}
-{% from "partials/_macros.html" import input, textarea, check %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
 {% block page_title %}Einstellungen{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Einstellungen</h1></div>
@@ -8,7 +8,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <fieldset><legend>Community</legend>
       {{ check("member_events_require_approval", "Von Mitgliedern vorgeschlagene Treffen erst nach Freigabe veröffentlichen", v.member_events_require_approval == '1') }}
-      {{ check("auto_invites", "Aiko lädt passende Mitglieder automatisch ein, sobald ein Termin veröffentlicht wird", v.auto_invites == '1') }}
+      {{ check("auto_invites", "" ~ club.assistant_name ~ " lädt passende Mitglieder automatisch ein, sobald ein Termin veröffentlicht wird", v.auto_invites == '1') }}
       {{ input("announcement", "Hinweis in der Mitglieder-Übersicht", v.announcement, hint="Leer = kein Hinweis") }}
       {{ input("telegram_group_title", "Name des Community-Chats", v.telegram_group_title) }}
     </fieldset>
@@ -16,8 +16,8 @@
       {{ input("panel_monthly_limit", "Läufe je Mitglied und Monat", v.panel_monthly_limit, type="number", hint="Admins unbegrenzt. 0 = gesperrt.") }}
       {{ input("panel_max_personas", "Maximale Personas je Lauf", v.panel_max_personas, type="number", hint="10 bis 500. Kosten steigen linear (ca. 0,3 Cent je Persona mit Haiku).") }}
     </fieldset>
-    <fieldset><legend>Aiko</legend>
-      {{ textarea("aiko_extra_instructions", "Zusätzliche Anweisungen", v.aiko_extra_instructions, rows=6, hint="Wird an Aikos Systemanweisung angehängt, z. B. aktuelle Aktionen oder Tonalität. Die KI-VO-/DSGVO-Grundregeln stehen fest im Code und haben immer Vorrang.") }}
+    <fieldset><legend>{{ club.assistant_name }}</legend>
+      {{ textarea("aiko_extra_instructions", "Zusätzliche Anweisungen", v.aiko_extra_instructions, rows=6, hint="Wird an " ~ club.assistant_name ~ "s Systemanweisung angehängt, z. B. aktuelle Aktionen oder Tonalität. Die KI-VO-/DSGVO-Grundregeln stehen fest im Code und haben immer Vorrang.") }}
     </fieldset>
     <button class="btn" type="submit">Speichern</button>
   </form>

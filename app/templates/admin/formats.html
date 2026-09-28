@@ -1,0 +1,20 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Formate{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Formate</h1><p class="muted mb-0">Die Veranstaltungsformate deines Klubs. „Auf der Startseite“ bestimmt, was im Bereich Formate erscheint.</p></div>
+<a class="btn btn-sm" href="{{ url_for('admin.format_edit') }}">Neues Format</a></div>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>Format</th><th>Preis</th><th>Rhythmus</th><th>Startseite</th><th>Status</th></tr></thead>
+<tbody>
+{% for f in items %}
+<tr>
+  <td>{% if f.image %}<img class="thumb" src="{{ f.image|media }}" alt="">{% endif %}</td>
+  <td><a href="{{ url_for('admin.format_edit', fid=f.id) }}"><b>{{ f.name }}</b></a><br><span class="small muted">{{ f.key }}{% if f.system %} · von Mitgliedern organisiert{% endif %}</span></td>
+  <td>{{ f.price_cents|money }}</td>
+  <td class="small">{{ f.rhythm }}</td>
+  <td>{{ 'ja' if f.featured else '—' }}</td>
+  <td><span class="tag {{ 'ok' if f.active else '' }}">{{ 'aktiv' if f.active else 'aus' }}</span></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% endblock %}
