@@ -18,13 +18,14 @@ from ..extensions import db
 from ..models import Event, Notification, PairInsight, Profile, User, utcnow
 from . import embeddings as emb
 from .llm import LLMUnavailable, complete
-from .matching import _snip, _version
+from .matching import _snip, _version, card as _profile_card
 from .telegram import enabled as tg_enabled, send as tg_send
 
 log = logging.getLogger(__name__)
 
 FIELD_LABELS = {"q_focus": "Was machst du?", "q_challenge": "Größte Herausforderung",
-                "q_can_help": "Womit kannst du helfen?", "q_looking_for": "Wonach suchst du?"}
+                "q_can_help": "Womit kannst du helfen?", "q_looking_for": "Wonach suchst du?",
+                "goal_12m": "Ziel für die nächsten 12 Monate", "milestone_90d": "Meilenstein in 90 Tagen"}
 
 
 def _json(text: str):
@@ -40,10 +41,14 @@ def _text(v) -> str:
     return "" if v is None else str(v)
 
 
-def _card(p: Profile) -> dict:
-    return {"vorname": p.user.first_name, "rolle": p.headline, "unternehmen": p.company,
-            "branche": p.industry, "taetigkeit": p.q_focus, "herausforderung": p.q_challenge,
-            "kann_helfen": p.q_can_help, "sucht": p.q_looking_for, "expertise": p.expertise}
+def _card(p: Profile, own: bool = False) -> dict:
+    """KI-Kontext zu einem Profil; private Felder nur, wenn die Antwort an die Person selbst geht (own=True)."""
+    data = _profile_card(p, own=own)
+    data.pop("id", None)
+    data["vorname"] = data.pop("name", p.user.first_name)
+    if p.company:
+        data["unternehmen"] = p.company
+    return data
 
 
 # --------------------------------------------------------------------------- Profil-Coach
@@ -55,6 +60,9 @@ COACH_RULES = {
     "q_can_help": (50, "Nenne 2–3 konkrete Dinge, bei denen dich Leute anrufen dürfen (Themen, Kontakte, Erfahrung)."),
     "q_looking_for": (40, "Sag genau, wen oder was du suchst: eine Rolle, Branche oder Aufgabe — z. B. „Fachanwalt "
                           "für Vertragsrecht“."),
+    "goal_12m": (40, "Formuliere ein Ziel, an dem man Erfolg erkennt — z. B. „In 12 Monaten 20 Stammkund:innen im "
+                     "Mittelstand“."),
+    "milestone_90d": (25, "Nenne einen messbaren Zwischenschritt — z. B. „Drei Pilotkund:innen bis Jahresende“."),
 }
 
 
@@ -64,9 +72,9 @@ def _coach_fallback(values: dict) -> dict:
         v = (values.get(key) or "").strip()
         if len(v) < minlen:
             tips.append({"field": key, "tip": ("Noch leer. " if not v else "Etwas kurz. ") + tip})
-    done = 4 - len(tips)
+    done = len(COACH_RULES) - len(tips)
     return {"summary": ("Sieht gut aus — die Antworten sind konkret genug für gute Matches." if not tips else
-                        f"{done} von 4 Antworten sind konkret genug. Mit ein paar Details passen deine Matches "
+                        f"{done} von {len(COACH_RULES)} Antworten sind konkret genug. Mit ein paar Details passen deine Matches "
                         "deutlich besser."),
             "tips": tips, "ai": False}
 
@@ -75,14 +83,15 @@ def profile_coach(values: dict) -> dict:
     clean = {k: (values.get(k) or "").strip()[:800] for k in FIELD_LABELS}
     clean["rolle"] = (values.get("headline") or "").strip()[:160]
     if not any(clean[k] for k in FIELD_LABELS):
-        return {"summary": "Schreib zuerst ein paar Stichworte in die vier Fragen — dann gebe ich dir Feedback.",
+        return {"summary": "Schreib zuerst ein paar Stichworte zu deinen Antworten — dann gebe ich dir Feedback.",
                 "tips": [], "ai": False}
     system = ("Du bist Aiko, Profil-Coach von {CLUB}. Du gibst kurzes, konkretes, wertschätzendes "
-              "Feedback zu den Profilantworten, damit das Matching (Bedarf und Angebot) gut funktioniert. "
+              "Feedback zu den Profilantworten, damit das Matching (Bedarf und Angebot) gut funktioniert und das Ziel "
+              "messbar ist. "
               "Regeln: du-Form, Deutsch, max. 1–2 Sätze pro Tipp, keine Fantasiefakten, nichts Sensibles abfragen. "
               "Gib für jede Antwort, die konkreter werden sollte, einen Tipp mit einem Formulierungsbeispiel in „…“. "
               "Antworte NUR als JSON: {\"summary\": \"1 Satz Gesamteindruck\", \"tips\": [{\"field\": "
-              "\"q_focus|q_challenge|q_can_help|q_looking_for\", \"tip\": \"…\"}]}. Lass Felder ohne Tipp weg, "
+              "\"q_focus|q_challenge|q_can_help|q_looking_for|goal_12m|milestone_90d\", \"tip\": \"…\"}]}. Lass Felder ohne Tipp weg, "
               "wenn die Antwort schon gut ist.")
     try:
         data = _json(complete(system, [{"role": "user", "content": "Profilentwurf (Daten):\n" +
@@ -149,7 +158,7 @@ def pair_insight(viewer: User, other: User, force: bool = False) -> dict:
                   "- event_reason: 1 Satz, warum dieser Termin passt\n"
                   "Antworte NUR als JSON mit genau diesen Schlüsseln.")
         system += " Alle Werte sind einfacher Text (kein Array, keine Aufzählung)."
-        payload = {"person_A": _card(me), "person_B": _card(ot), "termine": options}
+        payload = {"person_A": _card(me, own=True), "person_B": _card(ot), "termine": options}
         data, ai = None, False
         for attempt in (1, 2):  # ein zweiter Versuch fängt gelegentlich unsauberes JSON ab
             try:

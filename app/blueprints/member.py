@@ -8,6 +8,7 @@ from flask import (Blueprint, Response, session, abort, current_app, flash, json
                    send_from_directory, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 
+from .. import questionnaire
 from ..extensions import db, limiter
 from ..models import (FORMATS, SOCIALS, ChatMessage, Event, IntroRequest, LawQuery, Match, Notification, PanelRun,
                       Profile, Registration, Service, ServiceInquiry, SeoReport, Setting, User, utcnow)
@@ -123,6 +124,36 @@ PROFILE_GUIDE = {
         "tips": "Rolle, Branche oder Aufgabe nennen. Je genauer, desto besser der Treffer.",
         "examples": ["Eine Anwältin für internationales Vertragsrecht mit Erfahrung in der Türkei.",
                      "Tech-Partner, der eine Landingpage samt Automatisierung baut."]},
+    "goal_12m": {
+        "why": "Ein klares Ziel macht aus Kontakten Fortschritt: Aiko sucht Menschen und Termine, die genau darauf "
+               "einzahlen.",
+        "tips": "Ein Ziel, an dem man Erfolg erkennt. Zahl, Zielgruppe oder Ergebnis nennen.",
+        "examples": ["In 12 Monaten 20 Stammkund:innen im Mittelstand und ein zweites Produkt am Markt.",
+                     "Eine Seed-Finanzierung über 500.000 € abschließen und zwei Entwickler einstellen."]},
+    "milestone_90d": {
+        "why": "Große Ziele werden in 90-Tage-Schritten greifbar. Aiko fragt nach dem Fortschritt und schlägt "
+               "passende Kontakte vor.",
+        "tips": "Ein messbarer Schritt, den du selbst beeinflussen kannst.",
+        "examples": ["Drei Pilotkund:innen haben den Vertrag unterschrieben.",
+                     "Pitch-Deck steht und ich habe mit fünf Investor:innen gesprochen."]},
+    "q_tried": {
+        "why": "So bekommst du keine Tipps, die du schon kennst — und Menschen, die über den nächsten Schritt "
+               "sprechen können.",
+        "tips": "Stichworte reichen: was du probiert hast und woran es gehakt hat.",
+        "examples": ["Kaltakquise per LinkedIn und zwei Messen — viele Gespräche, kaum Abschlüsse.",
+                     "Jobportale und eine Agentur, die Kandidat:innen passten nicht zur Kultur."]},
+    "not_wanted": {
+        "why": "Schützt dich vor unpassenden Anfragen. Wer genau das anbietet, wird dir nicht empfohlen — und du "
+               "ihnen nicht.",
+        "tips": "Themen oder Angebote nennen, nicht Personen. Diese Angabe sieht niemand außer dir.",
+        "examples": ["Versicherungen, Finanzprodukte und Network-Marketing.",
+                     "Verkaufsgespräche zu Software, die ich nicht angefragt habe."]},
+    "asked_for": {
+        "why": "Was andere bei dir suchen, ist oft präziser als die eigene Beschreibung — und findet die richtigen "
+               "Menschen.",
+        "tips": "Denk an die letzten Anrufe oder Nachrichten, in denen dich jemand um Rat gefragt hat.",
+        "examples": ["Wie man einen Mietvertrag für Gewerbeflächen verhandelt.",
+                     "Welche Förderprogramme es für Digitalisierung im Mittelstand gibt."]},
 }
 
 
@@ -136,6 +167,11 @@ def profile():
         current_user.phone = f.get("phone", "").strip()[:40]
         for field, limit in PROFILE_TEXT_FIELDS.items():
             setattr(p, field, f.get(field, "").strip()[:limit])
+        for field, limit in questionnaire.TEXT_FIELDS.items():
+            setattr(p, field, f.get(field, "").strip()[:limit])
+        for field in questionnaire.CHOICE_FIELDS:
+            setattr(p, field, questionnaire.clean_choice(field, f.getlist(field)))
+        p.public_fields = ",".join(k for k in f.getlist("public_fields") if k in questionnaire.SHAREABLE_PRIVATE)
         p.preferred_formats = ",".join(k for k in f.getlist("formats") if k in FORMATS)
         rejected = []
         for key, (label, _example, _hosts) in SOCIALS.items():
@@ -317,7 +353,7 @@ def contact_assistant(user_id):
     if not (u.profile.visible_in_directory or connected or (recommended and u.profile.allow_matching)):
         abort(404)
     me = current_user.profile
-    if not (me.q_can_help or me.q_looking_for or me.q_challenge or me.q_focus):
+    if not (me.q_can_help or me.q_looking_for or me.q_challenge or me.q_focus or me.goal_12m or me.partner_types):
         return jsonify(error="Fülle zuerst dein Profil aus, dann kann Aiko dir sagen, was dieser Kontakt dir bringt."), 400
     force = bool((request.get_json(silent=True) or {}).get("refresh"))
     return jsonify(insights.pair_insight(current_user, u, force=force))

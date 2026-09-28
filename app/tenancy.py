@@ -47,7 +47,8 @@ def _forget_tenant_objects() -> None:
     """Objekte des bisherigen Klubs aus der Session entfernen: Session.get() liest sonst aus der Identity-Map,
     ohne dass der Klub-Filter greift."""
     for obj in list(db.session.identity_map.values()):
-        if isinstance(obj, TenantMixin):
+        # expunge kaskadiert (User -> Profile), daher vorher prüfen, ob das Objekt noch in der Session ist
+        if isinstance(obj, TenantMixin) and obj in db.session:
             db.session.expunge(obj)
 
 

@@ -237,6 +237,108 @@ DEMO_MEMBERS = [
 ]
 
 
+# Erweiterter Fragebogen für die Demo-Profile (Vorname -> Felder). Wird nur gesetzt, solange `role` leer ist.
+DEMO_QUESTIONNAIRE = {
+    "Julia": dict(role="inhaber", stage="etabliert", team_size="2-9", customer_types="b2b,b2c", languages="de,en",
+                  goal_category="kunden", goal_12m="30 neue Mandant:innen aus der Tech- und Kreativszene gewinnen.",
+                  milestone_90d="Zwei feste Kooperationen mit Agenturen, die Gründer:innen betreuen.",
+                  q_tried="Google Ads — viele Klicks, kaum passende Anfragen.", partner_types="kooperation,kunden",
+                  first_outcome="kennenlernen", resources="knowhow,kontakte", help_mode="kostenlos",
+                  asked_for="Welche Rechtsform bei der Gründung sinnvoll ist und wann sich eine Holding lohnt.",
+                  proud_of="Über 60 Gründungen steuerlich begleitet, davon drei bis zur Finanzierungsrunde.",
+                  network_time="3-5", meeting_mode="beides", work_values="verlaesslichkeit,qualitaet",
+                  talk_topics="Rennrad, gute Tabellen und Steuern ohne Fachchinesisch.", public_fields="goal_12m"),
+    "Markus": dict(role="berater", stage="etabliert", team_size="2-9", customer_types="b2b", languages="de,en",
+                   goal_category="kunden", goal_12m="Fünf feste Beratungsmandate mit KMU aus dem Rhein-Main-Gebiet.",
+                   partner_types="kooperation,kunden", first_outcome="kennenlernen", resources="knowhow",
+                   help_mode="kostenlos", asked_for="Was bei einer Kündigung oder Abmahnung zu beachten ist.",
+                   proud_of="Eine Betriebsvereinbarung für 300 Mitarbeitende ohne Einigungsstelle verhandelt.",
+                   network_time="1-2", meeting_mode="vor_ort", work_values="fairness,verlaesslichkeit"),
+    "Leonie": dict(role="selbstaendig", stage="wachstum", team_size="solo", customer_types="b2b", languages="de,en",
+                   goal_category="team", goal_12m="Ein festes Netzwerk aus zwei Entwickler:innen für Web und Automatisierung.",
+                   partner_types="team,kunden", first_outcome="projekt", resources="knowhow,kontakte",
+                   help_mode="bezahlt", asked_for="Wie man ein B2B-Produkt auf LinkedIn launcht.",
+                   proud_of="Ein Launch mit 400 qualifizierten Leads in sechs Wochen.", network_time="3-5",
+                   meeting_mode="online", work_values="tempo,offenheit"),
+    "Tobias": dict(role="gruender", stage="gruendung", team_size="2-9", customer_types="b2b", markets="DACH",
+                   languages="de,en,ru", goal_category="finanzierung",
+                   goal_12m="Seed-Runde über 500.000 € abschließen und eine Mitgründerin für den Vertrieb finden.",
+                   milestone_90d="Pitch-Deck fertig und Gespräche mit fünf Business Angels geführt.",
+                   q_tried="Zwei Förderanträge (einer abgelehnt) und Kaltakquise bei Investor:innen über LinkedIn.",
+                   partner_types="investor,mitgruender,mentor", first_outcome="rat",
+                   not_wanted="Versicherungen, Versicherungsmakler, Finanzprodukte und Network-Marketing.",
+                   resources="knowhow", help_mode="kostenlos",
+                   asked_for="Welche Softwarearchitektur für ein kleines Team passt.",
+                   proud_of="40 Handwerksbetriebe nutzen unsere Beta jeden Tag.", network_time="3-5",
+                   meeting_mode="beides", work_values="tempo,offenheit",
+                   talk_topics="Das Handwerk von morgen und Bergsteigen.",
+                   unknown_fact="Hat eine Tischlerlehre gemacht, bevor er programmieren lernte.",
+                   public_fields="goal_12m"),
+    "Aylin": dict(role="berater", stage="etabliert", team_size="solo", customer_types="b2b",
+                  markets="Türkei, Golfstaaten, DACH", languages="de,tr,en", goal_category="kunden",
+                  goal_12m="Zehn Mittelständler beim Markteintritt in der Türkei begleiten.",
+                  partner_types="kooperation,experte", first_outcome="kennenlernen", resources="kontakte,knowhow",
+                  help_mode="kostenlos", asked_for="Wie man einen Vertriebspartner in der Türkei prüft.",
+                  proud_of="Markteintritt eines Maschinenbauers in Istanbul in acht Monaten.", meeting_mode="beides",
+                  work_values="verlaesslichkeit,langfristig"),
+    "Daniel": dict(role="geschaeftsfuehrung", stage="etabliert", team_size="10-49", customer_types="b2b",
+                   languages="de,en,pl", goal_category="digital",
+                   goal_12m="Lager digitalisieren und die IT-Sicherheit auf NIS-2-Niveau bringen.",
+                   milestone_90d="Lagerverwaltungssoftware ausgewählt, Sicherheits-Check beauftragt.",
+                   partner_types="dienstleister,experte", first_outcome="angebot",
+                   resources="auftraege,raeume,knowhow", help_mode="kostenlos",
+                   asked_for="Wie man E-Commerce-Logistik skaliert, ohne dass die Qualität leidet.",
+                   meeting_mode="vor_ort", work_values="verlaesslichkeit,qualitaet"),
+    "Sofia": dict(role="selbstaendig", stage="etabliert", team_size="solo", customer_types="b2b",
+                  languages="de,en,it", goal_category="kunden", partner_types="kunden,kooperation",
+                  resources="knowhow", help_mode="mentoring", meeting_mode="beides", work_values="offenheit,fairness"),
+    "Jonas": dict(role="selbstaendig", stage="wachstum", team_size="solo", customer_types="b2b,b2c",
+                  languages="de,en", goal_category="kunden", goal_12m="Drei Retainer-Kund:innen mit monatlichem Content.",
+                  partner_types="kunden,kooperation", resources="knowhow", help_mode="bezahlt",
+                  meeting_mode="vor_ort"),
+    "Nadine": dict(role="investor", stage="etabliert", team_size="solo", customer_types="b2b", languages="de,en,ru",
+                   goal_12m="In zwei Software-Start-ups aus der Region investieren.",
+                   partner_types="startups,peers", first_outcome="kennenlernen",
+                   resources="kapital,kontakte,knowhow", help_mode="mentoring",
+                   asked_for="Ob ein Pitch-Deck bereit für Investor:innen ist.",
+                   proud_of="Sechs Beteiligungen, davon zwei erfolgreiche Exits.", meeting_mode="beides",
+                   work_values="langfristig,offenheit", public_fields="goal_12m"),
+    "Kerem": dict(role="inhaber", stage="etabliert", team_size="50-249", customer_types="b2c,b2b",
+                  languages="de,tr,en", goal_category="kunden",
+                  goal_12m="Den Catering-Umsatz mit Firmenkund:innen verdoppeln.", partner_types="kunden,kooperation",
+                  resources="raeume,auftraege", help_mode="kostenlos", meeting_mode="vor_ort"),
+    "Clara": dict(role="selbstaendig", stage="wachstum", team_size="solo", customer_types="b2b",
+                  languages="de,en,fr", goal_category="kunden", partner_types="kunden", resources="knowhow",
+                  help_mode="bezahlt", meeting_mode="online"),
+    "Stefan": dict(role="berater", stage="etabliert", team_size="2-9", customer_types="b2b", languages="de",
+                   goal_category="kunden", partner_types="kunden,kooperation", resources="knowhow",
+                   help_mode="kostenlos", meeting_mode="vor_ort"),
+    "Ivan": dict(role="selbstaendig", stage="wachstum", team_size="solo", customer_types="b2b",
+                 languages="de,uk,ru,en", goal_category="kunden", partner_types="kooperation,kunden",
+                 resources="knowhow", help_mode="kostenlos", meeting_mode="beides"),
+    "Mariam": dict(role="selbstaendig", stage="etabliert", team_size="solo", customer_types="b2b",
+                   languages="de,ar,en", partner_types="kooperation", resources="kontakte,knowhow",
+                   help_mode="kostenlos"),
+    "Hannah": dict(role="berater", stage="wachstum", team_size="solo", customer_types="b2b", languages="de,en",
+                   partner_types="kooperation,dienstleister", resources="knowhow", help_mode="bezahlt"),
+}
+
+
+def _seed_demo_questionnaire() -> None:
+    """Demo-Profile um den erweiterten Fragebogen ergänzen (idempotent, auch für bestehende Demo-Datenbanken)."""
+    changed = []
+    for p in Profile.query.join(User).filter(User.email.like(f"%@{DEMO_DOMAIN}")):
+        data = DEMO_QUESTIONNAIRE.get(p.user.first_name)
+        if not data or p.role:
+            continue
+        for k, v in data.items():
+            setattr(p, k, v)
+        changed.append(p)
+    for p in changed:
+        refresh_embeddings(p, commit=False)
+    db.session.commit()
+
+
 def _seed_content(preset: str = "mainpower") -> None:
     from .club_presets import apply_faq, apply_formats, preset_faq, preset_formats
     if MeetingFormat.query.count() == 0:
@@ -474,6 +576,7 @@ def _seed_club(demo: bool, preset: str) -> None:
     if demo:
         _seed_demo_members()
         _seed_demo_scenarios()
+        _seed_demo_questionnaire()
         _seed_demo_avatars()
 
 

@@ -68,7 +68,7 @@ def test_member_protected(client):
 
 def test_full_member_flow(client, app):
     r = register(client)
-    assert r.status_code == 200 and "Die vier Fragen" in r.get_data(as_text=True)
+    assert r.status_code == 200 and "Wen du suchst" in r.get_data(as_text=True)
 
     r = client.post("/app/profil", data={
         "first_name": "Nina", "headline": "Gründerin, E-Commerce-Start-up", "industry": "Handel",

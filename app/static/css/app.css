@@ -408,3 +408,19 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
 .logo svg, .bond svg { color: var(--ember); }
 .logo-img { height: 30px; width: auto; max-width: 180px; display: block; object-fit: contain; }
 .thumb { width: 64px; height: 44px; object-fit: cover; border-radius: 8px; display: block; }
+
+/* ---------- Fragebogen ---------- */
+.group-label { display: block; font-weight: 600; margin-bottom: .45rem; }
+.pills { display: flex; flex-wrap: wrap; gap: .45rem; }
+.pill { position: relative; margin: 0; font-weight: 400; cursor: pointer; }
+.pill input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.pill span { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: .3rem .85rem;
+  font-size: .9rem; background: var(--coal); color: var(--bone); transition: border-color .15s, color .15s; }
+.pill:hover span { border-color: var(--ember); }
+.pill input:checked + span { border-color: var(--ember); color: var(--ember-soft); background: rgba(254, 71, 22, .1); }
+.pill input:focus-visible + span { outline: 2px solid var(--ember); outline-offset: 2px; }
+.private-toggle { margin: -.6rem 0 1rem; font-size: .88rem; color: var(--ash); }
+.private-toggle input { margin-top: .15rem; }
+.q-intro { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
+.facts { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0 0; padding: 0; list-style: none; }
+.lock { font-size: .8rem; color: var(--ash); font-weight: 400; }

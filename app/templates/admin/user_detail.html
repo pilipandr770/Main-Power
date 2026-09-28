@@ -10,7 +10,12 @@
     <div class="panel">
       <h2>Profil ({{ p.completeness }} %)</h2>
       <p><b>{{ p.headline }}</b>{% if p.company %} · {{ p.company }}{% endif %}{% if p.industry %} · {{ p.industry }}{% endif %}</p>
+      {% set facts = [qn.label(qn.ROLES, p.role), qn.label(qn.STAGES, p.stage), qn.label(qn.TEAM_SIZES, p.team_size)]|select|list %}
+      {% if facts %}<p class="small muted">{{ facts|join(' · ') }}</p>{% endif %}
       <p><b>Tätigkeit:</b> {{ p.q_focus or '—' }}</p>
+      <p><b>Ziel:</b> {{ qn.label(qn.GOAL_CATEGORIES, p.goal_category) or '—' }} <span class="small muted">(Ziel- und Meilenstein-Texte bleiben privat, sofern nicht freigegeben)</span></p>
+      <p><b>Sucht (Typen):</b> {{ qn.labels(qn.PARTNER_TYPES, p.partner_types)|join(', ') or '—' }}</p>
+      <p><b>Bringt ein:</b> {{ qn.labels(qn.RESOURCES, p.resources)|join(', ') or '—' }}{% if p.help_mode %} · {{ qn.label(qn.HELP_MODES, p.help_mode) }}{% endif %}</p>
       <p><b>Herausforderung:</b> {{ p.q_challenge or '—' }}</p>
       <p><b>Kann helfen:</b> {{ p.q_can_help or '—' }}</p>
       <p><b>Sucht:</b> {{ p.q_looking_for or '—' }}</p>

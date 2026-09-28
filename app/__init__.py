@@ -110,6 +110,8 @@ def _register_template_helpers(app: Flask) -> None:
     from .tenancy import current_club
     app.jinja_env.filters.update(event_date=fmt_event_date, dt=fmt_dt, money=money, local=to_local, fit=fit_label,
                                  media=club_settings.media_url)
+    from . import questionnaire
+    app.jinja_env.globals["qn"] = questionnaire  # Auswahllisten des Fragebogens in allen Templates
 
     @app.context_processor
     def inject():

@@ -1,6 +1,7 @@
 """Betroffenenrechte: Auskunft/Datenübertragbarkeit (Art. 15/20) und Löschung (Art. 17)."""
 from __future__ import annotations
 
+from .. import questionnaire
 from ..extensions import db
 from ..models import (ChatMessage, IntroRequest, LawQuery, Match, PanelRun, SeoReport, ServiceInquiry, User)
 from ..utils import fmt_dt
@@ -19,7 +20,8 @@ def export_user(user: User) -> dict:
                                        "preferred_formats", "linkedin_url", "xing_url", "instagram_url",
                                        "website_url", "facebook_url", "telegram_url", "x_url", "youtube_url", "github_url",
                                        "tiktok_url", "socials_public", "event_invites", "photo", "visible_in_directory",
-                                       "allow_matching")},
+                                       "allow_matching", *questionnaire.CHOICE_FIELDS, *questionnaire.TEXT_FIELDS,
+                                       "public_fields")},
         "einwilligungen": [{"art": c.kind, "erteilt": c.granted, "version": c.version, "zeit": fmt_dt(c.created_at)}
                            for c in user.consents],
         "anmeldungen": [{"termin": r.event.title, "status": r.status, "zeit": fmt_dt(r.created_at)}

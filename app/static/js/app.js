@@ -152,7 +152,7 @@
     var btn = box.querySelector("[data-coach-run]");
     btn.addEventListener("click", function () {
       var body = {};
-      ["q_focus", "q_challenge", "q_can_help", "q_looking_for", "headline"].forEach(function (k) {
+      ["q_focus", "q_challenge", "q_can_help", "q_looking_for", "goal_12m", "milestone_90d", "headline"].forEach(function (k) {
         var f = document.getElementById("f-" + k);
         if (f) body[k] = f.value;
       });

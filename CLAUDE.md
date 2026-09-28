@@ -34,6 +34,17 @@ Kommunikation mit dem Entwickler: Russisch. UI-Texte, Kommentare im Code und Com
 ## Matching
 `score(A→B) = 0.6·cos(need_A, offer_B) + 0.4·cos(need_B, offer_A)`. Embeddings als JSON in `profiles.embed_need/offer`, Vergleich in numpy. Begründungen per LLM (ein Batch-Call für bis zu k Kandidaten), gecacht in `matches` mit `profile_version`-Hash; Fallback-Template ohne API-Key. Anzeige für Mitglieder als Label (`|fit`), Rohwerte nur im Admin.
 
+### Fragebogen und hybrides Matching
+- Auswahllisten, Sichtbarkeit und `structured_fit` in `app/questionnaire.py`; neue Profilspalten in `Profile` (Blöcke
+  A–F: Wer du bist, Ziel, Wen du suchst, Was du gibst, Zusammenarbeit, Kennenlernen). Alles optional, kein Umsatz,
+  keine Art.-9-Daten.
+- Score = 0.65 · semantisch (kalibriert je Embedding-Anbieter auf 0–1) + 0.35 · strukturiert. „Nicht kontaktieren zu“
+  (`not_wanted`, eigenes Embedding `embed_avoid`) schließt sehr ähnliche Angebote in beide Richtungen aus, mittlere
+  Ähnlichkeit wertet nur ab.
+- Privat per Standard: Ziel, Meilenstein, Herausforderung, „Schon versucht“ (`public_fields` = Opt-in),
+  `not_wanted` immer. Andere Mitglieder sehen sie weder im Profil noch in KI-Texten: Karten für die KI immer über
+  `matching.card(p)`; `own=True` nur, wenn die Antwort an die Person selbst geht.
+
 ### Skalierung
 Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`), Spalten `vector(1024)`, HNSW-Index, `top_matches`/`semantic_search` auf SQL (`<=>`) umstellen. Region (`profiles.region`) ist schon vorhanden → Mandanten/Regionen später per Filter bzw. eigener `communities`-Tabelle.
 

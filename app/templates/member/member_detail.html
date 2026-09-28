@@ -9,13 +9,15 @@
     <h1>{{ u.first_name }} {{ u.last_name if (connected or is_self) else u.last_name[:1] ~ '.' }}</h1>
     <p class="muted mb-0">{{ p.headline }}{% if p.company %} · {{ p.company }}{% endif %}{% if p.industry %} · {{ p.industry }}{% endif %}</p>
     <p class="small muted mb-0">{% if p.city %}{{ p.city }} · {% endif %}Mitglied seit {{ u.created_at|local|attr('strftime')('%m/%Y') }}{% if p.formats_list %} · Interessiert an {% for k in p.formats_list %}{{ FORMATS[k].short if k in FORMATS }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}</p>
+    {% set facts = [qn.label(qn.ROLES, p.role), qn.label(qn.STAGES, p.stage), ('Team ' ~ qn.label(qn.TEAM_SIZES, p.team_size)) if p.team_size else '', qn.labels(qn.CUSTOMER_TYPES, p.customer_types)|join(', '), qn.labels(qn.LANGUAGES, p.languages)|join(', '), qn.label(qn.MEETING_MODES, p.meeting_mode)]|select|list %}
+    {% if facts %}<ul class="facts">{% for f in facts %}<li class="tag">{{ f }}</li>{% endfor %}</ul>{% endif %}
     {% if connected or is_self or p.socials_public %}{{ socials(p) }}{% endif %}
   </div>
   {% if match %}<span class="score">{{ match.score|fit }}</span>{% endif %}
 </div>
 <div class="split">
   <section class="stack">
-    {% if not is_self and current_user.profile.q_can_help or not is_self and current_user.profile.q_looking_for %}
+    {% set me = current_user.profile %}{% if not is_self and (me.q_can_help or me.q_looking_for or me.goal_12m or me.partner_types) %}
     <div class="panel insight" data-insight data-endpoint="{{ url_for('member.contact_assistant', user_id=u.id) }}" data-target="msg">
       <div class="row between"><div><b>Was bringt euch dieser Kontakt?</b> <span class="ai-mark">KI</span></div>
       <button type="button" class="linkbtn small" data-insight-refresh hidden>Neu einschätzen</button></div>
@@ -24,9 +26,25 @@
     {% endif %}
     {% if match and match.reason %}<div class="panel"><b>Warum ihr euch treffen solltet</b> <span class="ai-mark">KI</span><p class="mt-s mb-0">{{ match.reason }}</p>{% if match.opener %}<p class="muted small mt-s mb-0">{{ match.opener }}</p>{% endif %}</div>{% endif %}
     {% if p.bio %}<div><h3>Über {{ u.first_name }}</h3><p class="pre">{{ p.bio }}</p></div>{% endif %}
-    {% if p.q_focus %}<div><h3>Was {{ u.first_name }} macht</h3><p class="pre">{{ p.q_focus }}</p></div>{% endif %}
-    {% if p.q_can_help %}<div><h3>Kann helfen mit</h3><p class="pre">{{ p.q_can_help }}</p></div>{% endif %}
-    {% if p.q_looking_for %}<div><h3>Sucht gerade</h3><p class="pre">{{ p.q_looking_for }}</p></div>{% endif %}
+    {% if p.q_focus %}<div><h3>Was {{ u.first_name }} macht</h3><p class="pre">{{ p.q_focus }}</p>{% if p.markets %}<p class="small muted mb-0">Märkte: {{ p.markets }}</p>{% endif %}</div>{% endif %}
+    {% if p.shown('goal_12m') or p.shown('milestone_90d') %}<div><h3>Ziel{% if p.goal_category %} · {{ qn.label(qn.GOAL_CATEGORIES, p.goal_category) }}{% endif %}</h3>
+      {% if p.shown('goal_12m') %}<p class="pre">{{ p.goal_12m }}</p>{% endif %}
+      {% if p.shown('milestone_90d') %}<p class="small muted mb-0">Nächster Meilenstein: {{ p.milestone_90d }}</p>{% endif %}</div>{% endif %}
+    {% if p.q_looking_for or p.partner_types %}<div><h3>Sucht gerade</h3>
+      {% if p.partner_types %}<ul class="facts mb-m">{% for l in qn.labels(qn.PARTNER_TYPES, p.partner_types) %}<li class="tag">{{ l }}</li>{% endfor %}</ul>{% endif %}
+      {% if p.q_looking_for %}<p class="pre">{{ p.q_looking_for }}</p>{% endif %}
+      {% if p.first_outcome %}<p class="small muted mb-0">Gutes erstes Gespräch: {{ qn.label(qn.FIRST_OUTCOMES, p.first_outcome) }}</p>{% endif %}</div>{% endif %}
+    {% if p.shown('q_challenge') %}<div><h3>Was {{ u.first_name }} gerade aufhält</h3><p class="pre">{{ p.q_challenge }}</p>{% if p.shown('q_tried') %}<p class="small muted mb-0">Schon versucht: {{ p.q_tried }}</p>{% endif %}</div>{% endif %}
+    {% if p.q_can_help or p.asked_for or p.resources %}<div><h3>Kann helfen mit</h3>
+      {% if p.q_can_help %}<p class="pre">{{ p.q_can_help }}</p>{% endif %}
+      {% if p.asked_for %}<p class="small muted">Wird oft gefragt zu: {{ p.asked_for }}</p>{% endif %}
+      {% if p.resources %}<ul class="facts">{% for l in qn.labels(qn.RESOURCES, p.resources) %}<li class="tag">{{ l }}</li>{% endfor %}</ul>{% endif %}
+      {% if p.help_mode %}<p class="small muted mt-s mb-0">{{ qn.label(qn.HELP_MODES, p.help_mode) }}</p>{% endif %}</div>{% endif %}
+    {% if p.proud_of %}<div><h3>Worauf {{ u.first_name }} stolz ist</h3><p class="pre">{{ p.proud_of }}</p></div>{% endif %}
+    {% if p.talk_topics or p.unknown_fact or p.work_values %}<div><h3>Zum Kennenlernen</h3>
+      {% if p.talk_topics %}<p class="mb-0"><b>Kann stundenlang reden über:</b> {{ p.talk_topics }}</p>{% endif %}
+      {% if p.unknown_fact %}<p class="mb-0 mt-s"><b>Steht in keinem Lebenslauf:</b> {{ p.unknown_fact }}</p>{% endif %}
+      {% if p.work_values %}<p class="small muted mt-s mb-0">Wichtig in der Zusammenarbeit: {{ qn.labels(qn.WORK_VALUES, p.work_values)|join(', ') }}</p>{% endif %}</div>{% endif %}
     {% if p.expertise_list %}<div><h3>Expertise</h3><div class="row">{% for t in p.expertise_list %}<a class="tag" href="{{ url_for('member.directory', q=t) }}">{{ t }}</a>{% endfor %}</div></div>{% endif %}
     {% set evs = upcoming_events if is_self else shared_events %}
     {% if evs %}<div><h3>{{ 'Deine kommenden Termine' if is_self else 'Ihr seid beide dabei' }}</h3>
@@ -34,6 +52,7 @@
   </section>
   <aside class="panel">
     {% if is_self %}
+      <p class="muted small">Private Angaben (Ziel, Herausforderung, „Schon versucht“, sofern nicht freigegeben, und „Nicht kontaktieren zu“) erscheinen hier nicht.</p>
       <p class="muted small mb-0">Kontaktdaten sehen nur Menschen, deren Anfrage du angenommen hast.{% if not p.socials_public %} Deine Social-Links sind derzeit nur für angenommene Kontakte sichtbar.{% endif %}</p>
     {% elif connected %}
       <span class="tag ok">Verbunden</span>

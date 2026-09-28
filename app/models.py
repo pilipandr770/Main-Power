@@ -281,6 +281,31 @@ class Profile(TenantMixin, db.Model):
     expertise = db.Column(db.String(500), default="")          # kommagetrennt
     preferred_formats = db.Column(db.String(200), default="")  # kommagetrennt (Keys aus FORMATS)
 
+    # Erweiterter Fragebogen (questionnaire.py). Auswahlfelder als kommagetrennte Keys, alles optional.
+    role = db.Column(db.String(30), default="")            # A: Wer du bist
+    stage = db.Column(db.String(30), default="")
+    team_size = db.Column(db.String(20), default="")
+    customer_types = db.Column(db.String(60), default="")
+    markets = db.Column(db.String(300), default="")
+    languages = db.Column(db.String(200), default="")
+    goal_category = db.Column(db.String(30), default="")   # B: Ziel
+    goal_12m = db.Column(db.Text, default="")
+    milestone_90d = db.Column(db.Text, default="")
+    q_tried = db.Column(db.Text, default="")
+    partner_types = db.Column(db.String(300), default="")  # C: Wen du suchst (q_looking_for = ideale Person)
+    first_outcome = db.Column(db.String(30), default="")
+    not_wanted = db.Column(db.Text, default="")             # nie sichtbar, nur Filter im Matching
+    resources = db.Column(db.String(200), default="")      # D: Was du gibst (q_can_help)
+    asked_for = db.Column(db.Text, default="")
+    help_mode = db.Column(db.String(30), default="")
+    proud_of = db.Column(db.Text, default="")
+    network_time = db.Column(db.String(20), default="")    # E: Zusammenarbeit
+    meeting_mode = db.Column(db.String(20), default="")
+    work_values = db.Column(db.String(200), default="")
+    talk_topics = db.Column(db.Text, default="")           # F: Zum Kennenlernen
+    unknown_fact = db.Column(db.Text, default="")
+    public_fields = db.Column(db.String(200), default="")  # freigegebene Felder aus SHAREABLE_PRIVATE (Opt-in)
+
     linkedin_url = db.Column(db.String(300), default="")
     xing_url = db.Column(db.String(300), default="")
     instagram_url = db.Column(db.String(300), default="")
@@ -300,6 +325,7 @@ class Profile(TenantMixin, db.Model):
 
     embed_need = db.Column(db.JSON)
     embed_offer = db.Column(db.JSON)
+    embed_avoid = db.Column(db.JSON)  # "Womit möchtest du nicht kontaktiert werden?"
     embed_provider = db.Column(db.String(60))
     embed_updated_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
@@ -316,25 +342,51 @@ class Profile(TenantMixin, db.Model):
     def formats_list(self) -> list[str]:
         return [t.strip() for t in (self.preferred_formats or "").split(",") if t.strip()]
 
+    def is_public(self, field: str) -> bool:
+        """Darf ein anderes Mitglied (oder eine KI-Antwort an ein anderes Mitglied) dieses Feld sehen?"""
+        from .questionnaire import ALWAYS_PRIVATE, SHAREABLE_PRIVATE, split
+        if field in ALWAYS_PRIVATE:
+            return False
+        if field in SHAREABLE_PRIVATE:
+            return field in split(self.public_fields)
+        return True
+
+    def shown(self, field: str) -> str:
+        return (getattr(self, field) or "") if self.is_public(field) else ""
+
     @property
     def need_text(self) -> str:
-        return " \n".join(filter(None, [self.q_challenge, self.q_looking_for]))
+        from .questionnaire import GOAL_CATEGORIES, PARTNER_TYPES, label, labels
+        seeks = labels(PARTNER_TYPES, self.partner_types)
+        return " \n".join(filter(None, [
+            self.q_challenge, self.q_looking_for, self.goal_12m, self.milestone_90d,
+            ("Sucht: " + ", ".join(seeks)) if seeks else "",
+            ("Ziel: " + label(GOAL_CATEGORIES, self.goal_category)) if self.goal_category else ""]))
 
     @property
     def offer_text(self) -> str:
-        return " \n".join(filter(None, [self.headline, self.industry, self.q_focus, self.q_can_help,
-                                         self.expertise, self.bio]))
+        from .questionnaire import RESOURCES, ROLES, label, labels
+        gives = labels(RESOURCES, self.resources)
+        return " \n".join(filter(None, [
+            self.headline, label(ROLES, self.role), self.industry, self.q_focus, self.q_can_help, self.asked_for,
+            self.proud_of, self.expertise, self.bio, ("Bringt ein: " + ", ".join(gives)) if gives else ""]))
 
     @property
     def completeness(self) -> int:
-        fields = [self.headline, self.industry, self.q_focus, self.q_challenge, self.q_can_help,
-                  self.q_looking_for, self.expertise, self.bio,
-                  self.linkedin_url or self.xing_url or self.website_url or self.instagram_url]
-        return round(100 * sum(1 for f in fields if f and str(f).strip()) / len(fields))
+        """Matching-Qualität: gewichtet nach Nutzen fürs Matching, nicht nach Anzahl der Felder."""
+        weighted = [
+            (3, self.q_can_help), (3, self.q_looking_for), (2, self.partner_types), (2, self.goal_12m),
+            (2, self.q_focus), (2, self.q_challenge), (1, self.role), (1, self.stage), (1, self.headline),
+            (1, self.industry), (1, self.resources), (1, self.expertise), (1, self.languages),
+            (1, self.bio or self.proud_of),
+            (1, self.linkedin_url or self.xing_url or self.website_url or self.instagram_url)]
+        total = sum(w for w, _ in weighted)
+        return round(100 * sum(w for w, f in weighted if f and str(f).strip()) / total)
 
     @property
     def is_matchable(self) -> bool:
-        return bool(self.allow_matching and self.q_can_help and (self.q_looking_for or self.q_challenge))
+        return bool(self.allow_matching and (self.q_can_help or self.asked_for or self.resources)
+                    and (self.q_looking_for or self.q_challenge or self.partner_types or self.goal_12m))
 
 
 class Consent(TenantMixin, db.Model):

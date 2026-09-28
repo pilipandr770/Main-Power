@@ -91,18 +91,29 @@ def _profile_block(user: User) -> str:
     p = user.profile
     if not p:
         return "Profil noch leer."
-    return "\n".join([
+    from ..questionnaire import (GOAL_CATEGORIES, HELP_MODES, LANGUAGES, PARTNER_TYPES, RESOURCES, ROLES, STAGES,
+                                 label, labels)
+    lines = [
         f"Name: {user.first_name}",
         f"Rolle/Unternehmen: {p.headline} {('· ' + p.company) if p.company else ''}",
+        f"Funktion und Phase: {label(ROLES, p.role)} {('· ' + label(STAGES, p.stage)) if p.stage else ''}",
         f"Branche: {p.industry}",
         f"Tätigkeitsbereich: {p.q_focus}",
+        f"Ziel (12 Monate, {label(GOAL_CATEGORIES, p.goal_category) or 'ohne Kategorie'}): {p.goal_12m}",
+        f"Meilenstein in 90 Tagen: {p.milestone_90d}",
         f"Größte Herausforderung: {p.q_challenge}",
-        f"Kann anderen helfen mit: {p.q_can_help}",
+        f"Schon versucht: {p.q_tried}",
+        f"Sucht (Partnertypen): {', '.join(labels(PARTNER_TYPES, p.partner_types))}",
         f"Sucht konkret: {p.q_looking_for}",
+        f"Kann anderen helfen mit: {p.q_can_help}",
+        f"Bringt ein: {', '.join(labels(RESOURCES, p.resources))} · {label(HELP_MODES, p.help_mode)}",
+        f"Sprachen: {', '.join(labels(LANGUAGES, p.languages))}",
         f"Expertise: {p.expertise}",
         f"Bevorzugte Formate: {p.preferred_formats}",
         f"Matching-Einwilligung: {'ja' if p.allow_matching else 'nein'}",
-    ])
+    ]
+    # Leere Angaben weglassen, damit das Modell nichts hineininterpretiert
+    return "\n".join(line for line in lines if line.split(":", 1)[1].strip(" ·"))
 
 
 def _matches_block(user: User) -> str:
@@ -168,6 +179,8 @@ def answer_member(user: User, message: str, channel: str = "web") -> str:
               "passende Formate und Termine, passende Mitglieder aus der Liste unten (nur Vorname + Initial, Rolle, "
               "warum), Tipps für die Vorstellungsrunde im Hub, und — nur wenn es wirklich zum Bedarf passt — "
               "passende Leistungen aus dem Ökosystem des Klubs.\n"
+              "Hat das Mitglied ein Ziel oder einen 90-Tage-Meilenstein angegeben, richte Empfehlungen daran aus und "
+              "frag bei Gelegenheit nach dem Fortschritt. Schlag nichts vor, was unter „Schon versucht“ steht.\n"
               "Wenn das Profil lückenhaft ist, stelle eine gezielte Rückfrage und empfiehl, das Profil zu ergänzen "
               f"({base}/app/profil).\nKontakt zu Mitgliedern nur über „Kontakt anfragen“ ({base}/app/matches).\n\n"
               f"# Profil des Mitglieds\n{_profile_block(user)}\n\n"
