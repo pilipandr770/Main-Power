@@ -30,9 +30,38 @@ FIELD_LABELS = {"q_focus": "Was machst du?", "q_challenge": "Größte Herausford
 
 
 def _json(text: str):
+    """JSON-Objekt oder -Liste aus einer Modellantwort (auch mit Code-Fences oder Begleittext)."""
     text = re.sub(r"^```(?:json)?|```$", "", (text or "").strip(), flags=re.M).strip()
-    a, b = text.find("{"), text.rfind("}")
-    return json.loads(text[a:b + 1], strict=False)  # strict=False: Zeilenumbrüche in Strings tolerieren
+    starts = [i for i in (text.find("{"), text.find("[")) if i >= 0]
+    if not starts:
+        raise ValueError("keine JSON-Struktur in der Modellantwort")
+    a = min(starts)
+    b = text.rfind("}" if text[a] == "{" else "]")
+    raw = text[a:b + 1]
+    try:
+        return json.loads(raw, strict=False)  # strict=False: Zeilenumbrüche in Strings tolerieren
+    except json.JSONDecodeError:
+        # Häufigster Modellfehler: deutsches „ öffnet, ein gerades " schließt – das beendet den JSON-String.
+        repaired = re.sub(r'„([^"“„\n]{0,400})"', "„\\1“", raw)
+        if repaired == raw:
+            raise
+        return json.loads(repaired, strict=False)
+
+
+JSON_HINT = (" Zitate in Textwerten immer mit „ öffnen und mit “ schließen – nie mit geraden Anführungszeichen, "
+             "die beenden den JSON-String.")
+
+
+def json_call(complete_fn, system: str, messages: list[dict], **kw):
+    """KI-Aufruf mit JSON-Antwort; bei unbrauchbarer Antwort genau ein zweiter Versuch."""
+    error = None
+    for _attempt in (1, 2):
+        try:
+            return _json(complete_fn(system + JSON_HINT, messages, **kw))
+        except ValueError as exc:  # json.JSONDecodeError ist ein ValueError
+            error = exc
+            log.warning("Unbrauchbare JSON-Antwort (%s): %s", kw.get("purpose", ""), exc)
+    raise error
 
 
 def _text(v) -> str:
@@ -95,9 +124,9 @@ def profile_coach(values: dict) -> dict:
               "\"q_focus|q_challenge|q_can_help|q_looking_for|goal_12m|milestone_90d\", \"tip\": \"…\"}]}. Lass Felder ohne Tipp weg, "
               "wenn die Antwort schon gut ist.")
     try:
-        data = _json(complete(system, [{"role": "user", "content": "Profilentwurf (Daten):\n" +
-                                        json.dumps(clean, ensure_ascii=False)}],
-                              max_tokens=600, purpose="profile_coach"))
+        data = json_call(complete, system, [{"role": "user", "content": "Profilentwurf (Daten):\n" +
+                                             json.dumps(clean, ensure_ascii=False)}],
+                         max_tokens=600, purpose="profile_coach")
         tips = [{"field": t["field"], "tip": str(t["tip"])[:400]} for t in data.get("tips", [])
                 if t.get("field") in FIELD_LABELS and t.get("tip")]
         return {"summary": str(data.get("summary", ""))[:300], "tips": tips, "ai": True}
@@ -239,8 +268,8 @@ def invite_candidates(ev: Event, limit: int = 8, min_score: float = 0.12) -> lis
         payload = {"termin": {"titel": ev.title, "beschreibung": _snip(ev.description, 500), "format": ev.format},
                    "kandidaten": [{"id": p.user_id, **_card(p)} for _, p, _ in pool]}
         try:
-            data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                                  max_tokens=1100, purpose="event_invite"))
+            data = json_call(complete, system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                             max_tokens=1100, purpose="event_invite")
             by_id = {p.user_id: (sc, p, ex) for sc, p, ex in pool}
             picked = []
             for g in data.get("auswahl", []):

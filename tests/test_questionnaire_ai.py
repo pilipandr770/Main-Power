@@ -83,3 +83,11 @@ def test_interview_ai_labels_are_mapped_to_keys(client, app, monkeypatch):
     d = client.post("/app/api/interview/antwort", json={"field": "role", "answer": "…"}).get_json()
     got = {p["field"]: p["value"] for p in d["proposals"]}
     assert got["role"] == "gruender" and got["partner_types"] == "investor,mentor" and got["languages"] == "de,en"
+
+
+def test_json_repair_for_german_quotes_closed_with_ascii():
+    """Beobachtet mit Claude Haiku: „…" (deutsch geöffnet, gerade geschlossen) beendet den JSON-String."""
+    from app.services.insights import _json
+    raw = '```json\n{"tips": [{"field": "q_focus", "tip": "Beispiel: „Fachkräfte finden" oder „Ich suche Strategien.""}]}\n```'
+    assert _json(raw)["tips"][0]["tip"] == "Beispiel: „Fachkräfte finden“ oder „Ich suche Strategien.“"
+    assert _json('Antwort: [{"id": 1}] fertig') == [{"id": 1}]

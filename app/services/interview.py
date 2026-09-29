@@ -10,7 +10,7 @@ import json
 import re
 
 from .. import questionnaire as qn
-from .insights import _json
+from .insights import json_call
 from .llm import LLMUnavailable, complete
 
 # Reihenfolge nach Nutzen fürs Matching: (Feld, Frage, Hinweis)
@@ -112,9 +112,10 @@ def _fallback(field: str, answer: str) -> dict:
 
 
 def _schema() -> dict:
-    out = {f: "Freitext" for f in qn.ALL_TEXT_FIELDS}
+    out = {f: f"Freitext – {FIELD_LABELS.get(f, f)}" for f in qn.ALL_TEXT_FIELDS}
     for f, (options, multi, limit) in qn.CHOICE_FIELDS.items():
-        out[f] = {"werte": list(options), "bedeutung": options, "mehrfach": multi, "max": limit}
+        out[f] = {"frage": FIELD_LABELS.get(f, f), "werte": list(options), "bedeutung": options, "mehrfach": multi,
+                  "max": limit}
     return out
 
 
@@ -135,15 +136,18 @@ def extract(p, field: str, answer: str) -> tuple[list[dict], bool]:
             values = {field: hits if q.kind == "multi" else (hits[0] if hits else "")}
     else:
         system = ("Du hilfst einem Mitglied von {CLUB}, sein Profil auszufüllen. Aus der freien Antwort leitest du "
-                  "Profilwerte ab. Regeln: nur, was die Person wirklich sagt – nichts erfinden, nichts ergänzen; "
-                  "Texte knapp in der Ich-/Du-neutralen Profilsprache (1–2 Sätze), Deutsch; Auswahlfelder NUR mit den "
-                  "erlaubten Schlüsseln aus 'werte' (Mehrfachauswahl als Liste). Das gefragte Feld hat Vorrang; weitere "
-                  "Felder nur, wenn sie eindeutig in der Antwort stecken. Keine besonderen Kategorien personenbezogener "
-                  "Daten (Gesundheit, Religion, Politik …). Antworte NUR als JSON-Objekt {feld: wert}.")
+                  "Profilwerte ab. Regeln: (1) Nur Felder, die die Person ausdrücklich anspricht – im Zweifel weglassen; "
+                  "nichts erschließen, was nicht gesagt wurde (z. B. kein „erstes Gespräch“, keine Phase oder Kategorie "
+                  "ohne klare Angabe). (2) Texte in der Ich-Form der Person, 1–2 Sätze, möglichst mit ihren eigenen "
+                  "Worten, Deutsch. (3) Kein Geschlecht zuschreiben: aus „ich habe gegründet“ wird nicht „Gründerin“. "
+                  "(4) Jedes Feld nur mit seinem Inhalt (siehe 'felder'): was die Person macht, gehört nicht zu dem, "
+                  "was sie sucht, und umgekehrt. (5) Auswahlfelder NUR mit den erlaubten Schlüsseln aus 'werte' "
+                  "(Mehrfachauswahl als Liste). (6) Keine besonderen Kategorien personenbezogener Daten (Gesundheit, "
+                  "Religion, Politik …). Das gefragte Feld hat Vorrang. Antworte NUR als JSON-Objekt {feld: wert}.")
         payload = {"gefragtes_feld": field, "antwort": answer, "felder": _schema()}
         try:
-            data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                                  max_tokens=600, purpose="profile_interview"))
+            data = json_call(complete, system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                             max_tokens=600, purpose="profile_interview")
             values = {k: v for k, v in data.items() if k in EXTRACTABLE and v not in (None, "", [])}
             ai = True
         except (LLMUnavailable, ValueError, KeyError, TypeError):

@@ -128,7 +128,9 @@ def _llm_reasons(a: Profile, others: list[Profile]) -> dict[int, tuple[str, str]
         "wertschätzend, warum zwei Menschen sich treffen sollten. Ton: ruhig, hochwertig, auf Deutsch, du-Form. "
         "Keine Übertreibungen, keine erfundenen Fakten — nur was in den Profilen steht. Beziehe dich auf das Ziel "
         "und die gesuchten Partnertypen von Person A und darauf, was die Kandidat:innen einbringen. "
-        "Antworte ausschließlich mit gültigem JSON, ohne Markdown."
+        "Alle Kandidat:innen wurden vorab als Empfehlung ausgewählt: Schreib keine Absagen („nicht empfohlen“, "
+        "„weniger relevant“). Ist der Nutzen kleiner, nenne ehrlich einen kleinen, konkreten Anknüpfungspunkt statt "
+        "zu übertreiben. Antworte ausschließlich mit gültigem JSON, ohne Markdown."
     )
     prompt = (
         "Person A:\n" + json.dumps(card(a, own=True), ensure_ascii=False) + "\n\nKandidat:innen:\n"
@@ -137,9 +139,8 @@ def _llm_reasons(a: Profile, others: list[Profile]) -> dict[int, tuple[str, str]
           '[{"id": <id>, "reason": "<max. 2 Sätze an Person A: warum dieses Treffen Wert hat>", '
           '"opener": "<1 konkreter Gesprächseinstieg>"}]'
     )
-    text = complete(system, [{"role": "user", "content": prompt}], max_tokens=1200, temperature=0.3, purpose="matching")
-    text = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip()
-    data = json.loads(text)
+    from .insights import json_call
+    data = json_call(complete, system, [{"role": "user", "content": prompt}], max_tokens=1200, purpose="matching")
     return {int(d["id"]): (str(d.get("reason", "")), str(d.get("opener", ""))) for d in data if "id" in d}
 
 

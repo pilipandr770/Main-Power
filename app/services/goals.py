@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import timedelta
 
 from flask import url_for
@@ -81,17 +82,22 @@ def _fallback_feedback(c: GoalCheckin, ctx: dict) -> str:
 
 def _ai_feedback(user: User, c: GoalCheckin, previous: list[GoalCheckin], ctx: dict) -> str:
     system = ("Du bist {ASSISTANT}, die KI von {CLUB}. Ein Mitglied meldet den Stand seines 90-Tage-Meilensteins. "
-              "Antworte in 3–5 Sätzen, du-Form, Deutsch, warm und konkret: würdige den Stand ehrlich, nenne EINEN "
-              "nächsten Schritt für die kommenden 2 Wochen und – nur wenn es passt – ein oder zwei Mitglieder aus der "
-              "Liste (Vorname, warum) oder einen Termin. Keine Rechts-, Steuer- oder Finanzberatung, nichts erfinden, "
-              "nichts vorschlagen, was unter „schon versucht“ steht.")
+              "Antworte in 3–5 Sätzen, du-Form, Deutsch, warm und konkret, als reiner Text ohne Markdown und ohne "
+              "Emojis. Der Ton folgt dem Status: „Erreicht“ – gratulieren; „Auf gutem Weg“ – bestärken; „Hängt gerade“ "
+              "– KEIN Glückwunsch, sondern Verständnis und ein Weg aus der Blockade; „Neu ausgerichtet“ – die neue "
+              "Richtung würdigen. Nenne EINEN nächsten Schritt für die kommenden 2 Wochen und – nur wenn es passt – ein "
+              "oder zwei Mitglieder aus der Liste (Vorname, warum) oder einen Termin. Versprich nichts im Namen des "
+              "Teams oder der Plattform (keine Vorstellung, kein Rückruf): Kontakt knüpft das Mitglied selbst über "
+              "„Kontakt anfragen“. Keine Rechts-, Steuer- oder Finanzberatung, nichts erfinden, nichts vorschlagen, was "
+              "unter „schon versucht“ steht.")
     payload = {"profil": card(user.profile, own=True),
                "check_in": {"meilenstein": c.milestone, "status": c.status_label, "notiz": c.note,
                             "naechster_meilenstein": c.next_milestone},
                "fruehere_check_ins": [{"meilenstein": p.milestone, "status": p.status_label} for p in previous[:3]],
                "passende_mitglieder": ctx["matches"], "termine": ctx["events"]}
-    return complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                    max_tokens=450, purpose="goal_checkin").strip()
+    text = complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                    max_tokens=450, purpose="goal_checkin")
+    return re.sub(r"\*\*|__|^#+\s*", "", text, flags=re.M).strip()  # Markdown-Reste entfernen
 
 
 def record_checkin(user: User, status: str, note: str = "", next_milestone: str = "", goal: str | None = None

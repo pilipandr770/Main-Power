@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from ..extensions import db
 from ..models import FORMATS, GoalCheckin, Profile, Setting, User, utcnow
 from .. import questionnaire as qn
-from .insights import _json
+from .insights import json_call
 from .llm import LLMUnavailable, complete
 
 log = logging.getLogger(__name__)
@@ -157,8 +157,8 @@ def build_report() -> dict:
                                     for r in ov["market"]],
                    "formate": {k: f["name"] for k, f in FORMATS.items()}}
         try:
-            data = _json(complete(system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                                  max_tokens=1400, purpose="club_insights"))
+            data = json_call(complete, system, [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+                             max_tokens=1400, purpose="club_insights")
             report = {"nachfrage": data.get("nachfrage", [])[:8], "angebot": data.get("angebot", [])[:8],
                       "luecken": data.get("luecken", [])[:6], "ideen": data.get("ideen", [])[:4], "ai": True}
         except (LLMUnavailable, ValueError, KeyError, TypeError, AttributeError) as exc:

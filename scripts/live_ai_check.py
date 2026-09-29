@@ -60,15 +60,23 @@ with app.app_context():
                                       "Handwerksbetriebe mit Azubis zusammenbringt. Gerade suche ich eine Investorin "
                                       "und jemanden mit Vertriebserfahrung. Ich spreche Deutsch und Ukrainisch.")
         show(f"Interview (KI={ai})", [{p['field']: p['display']} for p in props])
+        got = {p["field"]: p for p in props}
         if not ai or len(props) < 3:
             problems.append("Interview: KI hat weniger als 3 Felder erkannt")
+        if "first_outcome" in got:
+            problems.append("Interview: „erstes Gespräch“ erfunden (nicht in der Antwort)")
+        if "Gründerin" in json.dumps(props, ensure_ascii=False):
+            problems.append("Interview: Geschlecht zugeschrieben („Gründerin“)")
 
         # 2) Ziel-Check-in mit Aiko-Feedback
         from app.services import goals
         c = goals.record_checkin(tobias, "haengt", "Pitch-Deck steht, aber erst zwei Gespräche mit Angels.")
         show("Check-in-Feedback", c.ai_feedback)
-        if not c.ai_feedback or "Glückwunsch" in c.ai_feedback[:20]:
-            problems.append("Check-in: kein oder unpassendes Feedback")
+        low = c.ai_feedback.lower()
+        if not c.ai_feedback or "glückwunsch" in low or "gratulier" in low:
+            problems.append("Check-in: Glückwunsch trotz Status „Hängt gerade“")
+        if "**" in c.ai_feedback or "stellen wir" in low or "wir verbinden" in low:
+            problems.append("Check-in: Markdown oder Versprechen im Namen des Teams")
 
         # 3) Matching-Begründungen (Tobias' Sicht) – fremde private Angaben dürfen nicht vorkommen
         from app.models import Match
@@ -77,6 +85,9 @@ with app.app_context():
         db.session.commit()
         ms = matching.top_matches(tobias, k=3)
         show("Matching-Begründungen", [f"{m.other.first_name}: {m.reason} | {m.opener}" for m in ms])
+        for m in ms:
+            if any(x in (m.reason + m.opener).lower() for x in ("nicht empfohlen", "weniger relevant", "passt nicht")):
+                problems.append(f"Begründung {m.other.first_name}: Absage in einer Empfehlung")
         for m in ms:
             op = m.other.profile
             must_not_contain(f"Begründung {m.other.first_name}", m.reason + m.opener,
@@ -92,6 +103,8 @@ with app.app_context():
         # 5) Profil-Coach mit Ziel
         coach = insights.profile_coach({"q_focus": "IT", "goal_12m": "wachsen", "milestone_90d": "mehr Kunden"})
         show(f"Profil-Coach (KI={coach['ai']})", coach)
+        if not coach["ai"]:
+            problems.append("Profil-Coach: KI-Antwort nicht verwertbar")
 
         # 6) Klub-Auswertung
         from app.services import club_insights
