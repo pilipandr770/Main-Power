@@ -19,7 +19,7 @@
 {% for h in row.hits %}
 <div class="panel-flat">
   <div class="row between">
-    <b>{{ h.law_abbreviation or h.slug }} {{ h.enbez }}</b>
+    <b>{{ h.law_abbreviation or h.slug }} {{ h.enbez }}</b>{% if h.part %} <span class="tag">Auszug, Teil {{ h.part|replace('/', ' von ') }}</span>{% endif %}
     {% if h.category and h.category != 'Unclassified' %}<span class="tag">{{ h.category }}</span>{% endif %}
     {% if h.id in nicht_passend %}<span class="tag warn">nicht einschlägig</span>{% elif h.id in erl_by_id %}<span class="tag ok">passt zur Frage</span>{% endif %}
   </div>
@@ -29,6 +29,8 @@
   <div class="mt-s"><span class="ai-mark">Erläuterung · {{ club.assistant_name }} (KI)</span><p class="mb-0 mt-s">{{ erl_by_id[h.id] }}</p></div>
   {% elif h.id in nicht_passend %}
   <p class="small muted mb-0 mt-s">{{ club.assistant_name }} hält diese Fundstelle für nicht einschlägig zur Frage — der Text steht trotzdem vollständig oben, damit du selbst nachlesen kannst.</p>
+  {% elif h.id in (row.answer.nur_wortlaut or []) %}
+  <p class="small muted mb-0 mt-s">Auszug aus der Mitte einer längeren Vorschrift: Der Anfang, der festlegt, was für die aufgezählten Punkte gilt, fehlt hier. Deshalb erläutert {{ club.assistant_name }} diesen Auszug nicht — lies bitte den vollständigen amtlichen Text über den Link.</p>
   {% endif %}
   <p class="small muted mb-0 mt-s">{% if h.stand %}Stand: {{ h.stand|join(', ') }} · {% endif %}<a href="{{ h.source_url }}" rel="noopener nofollow" target="_blank">Amtlicher Text auf gesetze-im-internet.de</a></p>
 </div>

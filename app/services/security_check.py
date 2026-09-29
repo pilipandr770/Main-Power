@@ -20,7 +20,9 @@ from .seo_check import SeoCheckError, _assert_public, _f
 log = logging.getLogger(__name__)
 
 TLS, HDR, COO, MAIL, DNS = "Verschlüsselung (TLS)", "HTTP-Sicherheits-Header", "Cookies", "E-Mail-Sicherheit", "DNS und Kontakt"
-DKIM_SELECTORS = ["default", "google", "selector1", "selector2", "k1", "s1", "mail", "dkim"]
+# Gängige Selektoren großer Mailanbieter (Google, Microsoft 365, Zoho, Mailchimp, Proton, Fastmail, Hostinger, IONOS …)
+DKIM_SELECTORS = ["default", "google", "selector1", "selector2", "zmail", "zoho", "k1", "k2", "s1", "s2", "mail", "dkim",
+                  "protonmail", "protonmail2", "fm1", "fm2", "hostingermail1", "hostingermail2", "smtp", "key1", "mx"]
 SECOND_LEVEL = {"co.uk", "org.uk", "com.au", "co.nz", "com.br", "co.za"}
 
 
@@ -214,11 +216,17 @@ def analyze(raw: str) -> dict:
         F.append(_f("dmarc", MAIL, "ok" if pol in ("quarantine", "reject") else "warn", "DMARC",
                     f"Richtlinie p={pol}." + (" Nur Beobachtung, kein Schutz." if pol == "none" else ""), 8,
                     "Nach der Beobachtungsphase auf p=quarantine bzw. p=reject umstellen."))
-    dkim = next((s for s in DKIM_SELECTORS if any("p=" in t for t in _txt(f"{s}._domainkey.{org}"))), None)
-    F.append(_f("dkim", MAIL, "ok" if dkim else "info", "DKIM",
-                f"Schlüssel gefunden (Selektor „{dkim}“)." if dkim else "Über gängige Selektoren kein Schlüssel gefunden — "
-                "das beweist nichts, da Selektoren frei wählbar sind. Bitte beim Mailanbieter prüfen.", 3,
-                "DKIM beim Mailanbieter aktivieren und den Schlüssel im DNS veröffentlichen."))
+    # Domain ohne Mailverkehr (kein MX, SPF nur „-all“): richtig abgesichert, DKIM überflüssig
+    no_mail = not _has(org, "MX") and spf.lower().split() == ["v=spf1", "-all"]
+    dkim = None if no_mail else next((s for s in DKIM_SELECTORS if any("p=" in t for t in _txt(f"{s}._domainkey.{org}"))), None)
+    if no_mail:
+        F.append(_f("dkim", MAIL, "ok", "DKIM", "Nicht nötig: Die Domain empfängt und versendet keine E-Mails (kein MX, "
+                    "SPF „-all“) und ist damit gegen Missbrauch als Absender vorbildlich abgesichert.", 3))
+    else:
+        F.append(_f("dkim", MAIL, "ok" if dkim else "info", "DKIM",
+                    f"Schlüssel gefunden (Selektor „{dkim}“)." if dkim else "Über gängige Selektoren kein Schlüssel "
+                    "gefunden — das beweist nichts, da Selektoren frei wählbar sind. Bitte beim Mailanbieter prüfen.", 3,
+                    "DKIM beim Mailanbieter aktivieren und den Schlüssel im DNS veröffentlichen."))
 
     # ---- DNS und Kontakt
     F.append(_f("dnssec", DNS, "ok" if _has(org, "DS") else "warn", "DNSSEC", "Signiert (DS-Eintrag vorhanden)."
@@ -253,17 +261,27 @@ _SYSTEM = ("Du bist Berater für IT-Sicherheit bei {CLUB} und schreibst einen Pr
            "Bezüge nur: Art. 32 DSGVO (Sicherheit der Verarbeitung) und allgemein NIS2-Anforderungen an technische Maßnahmen; keine "
            "Paragrafen erfinden, keine Bußgelder nennen. Antworte NUR als JSON: {\"zusammenfassung\": \"3–4 Sätze\", \"massnahmen\": "
            "[{\"prio\": 1, \"titel\": \"…\", \"warum\": \"1–2 Sätze\", \"so_gehts\": \"1–3 Sätze, wer was tut\", \"aufwand\": "
-           "\"gering|mittel|hoch\", \"wirkung\": \"hoch|mittel|niedrig\"}] (4–7 Einträge, nur echte Schwächen), \"keyword_hinweise\": "
+           "\"gering|mittel|hoch\", \"wirkung\": \"hoch|mittel|niedrig\"}] (je echte Schwäche aus 'schwaechen' ein Eintrag, "
+           "höchstens 7; Punkte aus 'hinweise' sind KEINE Schwächen – höchstens als letzter Eintrag mit Wirkung niedrig und "
+           "der Formulierung ‚prüfen lassen‘; nie behaupten, dass etwas fehlt, wenn es nur nicht erkennbar war), "
+           "\"keyword_hinweise\": "
            "\"\", \"naechste_schritte\": \"2 Sätze, inkl. Hinweis, dass ein Penetrationstest tiefer prüft\"}. "
            "WICHTIG für gültiges JSON: In Textwerten keine doppelten Anführungszeichen (nutze ‚einfache‘), keine Zeilenumbrüche.")
 
 
 def build_report(result: dict) -> dict:
+    pick = lambda st: [{k: f[k] for k in ("cat", "status", "title", "detail", "fix")}  # noqa: E731
+                       for f in result["findings"] if f["status"] in st]
     payload = {"domain": result["facts"]["host"], "score": result["score"], "erkannt": result["facts"],
-               "ergebnisse": [{k: f[k] for k in ("cat", "status", "title", "detail", "fix")} for f in result["findings"]
-                              if f["status"] != "ok"]}
+               "schwaechen": pick(("fail", "warn")), "hinweise": pick(("info",))}
     rep = seo_check.ai_report(_SYSTEM, payload, result)
     rep["keyword_hinweise"] = ""
+    if rep.get("ai") and not payload["schwaechen"]:
+        # Keine Schwächen: optionale Hinweise nie als dringende Maßnahme darstellen (Live-Test: CAA mit „Wirkung hoch“)
+        for a in rep["massnahmen"]:
+            a["wirkung"] = "niedrig"
+            if not a["titel"].lower().startswith("optional"):
+                a["titel"] = "Optional: " + a["titel"]
     if not rep["ai"]:
         rep["naechste_schritte"] = ("Setze die Maßnahmen der Reihe nach um (vieles erledigt dein Hoster oder Mailanbieter in "
                                     "wenigen Minuten) und prüfe danach erneut. Ein Penetrationstest prüft deutlich tiefer.")

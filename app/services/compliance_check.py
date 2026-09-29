@@ -152,10 +152,32 @@ def analyze(url: str) -> dict:
     P, C, S, H = "Pflichtangaben", "Cookies & Tracking", "Sicherheit (Grundschutz)", "Weitere Hinweise"
     F: list[dict] = []
 
+    # ---------------- JavaScript-App: Rechtstexte stehen dann nur im Skript-Bundle
+    js_links: dict[str, str] = {}
+    bundles = seo_check.spa_shell(html, len(re.findall(r"\w+", page_text)))
+    if bundles:
+        code = ""
+        for src in bundles:
+            try:
+                _r, b, _e, _u = _get(urljoin(base, src), max_bytes=3_000_000)
+                code += b.decode("utf-8", errors="replace")
+            except SeoCheckError:
+                continue
+        for kind in ("impressum", "datenschutz"):
+            m = re.search(r"[\"'`](/[\w\-/]*(?:" + LINK_KINDS[kind].pattern + r")[\w\-/]*)[\"'`]", code, re.I)
+            if m:
+                js_links[kind] = urljoin(base, m.group(1))
+
     # ---------------- Impressum
     imp_url = _find_link(sc, base, "impressum")
     imp_text = ""
-    if not imp_url:
+    if not imp_url and js_links.get("impressum"):
+        F.append(_f("imp", P, "warn", "Impressum (in der JavaScript-App verlinkt)",
+                    f"Im Skript der Seite ist ein Impressum unter {js_links['impressum'][:120]} verlinkt. Der Inhalt "
+                    "entsteht erst im Browser und konnte nicht automatisch geprüft werden.", 15,
+                    "Impressum manuell prüfen und als statische Seite ausliefern (Prerendering), damit Suchmaschinen "
+                    "und Prüfwerkzeuge es ohne JavaScript sehen."))
+    elif not imp_url:
         F.append(_f("imp", P, "fail", "Impressum verlinkt", "Auf der Startseite wurde kein Link „Impressum“ gefunden.", 15,
                     "Ein Impressum anlegen und von jeder Seite (z. B. im Footer) mit einem Klick erreichbar machen (§ 5 DDG)."))
     else:
@@ -200,7 +222,12 @@ def analyze(url: str) -> dict:
     # ---------------- Datenschutz
     ds_url = _find_link(sc, base, "datenschutz")
     ds_text = ""
-    if not ds_url:
+    if not ds_url and js_links.get("datenschutz"):
+        F.append(_f("ds", P, "warn", "Datenschutzerklärung (in der JavaScript-App verlinkt)",
+                    f"Im Skript der Seite ist eine Datenschutzerklärung unter {js_links['datenschutz'][:120]} verlinkt. "
+                    "Der Inhalt entsteht erst im Browser und konnte nicht automatisch geprüft werden.", 15,
+                    "Datenschutzerklärung manuell prüfen und als statische Seite ausliefern (Prerendering)."))
+    elif not ds_url:
         F.append(_f("ds", P, "fail", "Datenschutzerklärung verlinkt", "Auf der Startseite wurde kein Link zur Datenschutzerklärung gefunden.", 15,
                     "Eine Datenschutzerklärung nach Art. 13 DSGVO bereitstellen und von jeder Seite verlinken."))
     else:
@@ -318,7 +345,8 @@ def analyze(url: str) -> dict:
     weight = sum(f["weight"] for f in scored)
     got = sum(f["weight"] * (1 if f["status"] == "ok" else 0.5 if f["status"] == "warn" else 0) for f in scored)
     return {"url": final_url, "score": round(100 * got / weight) if weight else 0, "findings": F,
-            "facts": {"impressum": imp_url or "", "datenschutz": ds_url or "", "shop": is_shop,
+            "facts": {"impressum": imp_url or js_links.get("impressum", ""),
+                      "datenschutz": ds_url or js_links.get("datenschutz", ""), "js_app": bool(bundles), "shop": is_shop,
                       "consent_manager": cmp, "dienste": [n for n, _, _ in found], "https": https}}
 
 
@@ -334,8 +362,14 @@ _SYSTEM = ("Du bist ein Berater für Website-Compliance bei {CLUB} und schreibst
            "\"naechste_schritte\": \"2 Sätze, inkl. Empfehlung zur rechtlichen Prüfung\"}. "
            "Rechtliche Bezüge: Nenne ausschließlich diese Vorschriften und nur, wo sie zum Prüfpunkt passen: § 5 DDG (Impressum; das "
            "frühere TMG gilt nicht mehr), Art. 13 und Art. 32 DSGVO, § 25 TDDDG (Cookies/Einwilligung), §§ 312 ff. BGB (Widerruf bei "
-           "Verbraucherverträgen), BFSG (Barrierefreiheit) und Art. 50 KI-VO (nur bei KI-Chatbots). Keine anderen Gesetze, keine "
+           "Verbraucherverträgen), BFSG (Barrierefreiheit) und Art. 50 KI-VO (nur bei KI-Chatbots). Externe Schriftarten "
+           "(Google Fonts) und externe CDNs: Art. 6 Abs. 1 DSGVO – Übermittlung der IP-Adresse ohne Rechtsgrundlage (LG München I, "
+           "Urteil vom 20.01.2022, 3 O 17493/20); dafür NICHT § 25 TDDDG nennen. Keine anderen Gesetze, keine "
            "Paragrafen erfinden, keine allgemeinen Aussagen über Behörden oder die KI-Verordnung bei Sicherheits-Headern. "
+           "Ist erkannt.js_app true, sind Rechtstexte in einer JavaScript-App verlinkt: nicht als fehlend darstellen, sondern "
+           "manuelle Prüfung und statische Auslieferung empfehlen. Ein fehlender Consent-Manager ist nur dann eine Lücke, "
+           "wenn einwilligungspflichtige Dienste erkannt wurden (erkannt.dienste); ohne solche Dienste ist kein Cookie-Banner "
+           "nötig. Durchgehend du-Form. "
            "WICHTIG für gültiges JSON: In Textwerten keine doppelten Anführungszeichen (nutze ‚einfache‘), keine Zeilenumbrüche.")
 
 

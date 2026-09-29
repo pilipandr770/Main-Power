@@ -75,7 +75,10 @@ def _num(v) -> float | None:
 
 def parse_answers(raw: str) -> dict | None:
     try:
-        d = json.loads(raw[raw.find("{"):raw.rfind("}") + 1], strict=False)
+        from .insights import _json
+        d = _json(raw)
+        if not isinstance(d, dict):
+            return None
     except ValueError:
         return None
     intent = str(d.get("kaufabsicht", "")).strip().lower().replace(" ", "_")
@@ -177,7 +180,9 @@ SEGMENTS = [
     ("Technikaffinität", lambda p: "hoch (4–5)" if p["tech"] >= 4 else "mittel (3)" if p["tech"] == 3 else "niedrig (1–2)"),
     ("Preisbewusstsein", lambda p: "hoch (4–5)" if p["price_sens"] >= 4 else "mittel (3)" if p["price_sens"] == 3 else "niedrig (1–2)"),
     ("Wohnort", lambda p: p["ortstyp"]),
-    ("Gesundheit", lambda p: "gesund" if p["health"] == "gesund" else "mit Erkrankung/Einschränkung"),
+    # nur bei Privatpersonen sinnvoll auswertbar; bei Geschäftsentscheidern kein Kaufkriterium
+    ("Gesundheit", lambda p: (("gesund" if p["health"] == "gesund" else "mit Erkrankung/Einschränkung")
+                              if p["kind"] == "c" else None)),
 ]
 
 
@@ -210,7 +215,9 @@ def aggregate(rows: list[dict], run: dict, n_requested: int) -> dict:
     if run.get("price_b"):
         A = [r for r in valid if r["v"] == "A"]
         B = [r for r in valid if r["v"] == "B"]
-        res["ab"] = {"price_a": run["price_a"], "price_b": run["price_b"], "a": _stats(A), "b": _stats(B), "p_value": _ztest(A, B)}
+        p_value = _ztest(A, B)
+        res["ab"] = {"price_a": run["price_a"], "price_b": run["price_b"], "a": _stats(A), "b": _stats(B), "p_value": p_value,
+                     "signifikant": p_value is not None and p_value < 0.05}
     by_prob = sorted(valid, key=lambda r: -r["a"]["kaufwahrscheinlichkeit"])
 
     def ex(r):
@@ -225,7 +232,12 @@ def aggregate(rows: list[dict], run: dict, n_requested: int) -> dict:
 def _theme_block(rows: list[dict], key: str) -> tuple[list[str], list[int]]:
     items = [(i, r["a"].get(key, "").strip()) for i, r in enumerate(rows)]
     items = [(i, t) for i, t in items if t]
-    return [t[:140] for _, t in items], [i for i, _ in items]
+    return [_cut(t, 140) for _, t in items], [i for i, _ in items]
+
+
+def _cut(text: str, n: int) -> str:
+    """Kürzen an einer Wortgrenze mit Auslassungszeichen statt mitten im Wort."""
+    return text if len(text) <= n else text[:n].rsplit(" ", 1)[0].rstrip(",;:–-") + " …"
 
 
 def _theme_fallback(texts: list[str]) -> list[dict]:
@@ -255,7 +267,9 @@ def synthesize(run: dict, res: dict, rows: list[dict], usage: dict, model: str |
               "[{\"titel\": \"…\", \"warum\": \"1–2 Sätze\", \"so_gehts\": \"1–2 Sätze\"}] (4–5), \"zielgruppen_fazit\": \"2–3 Sätze zu "
               "den stärksten und schwächsten Segmenten\", \"preis_fazit\": \"2 Sätze, bei fehlendem Preis oder Kurve Hinweis, dass die "
               "Datenbasis dünn ist\", \"verzerrung_hinweis\": \"2 Sätze: welche Verzerrungen bei diesem Lauf besonders zu beachten "
-              "sind\"}. WICHTIG: In Textwerten keine doppelten Anführungszeichen (nutze ‚einfache‘), keine Zeilenumbrüche. "
+              "sind\"}. Für den A/B-Vergleich gilt ausschließlich kennzahlen.ab.signifikant: bei false von ‚keinem belegbaren "
+              "Unterschied‘ sprechen, nie von ‚signifikant‘. Zufällig vergebene Merkmale wie Gesundheit oder Gewicht nicht als "
+              "Zielgruppe deuten. WICHTIG: In Textwerten keine doppelten Anführungszeichen (nutze ‚einfache‘), keine Zeilenumbrüche. "
               "Fasse dich kurz: jeder Textwert höchstens zwei Sätze.")
     payload = {"produkt": {"name": run["product_name"], "beschreibung": run["description"][:900], "preis_a": run.get("price_a"),
                            "preis_b": run.get("price_b"), "einheit": UNITS.get(run["unit"], "")},
@@ -267,7 +281,8 @@ def synthesize(run: dict, res: dict, rows: list[dict], usage: dict, model: str |
             raw = complete(system + (" Deine letzte Antwort war kein gültiges JSON. Antworte kompakter." if attempt == 2 else ""),
                            [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}], max_tokens=3200,
                            purpose="market_panel", usage=usage, model=model)
-            data = json.loads(raw[raw.find("{"):raw.rfind("}") + 1], strict=False)
+            from .insights import _json
+            data = _json(raw)
             break
         except LLMUnavailable:
             return fallback

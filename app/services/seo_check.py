@@ -110,8 +110,14 @@ class _Page(HTMLParser):
         self.text_parts: list[str] = []
         self._skip = 0
 
+    def _gap(self):
+        """Tag-Grenzen innerhalb einer Überschrift wie ein Leerzeichen behandeln (<br>, <span> …)."""
+        if self._h_open and self.h[self._h_open]:
+            self.h[self._h_open][-1] += " "
+
     def handle_starttag(self, tag, attrs):
         a = {k: (v or "") for k, v in attrs}
+        self._gap()
         if tag == "html":
             self.lang = a.get("lang", "")
         elif tag == "title":
@@ -140,6 +146,7 @@ class _Page(HTMLParser):
             self._skip += 1
 
     def handle_endtag(self, tag):
+        self._gap()
         if tag == "title":
             self._in_title = False
         elif tag in self.h:
@@ -155,6 +162,30 @@ class _Page(HTMLParser):
             self.h[self._h_open][-1] += data
         if not self._skip:
             self.text_parts.append(data)
+
+
+_ENDINGS = ("ungen", "ieren", "ierte", "iert", "ung", "en", "er", "es", "e", "s", "n")
+
+
+def _stem(word: str) -> str:
+    for end in _ENDINGS:
+        if word.endswith(end) and len(word) - len(end) >= 4:
+            return word[: -len(end)]
+    return word
+
+
+def kw_pattern(keyword: str) -> re.Pattern:
+    """„Kundenservice Automatisierung“ findet auch „Kundenservice automatisieren“, „WhatsApp-Bots“ auch „WhatsApp Bot“."""
+    parts = [p for p in re.split(r"[\s\-]+", keyword.lower()) if p]
+    return re.compile(r"[\s\-]+".join(re.escape(_stem(p)) + r"[\wäöüß]*" for p in parts), re.I)
+
+
+def spa_shell(html: str, words: int) -> list[str]:
+    """Erkennt Seiten, deren Inhalt erst per JavaScript entsteht (React/Vue/Vite …). Gibt die Skript-Bundles zurück."""
+    if words >= 80 or not re.search(r'<div[^>]+id=["\'](root|app|__next|__nuxt|svelte)["\'][^>]*>\s*</div>|<app-root',
+                                     html, re.I):
+        return []
+    return re.findall(r'<script[^>]+src=["\']([^"\']+\.m?js)["\']', html, re.I)[:3]
 
 
 def _words(text: str) -> int:
@@ -274,6 +305,16 @@ def analyze(url: str, keywords: list[str]) -> dict:
     findings.append(_f("links", I, "ok" if len(internal) >= 3 else "warn", "Interne Verlinkung",
                        f"{len(internal)} interne Links.", 3, "Wichtige Seiten untereinander verlinken, mit sprechenden Linktexten."))
 
+    js_app = bool(spa_shell(html, words))
+    if js_app:
+        findings.append(_f("js_render", T, "warn", "Inhalt entsteht erst per JavaScript",
+                           f"Im ausgelieferten HTML stehen nur ca. {words} Wörter; Text, Überschriften und Links baut erst "
+                           "der Browser auf (z. B. React/Vite). Google rendert JavaScript meist, aber verzögert; andere "
+                           "Suchmaschinen, KI-Crawler und Link-Vorschauen sehen oft eine leere Seite. Die Punkte zu H1, "
+                           "Text und Links beziehen sich auf dieses HTML.", 10,
+                           "Seiten vorab rendern (Prerendering/Static Site Generation, z. B. vite-plugin-ssg, Astro, "
+                           "Next.js) oder serverseitig rendern, damit Inhalt, H1 und Links schon im HTML stehen."))
+
     # Snippets & Social
     og = [k for k in ("og:title", "og:description", "og:image") if pg.meta.get(k)]
     findings.append(_f("og", S, "ok" if len(og) == 3 else "warn" if og else "fail", "Open Graph (Vorschau in sozialen Netzwerken)",
@@ -284,11 +325,10 @@ def analyze(url: str, keywords: list[str]) -> dict:
 
     # Keywords
     kws = [k.strip() for k in keywords if k.strip()][:5]
-    lower = text.lower()
     for kw in kws:
-        k = kw.lower()
-        in_t, in_h1, in_d = k in title.lower(), any(k in h.lower() for h in h1s), k in desc.lower()
-        n = lower.count(k)
+        pat = kw_pattern(kw)
+        in_t, in_h1, in_d = bool(pat.search(title)), any(pat.search(h) for h in h1s), bool(pat.search(desc))
+        n = len(pat.findall(text))
         parts = [("Title", in_t), ("H1", in_h1), ("Beschreibung", in_d)]
         hit = sum(1 for _, v in parts if v)
         findings.append(_f(f"kw:{kw}", K, "ok" if hit >= 2 and n >= 2 else "warn" if hit or n else "fail",
@@ -301,7 +341,7 @@ def analyze(url: str, keywords: list[str]) -> dict:
     score = round(100 * got / weight) if weight else 0
     return {"url": final_url, "score": score, "findings": findings,
             "facts": {"title": title, "description": desc, "h1": h1s[:3], "words": words, "seconds": round(elapsed, 2),
-                      "kb": round(kb), "lang": pg.lang}}
+                      "kb": round(kb), "lang": pg.lang, "js_gerendert": js_app}}
 
 
 # --------------------------------------------------------------------------- Bericht
@@ -324,7 +364,10 @@ def build_report(result: dict, keywords: list[str]) -> dict:
     system = ("Du bist ein erfahrener SEO-Berater bei {CLUB} und schreibst einen Prüfbericht für Unternehmer:innen "
               "ohne SEO-Vorwissen. Ton: ruhig, klar, wertschätzend, Deutsch, du-Form. Nutze NUR die Prüfergebnisse "
               "(erfinde keine Zahlen, Rankings oder Wettbewerber). Sortiere die Maßnahmen nach Wirkung geteilt durch "
-              "Aufwand. Verspreche niemals bestimmte Platzierungen oder Besucherzahlen. Antworte NUR als JSON: "
+              "Aufwand. Verspreche niemals bestimmte Platzierungen oder Besucherzahlen. Durchgehend du-Form, nie ‚Sie‘. "
+              "Wenn seite.js_gerendert true ist, existiert der Inhalt sehr wahrscheinlich schon im Browser: empfiehl dann "
+              "NICHT ‚mehr Text schreiben‘ oder ‚H1 anlegen‘, sondern Prerendering bzw. serverseitiges Rendern. "
+              "Überschriften und Texte stammen aus dem HTML; unterstelle keine Tippfehler. Antworte NUR als JSON: "
               "{\"zusammenfassung\": \"3–4 Sätze\", \"massnahmen\": [{\"prio\": 1, \"titel\": \"…\", \"warum\": \"1–2 "
               "Sätze, warum das zählt\", \"so_gehts\": \"konkrete Schritte, 1–3 Sätze\", \"aufwand\": \"gering|mittel|hoch\", "
               "\"wirkung\": \"hoch|mittel|niedrig\"}] (5–7 Einträge, nur echte Schwächen), \"keyword_hinweise\": \"2–3 "
@@ -349,7 +392,10 @@ def ai_report(system: str, payload: dict, result: dict) -> dict:
                             "streng auf die Syntax." if attempt == 2 else ""),
                            [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
                            max_tokens=3200, purpose="seo_report")
-            data = json.loads(raw[raw.find("{"):raw.rfind("}") + 1], strict=False)
+            from .insights import _json  # repariert „…" (deutsch geöffnet, gerade geschlossen)
+            data = _json(raw)
+            if not isinstance(data, dict):
+                raise ValueError("kein JSON-Objekt")
             break
         except LLMUnavailable as exc:
             log.info("SEO-Bericht per Fallback (%s)", exc)
@@ -363,7 +409,7 @@ def ai_report(system: str, payload: dict, result: dict) -> dict:
                  "warum": str(a.get("warum", ""))[:500], "so_gehts": str(a.get("so_gehts", ""))[:600],
                  "aufwand": str(a.get("aufwand", "mittel")), "wirkung": str(a.get("wirkung", "mittel"))}
                 for i, a in enumerate(data.get("massnahmen", [])[:8]) if a.get("titel")]
-        if not acts:
+        if not acts and result.get("score", 0) < 95:  # bei (fast) makellosem Ergebnis dürfen Maßnahmen fehlen
             raise ValueError("keine Maßnahmen")
         return {"zusammenfassung": str(data.get("zusammenfassung", ""))[:1200], "massnahmen": acts,
                 "keyword_hinweise": str(data.get("keyword_hinweise", ""))[:800],
