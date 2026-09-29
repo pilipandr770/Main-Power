@@ -15,7 +15,13 @@ def send_mail(to: str, subject: str, template: str, **ctx) -> bool:
         log.warning("MAIL (nicht versendet, SMTP fehlt) an %s | %s\n%s", to, subject, body)
         return False
     msg = EmailMessage()
-    msg["From"] = cfg["SMTP_FROM"]
+    from email.utils import formataddr, parseaddr
+    from . import club as club_settings
+    club = club_settings.settings()
+    _name, addr = parseaddr(cfg["SMTP_FROM"])
+    msg["From"] = formataddr((club.get("name") or _name, addr)) if addr else cfg["SMTP_FROM"]
+    if club.get("contact_email") and club["contact_email"] != addr:
+        msg["Reply-To"] = club["contact_email"]
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(body)

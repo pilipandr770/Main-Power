@@ -17,6 +17,7 @@ from flask import current_app, url_for
 from ..extensions import db
 from ..models import Event, Notification, PairInsight, Profile, User, utcnow
 from . import embeddings as emb
+from . import club as club_settings
 from .llm import LLMUnavailable, complete
 from .matching import _snip, _version, card as _profile_card
 from .telegram import enabled as tg_enabled, send as tg_send
@@ -85,7 +86,7 @@ def profile_coach(values: dict) -> dict:
     if not any(clean[k] for k in FIELD_LABELS):
         return {"summary": "Schreib zuerst ein paar Stichworte zu deinen Antworten — dann gebe ich dir Feedback.",
                 "tips": [], "ai": False}
-    system = ("Du bist Aiko, Profil-Coach von {CLUB}. Du gibst kurzes, konkretes, wertschätzendes "
+    system = ("Du bist {ASSISTANT}, Profil-Coach von {CLUB}. Du gibst kurzes, konkretes, wertschätzendes "
               "Feedback zu den Profilantworten, damit das Matching (Bedarf und Angebot) gut funktioniert und das Ziel "
               "messbar ist. "
               "Regeln: du-Form, Deutsch, max. 1–2 Sätze pro Tipp, keine Fantasiefakten, nichts Sensibles abfragen. "
@@ -147,7 +148,7 @@ def pair_insight(viewer: User, other: User, force: bool = False) -> dict:
     if row and row.version == key and not force and (row.ai or not have_key):
         data = row.data
     else:
-        system = ("Du bist Aiko, die KI von {CLUB}, und beratest Person A vor einem möglichen Kontakt zu "
+        system = ("Du bist {ASSISTANT}, die KI von {CLUB}, und beratest Person A vor einem möglichen Kontakt zu "
                   "Person B. Nutze NUR die Profildaten. Sei konkret, warm, ohne Übertreibung; du-Form an Person A; "
                   "Deutsch. Liefere:\n- they_help_you: 1–2 Sätze, womit B der Person A konkret helfen kann\n"
                   "- you_help_them: 1–2 Sätze, womit A der Person B nützen kann\n"
@@ -271,5 +272,6 @@ def invite_for_event(ev: Event, limit: int = 8) -> list[Notification]:
         u = db.session.get(User, n.user_id)
         send_mail(u.email, f"Einladung: {ev.title}", "event_invite", user=u, ev=ev, reason=n.body, link=link)
         if u.telegram_user_id and tg_enabled():
-            tg_send(u.telegram_user_id, f"Aiko lädt dich ein: {ev.title}\n{n.body}\n{link}")
+            tg_send(u.telegram_user_id, f"{club_settings.settings()['assistant_name']} lädt dich ein: {ev.title}\n"
+                                         f"{n.body}\n{link}")
     return created

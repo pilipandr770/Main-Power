@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from .. import questionnaire
 from ..extensions import db
-from ..models import (ChatMessage, GoalCheckin, IntroRequest, LawQuery, Match, Notification, PanelRun, SeoReport,
+from ..models import (ChatMessage, GoalCheckin, IntroRequest, LawQuery, Match, Notification, PairInsight, PanelRun,
+                      SeoReport,
                       ServiceInquiry, User)
 from ..utils import fmt_dt
 from . import media
@@ -56,6 +57,7 @@ def delete_user(user: User) -> None:
                               (IntroRequest.to_user_id == uid)).delete(synchronize_session=False)
     ChatMessage.query.filter_by(user_id=uid).delete(synchronize_session=False)
     GoalCheckin.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    PairInsight.query.filter((PairInsight.user_id == uid) | (PairInsight.other_id == uid)).delete(synchronize_session=False)
     Notification.query.filter_by(user_id=uid).delete(synchronize_session=False)
     SeoReport.query.filter_by(user_id=uid).delete(synchronize_session=False)
     for run in PanelRun.query.filter_by(user_id=uid):

@@ -23,4 +23,11 @@
   </fieldset>
   <button class="btn" type="submit">Speichern</button>
 </form>
+{% if q.id %}
+<form method="post" action="{{ url_for('admin.question_delete', qid=q.id) }}" class="mt-l" data-confirm="Frage löschen? Alle Antworten der Mitglieder darauf werden ebenfalls gelöscht.">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn btn-ghost btn-sm" type="submit">Frage und alle Antworten löschen</button>
+  <p class="small muted mt-s mb-0">Nur deaktivieren, wenn die Antworten erhalten bleiben sollen.</p>
+</form>
+{% endif %}
 {% endblock %}

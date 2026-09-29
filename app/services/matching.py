@@ -16,7 +16,7 @@ import re
 from ..extensions import db
 from ..models import Match, Profile, User, utcnow
 from ..questionnaire import (FIRST_OUTCOMES, GOAL_CATEGORIES, HELP_MODES, LANGUAGES, PARTNER_TYPES, RESOURCES, ROLES,
-                             STAGES, label, labels, shared_facts, structured_fit)
+                             STAGES, club_questions, custom_display, label, labels, shared_facts, structured_fit)
 from . import embeddings as emb
 from .llm import LLMUnavailable, complete
 
@@ -113,9 +113,12 @@ def card(p: Profile, own: bool = False) -> dict:
             "hilft_so": label(HELP_MODES, p.help_mode), "sucht": p.q_looking_for,
             "sucht_typen": labels(PARTNER_TYPES, p.partner_types),
             "erstes_gespraech": label(FIRST_OUTCOMES, p.first_outcome),
-            "ziel_kategorie": label(GOAL_CATEGORIES, p.goal_category), "ziel": get("goal_12m"),
+            "ziel_kategorie": label(GOAL_CATEGORIES, get("goal_category")), "ziel": get("goal_12m"),
             "herausforderung": get("q_challenge"), "schon_versucht": get("q_tried"),
             "sprachen": labels(LANGUAGES, p.languages), "stolz_auf": p.proud_of, "expertise": p.expertise}
+    if p.custom_answers:
+        data["klubfragen"] = {q.label: custom_display(p, q) for q in club_questions()
+                              if (own or q.public) and custom_display(p, q)}
     return {k: v for k, v in data.items() if v}
 
 

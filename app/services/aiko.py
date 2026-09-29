@@ -149,7 +149,8 @@ def _fallback_answer(message: str, public_only: bool) -> str:
         if score > best_score:
             best, best_score = k, score
     if best:
-        return best.answer + "\n\n_(Aiko läuft im Demo-Modus ohne KI-Anbindung.)_"
+        from . import club as club_settings
+        return best.answer + f"\n\n_({club_settings.settings()['assistant_name']} läuft im Demo-Modus ohne KI-Anbindung.)_"
     return ("Das kann ich im Demo-Modus leider nicht beantworten. Schreib uns gern an " + _contact() + ".\n\n"
             "_(Die KI-Assistenz läuft im Demo-Modus ohne KI-Anbindung.)_")
 

@@ -98,7 +98,9 @@ def _llm_usage(now: datetime) -> dict:
         cost = (i * cfg["LLM_PRICE_IN"] + o * cfg["LLM_PRICE_OUT"]) / 1_000_000
         return {"in": int(i), "out": int(o), "total": int(i + o), "calls": int(n), "cost": cost}
 
-    labels = {"aiko_public": "Aiko (Website)", "aiko_member": "Aiko (Mitglieder)", "matching": "Matching-Begründungen",
+    name = club_settings.settings()["assistant_name"]
+    labels = {"aiko_public": f"{name} (Website)", "aiko_member": f"{name} (Mitglieder)", "matching": "Matching-Begründungen",
+              "profile_interview": "Profil-Interview", "goal_checkin": "Ziel-Check-ins", "club_insights": "Klub-Auswertung",
               "seo_report": "SEO-/Compliance-Check", "market_panel": "Markt-Panel", "profile_coach": "Profil-Coach", "pair_insight": "Kontakt-Assistent",
               "event_invite": "Termin-Einladungen", "law_search": "Gesetzes-Suche"}
     rows = (db.session.query(LLMUsage.purpose, func.sum(LLMUsage.input_tokens), func.sum(LLMUsage.output_tokens),
@@ -368,7 +370,7 @@ def event_edit(event_id=None):
             audit("event.save", f"event:{ev.id or 'neu'}", ev.title)
             db.session.commit()
             invited = auto_invite(ev, was_published)
-            flash("Termin gespeichert." + (f" Aiko hat {invited} passende Mitglieder eingeladen." if invited else ""),
+            flash("Termin gespeichert." + (f" {club_settings.settings()['assistant_name']} hat {invited} passende Mitglieder eingeladen." if invited else ""),
                   "success")
             return redirect(url_for("admin.event_attendees", event_id=ev.id))
     if not ev.starts_at:
@@ -390,7 +392,7 @@ def event_status(event_id, status):
     db.session.commit()
     invited = auto_invite(ev, was_published)
     if invited:
-        flash(f"Aiko hat {invited} passende Mitglieder eingeladen.", "success")
+        flash(f"{club_settings.settings()['assistant_name']} hat {invited} passende Mitglieder eingeladen.", "success")
     flash({"published": "Termin veröffentlicht.", "cancelled": "Termin abgesagt.", "pending": "Termin zurückgestellt."}[status],
           "success")
     return redirect(request.referrer or url_for("admin.events"))
@@ -647,20 +649,41 @@ def club_page():
                     testimonials.append({"name": name.strip()[:60], "text": text.strip()[:400]})
         values["testimonials"] = testimonials[:8]
         c = club_settings.settings()
+        old_name, new_name = c["assistant_name"], (values.get("assistant_name") or "").strip()
         for key in ("hero_images", "band_images"):
             items = [dict(i) for i in c[key]]
             for i, item in enumerate(items):
                 item["alt"] = f.get(f"{key}_alt_{i}", item.get("alt", "")).strip()[:160]
             values[key] = items
         club_settings.save(values)
-        audit("club.settings")
+        renamed = _rename_assistant(old_name, new_name) if new_name and new_name != old_name else 0
+        audit("club.settings", details=f"KI-Assistenz umbenannt in {new_name} ({renamed} Texte)" if renamed else "")
         db.session.commit()
-        flash("Klub-Einstellungen gespeichert.", "success")
+        flash("Klub-Einstellungen gespeichert." + (f" Der neue Name der KI-Assistenz steht jetzt auch in {renamed} "
+                                                  "Leistungs- und FAQ-Texten." if renamed else ""), "success")
         return redirect(url_for("admin.club_page"))
     c = club_settings.settings()
     return render_template("admin/club.html", c=c, fields=club_settings.TEXT_FIELDS, presets=PRESETS,
                            slots=IMAGE_SLOTS, slot_value=lambda s: _slot_get(c, s),
                            testimonials="\n".join(f"{t['name']} | {t['text']}" for t in c.testimonials))
+
+
+def _rename_assistant(old: str, new: str) -> int:
+    """Namen der KI-Assistenz in Leistungs- und FAQ-Texten des Klubs nachziehen (ganze Wörter). Gibt die Zahl der
+    geänderten Einträge zurück."""
+    pattern = re.compile(rf"\b{re.escape(old)}\b")
+    changed = 0
+    for obj, fields in [(s, ("title", "summary", "description", "benefits", "member_benefit", "provider_name"))
+                        for s in Service.query.all()] + \
+                       [(k, ("question", "answer")) for k in KnowledgeItem.query.all()]:
+        hit = False
+        for field in fields:
+            value = getattr(obj, field) or ""
+            if pattern.search(value):
+                setattr(obj, field, pattern.sub(new, value))
+                hit = True
+        changed += hit
+    return changed
 
 
 @bp.route("/klub/bild/<slot>", methods=["POST"])
@@ -866,3 +889,23 @@ def question_edit(qid=None):
                   if q.active else "Frage gespeichert (inaktiv).", "success")
             return redirect(url_for("admin.questions"))
     return render_template("admin/question_form.html", q=q, errors=errors, form=request.form)
+
+
+@bp.route("/fragen/<int:qid>/loeschen", methods=["POST"])
+@superadmin_required
+def question_delete(qid):
+    q = db.session.get(ClubQuestion, qid) or abort(404)
+    affected = [p for p in Profile.query.filter(Profile.custom_answers.isnot(None))
+                if q.key in (p.custom_answers or {})]
+    for p in affected:
+        p.custom_answers = {k: v for k, v in p.custom_answers.items() if k != q.key}
+    label, use = q.label, q.use
+    db.session.delete(q)
+    db.session.flush()
+    if use in ("need", "offer"):
+        for p in affected:
+            matching.refresh_embeddings(p, commit=False)
+    audit("question.delete", f"question:{q.key}", f"{label} ({len(affected)} Antworten entfernt)")
+    db.session.commit()
+    flash(f"Frage gelöscht, {len(affected)} Antworten entfernt.", "success")
+    return redirect(url_for("admin.questions"))

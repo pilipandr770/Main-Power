@@ -27,7 +27,7 @@
     {% if match and match.reason %}<div class="panel"><b>Warum ihr euch treffen solltet</b> <span class="ai-mark">KI</span><p class="mt-s mb-0">{{ match.reason }}</p>{% if match.opener %}<p class="muted small mt-s mb-0">{{ match.opener }}</p>{% endif %}</div>{% endif %}
     {% if p.bio %}<div><h3>Über {{ u.first_name }}</h3><p class="pre">{{ p.bio }}</p></div>{% endif %}
     {% if p.q_focus %}<div><h3>Was {{ u.first_name }} macht</h3><p class="pre">{{ p.q_focus }}</p>{% if p.markets %}<p class="small muted mb-0">Märkte: {{ p.markets }}</p>{% endif %}</div>{% endif %}
-    {% if p.shown('goal_12m') or p.shown('milestone_90d') %}<div><h3>Ziel{% if p.goal_category %} · {{ qn.label(qn.GOAL_CATEGORIES, p.goal_category) }}{% endif %}</h3>
+    {% if p.shown('goal_12m') or p.shown('milestone_90d') %}<div><h3>Ziel{% if p.shown('goal_category') %} · {{ qn.label(qn.GOAL_CATEGORIES, p.goal_category) }}{% endif %}</h3>
       {% if p.shown('goal_12m') %}<p class="pre">{{ p.goal_12m }}</p>{% endif %}
       {% if p.shown('milestone_90d') %}<p class="small muted mb-0">Nächster Meilenstein: {{ p.milestone_90d }}</p>{% endif %}</div>{% endif %}
     {% if p.q_looking_for or p.partner_types %}<div><h3>Sucht gerade</h3>

@@ -80,7 +80,7 @@ def _fallback_feedback(c: GoalCheckin, ctx: dict) -> str:
 
 
 def _ai_feedback(user: User, c: GoalCheckin, previous: list[GoalCheckin], ctx: dict) -> str:
-    system = ("Du bist Aiko, die KI von {CLUB}. Ein Mitglied meldet den Stand seines 90-Tage-Meilensteins. "
+    system = ("Du bist {ASSISTANT}, die KI von {CLUB}. Ein Mitglied meldet den Stand seines 90-Tage-Meilensteins. "
               "Antworte in 3–5 Sätzen, du-Form, Deutsch, warm und konkret: würdige den Stand ehrlich, nenne EINEN "
               "nächsten Schritt für die kommenden 2 Wochen und – nur wenn es passt – ein oder zwei Mitglieder aus der "
               "Liste (Vorname, warum) oder einen Termin. Keine Rechts-, Steuer- oder Finanzberatung, nichts erfinden, "
@@ -126,6 +126,11 @@ def open_reminder(user: User) -> Notification | None:
             .order_by(Notification.created_at.desc()).first())
 
 
+def _assistant() -> str:
+    from . import club as club_settings
+    return club_settings.settings().get("assistant_name") or "die KI-Assistenz"
+
+
 def _goal_link() -> str:
     """Link zur Zielseite – auch ohne Request (Cron): über die Domain des aktuellen Klubs."""
     from flask import current_app, has_request_context
@@ -156,13 +161,15 @@ def send_reminders(limit: int = 500) -> int:
                                      Notification.created_at >= start).first():
             continue
         body = (f"Vor 90 Tagen hast du dir vorgenommen: „{_snip(p.milestone_90d, 160)}“. Wie weit bist du? "
-                "Zwei Minuten reichen – danach schlägt dir Aiko den nächsten Schritt und passende Kontakte vor.")
+                f"Zwei Minuten reichen – danach schlägt dir {_assistant()} den nächsten Schritt und passende "
+                "Kontakte vor.")
         db.session.add(Notification(user_id=p.user_id, kind=KIND, title="Zeit für deinen 90-Tage-Check-in",
                                     body=body))
         db.session.commit()
-        link = _goal_link()
-        send_mail(p.user.email, "Dein 90-Tage-Check-in", "goal_checkin", user=p.user, body=body, link=link)
-        if p.user.telegram_user_id and tg_enabled():
-            tg_send(p.user.telegram_user_id, f"{body}\n{link}")
+        if p.goal_reminders:  # abbestellbar unter „Privatsphäre“; in der Plattform bleibt der Hinweis
+            link = _goal_link()
+            send_mail(p.user.email, "Dein 90-Tage-Check-in", "goal_checkin", user=p.user, body=body, link=link)
+            if p.user.telegram_user_id and tg_enabled():
+                tg_send(p.user.telegram_user_id, f"{body}\n{link}")
         sent += 1
     return sent

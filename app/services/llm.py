@@ -60,11 +60,13 @@ def _record_usage(purpose: str, model: str, resp, sink: dict | None = None) -> N
 
 
 def _brand(system: str) -> str:
-    """Platzhalter {CLUB} in Prompts durch den Namen des aktuellen Klubs ersetzen."""
-    if "{CLUB}" not in system:
+    """Platzhalter {CLUB} und {ASSISTANT} in Prompts durch die Einstellungen des aktuellen Klubs ersetzen."""
+    if "{CLUB}" not in system and "{ASSISTANT}" not in system:
         return system
     from . import club as club_settings
-    return system.replace("{CLUB}", club_settings.settings().get("full_name") or "der Community")
+    c = club_settings.settings()
+    return (system.replace("{CLUB}", c.get("full_name") or "der Community")
+            .replace("{ASSISTANT}", c.get("assistant_name") or "die KI-Assistenz"))
 
 
 def llm_enabled() -> bool:

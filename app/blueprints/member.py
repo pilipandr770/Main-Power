@@ -152,6 +152,12 @@ PROFILE_GUIDE = {
 }
 
 
+def _profile_guide() -> dict:
+    """Anleitungstexte mit dem Namen der KI-Assistenz dieses Klubs."""
+    name = club_settings.settings()["assistant_name"]
+    return {k: {**v, "why": v["why"].replace("Aiko", name)} for k, v in PROFILE_GUIDE.items()}
+
+
 @bp.route("/profil", methods=["GET", "POST"])
 def profile():
     p = current_user.profile
@@ -202,7 +208,7 @@ def profile():
         return redirect(url_for("member.matches" if request.args.get("welcome") and p.allow_matching
                                 else "member.profile"))
     return render_template("member/profile.html", p=p, welcome=request.args.get("welcome"), socials=SOCIALS,
-                           guide=PROFILE_GUIDE)
+                           guide=_profile_guide())
 
 
 @bp.route("/api/profil-coach", methods=["POST"])
@@ -356,7 +362,8 @@ def contact_assistant(user_id):
         abort(404)
     me = current_user.profile
     if not (me.q_can_help or me.q_looking_for or me.q_challenge or me.q_focus or me.goal_12m or me.partner_types):
-        return jsonify(error="Fülle zuerst dein Profil aus, dann kann Aiko dir sagen, was dieser Kontakt dir bringt."), 400
+        return jsonify(error=f"Fülle zuerst dein Profil aus, dann kann {club_settings.settings()['assistant_name']} "
+                             "dir sagen, was dieser Kontakt dir bringt."), 400
     force = bool((request.get_json(silent=True) or {}).get("refresh"))
     return jsonify(insights.pair_insight(current_user, u, force=force))
 
@@ -387,6 +394,7 @@ def member_detail(user_id):
 
 # --------------------------------------------------------------------------- Ziel & 90-Tage-Check-in
 @bp.route("/ziel", methods=["GET", "POST"])
+@limiter.limit("10 per day", methods=["POST"])
 def goal_page():
     p = current_user.profile
     if request.method == "POST":
@@ -567,7 +575,7 @@ def event_create():
             from .admin import auto_invite
             invited = 0 if needs_approval else auto_invite(ev, False)
             flash("Dein Treffen ist eingereicht und erscheint nach kurzer Prüfung im Kalender." if needs_approval
-                  else "Dein Treffen ist veröffentlicht." + (f" Aiko hat {invited} passende Mitglieder eingeladen."
+                  else "Dein Treffen ist veröffentlicht." + (f" {club_settings.settings()['assistant_name']} hat {invited} passende Mitglieder eingeladen."
                                                             if invited else ""), "success")
             return redirect(url_for("member.event_detail", event_id=ev.id))
     return render_template("member/event_form.html", errors=errors, form=request.form)
@@ -939,6 +947,7 @@ def privacy():
         p.allow_matching = changes["matching"]
         p.visible_in_directory = changes["directory"]
         p.event_invites = bool(f.get("event_invites"))
+        p.goal_reminders = bool(f.get("goal_reminders"))
         if not p.allow_matching:
             Match.query.filter((Match.user_id == current_user.id) |
                                (Match.other_id == current_user.id)).delete(synchronize_session="fetch")

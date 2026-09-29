@@ -307,6 +307,7 @@ class Profile(TenantMixin, db.Model):
     public_fields = db.Column(db.String(200), default="")  # freigegebene Felder aus SHAREABLE_PRIVATE (Opt-in)
     custom_answers = db.Column(db.JSON)                    # Antworten auf klubeigene Fragen {key: Text | [Optionen]}
     milestone_set_at = db.Column(db.DateTime)              # Start des aktuellen 90-Tage-Zeitraums
+    goal_reminders = db.Column(db.Boolean, default=True, nullable=False)  # Check-in-Erinnerung per E-Mail/Telegram
 
     linkedin_url = db.Column(db.String(300), default="")
     xing_url = db.Column(db.String(300), default="")
@@ -347,6 +348,8 @@ class Profile(TenantMixin, db.Model):
     def is_public(self, field: str) -> bool:
         """Darf ein anderes Mitglied (oder eine KI-Antwort an ein anderes Mitglied) dieses Feld sehen?"""
         from .questionnaire import ALWAYS_PRIVATE, SHAREABLE_PRIVATE, split
+        if field == "goal_category":  # die Kategorie verrät das Ziel – gleiche Sichtbarkeit
+            field = "goal_12m"
         if field in ALWAYS_PRIVATE:
             return False
         if field in SHAREABLE_PRIVATE:
