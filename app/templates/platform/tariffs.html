@@ -47,6 +47,7 @@
   <div class="grid grid-3">
     <div class="field"><label for="f-vat">MwSt.-Satz in %<span class="hint">0 bei Kleinunternehmerregelung</span></label><input id="f-vat" name="vat_rate" value="{{ '%g'|format(vat) }}"></div>
     <div class="field"><label for="f-comm">Provision an Klubs in %<span class="hint">auf Mitglieder-Abos (netto)</span></label><input id="f-comm" name="commission_pct" value="{{ '%g'|format(commission) }}"></div>
+    <div class="field"><label for="f-cap">Notbremse Gratis-KI je Tag (Cent)<span class="hint">alle Klubs, heute {{ '%.0f'|format(spent_today) }} Cent; 0 = aus</span></label><input id="f-cap" name="ai_daily_cap_cents" value="{{ '%g'|format(daily_cap) }}"></div>
   </div>
   <h3>Kostenansatz je Nutzung (Cent, mit Puffer)</h3>
   <div class="grid grid-3">{% for f, (name, hint, _d) in features.items() %}

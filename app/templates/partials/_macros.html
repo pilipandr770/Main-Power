@@ -15,10 +15,10 @@
 {% endwith %}
 {%- endmacro %}
 
-{% macro input(name, label, value="", type="text", errors={}, hint=None, required=False, autocomplete=None, placeholder=None) -%}
+{% macro input(name, label, value="", type="text", errors={}, hint=None, required=False, autocomplete=None, placeholder=None, readonly=False) -%}
 <div class="field{% if errors.get(name) %} has-error{% endif %}">
   <label for="f-{{ name }}">{{ label }}{% if hint %}<span class="hint">{{ hint }}</span>{% endif %}</label>
-  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value or '' }}"{% if required %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}>
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value or '' }}"{% if required %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if readonly %} readonly{% endif %}>
   {% if errors.get(name) %}<div class="error-text">{{ errors[name] }}</div>{% endif %}
 </div>
 {%- endmacro %}

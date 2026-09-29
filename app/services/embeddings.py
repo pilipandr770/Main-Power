@@ -54,7 +54,7 @@ def _local_embed(text: str) -> list[float]:
         for i in range(len(padded) - 2):
             feats.append(("c:" + padded[i:i + 3], 0.35))
     for f, weight in feats:
-        h = int(hashlib.md5(f.encode()).hexdigest(), 16)
+        h = int(hashlib.md5(f.encode(), usedforsecurity=False).hexdigest(), 16)
         vec[h % LOCAL_DIM] += weight if (h >> 20) & 1 else -weight
     n = np.linalg.norm(vec)
     return (vec / n).tolist() if n else vec.tolist()

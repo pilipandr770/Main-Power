@@ -181,8 +181,14 @@ def user_edit(user_id):
             errors["email"] = "Ungültige E-Mail-Adresse."
         elif User.query.filter(User.email == email, User.id != u.id).first():
             errors["email"] = "Diese E-Mail wird bereits verwendet."
+        elif email != u.email and not current_user.is_superadmin:
+            # Kontoübernahme verhindern: mit fremder Adresse ließe sich später das Passwort zurücksetzen
+            errors["email"] = "Die E-Mail-Adresse kann nur die Klubleitung ändern."
         if not errors:
             u.first_name, u.last_name = first[:80], f.get("last_name", "").strip()[:80]
+            if email != u.email:
+                audit("user.email", f"user:{u.id}", f"{u.email} -> {email}")
+                u.end_sessions()
             u.email, u.phone = email, f.get("phone", "").strip()[:40]
             for field, limit in MEMBER_TEXT_FIELDS.items():
                 setattr(p, field, f.get(field, "").strip()[:limit])
@@ -262,6 +268,7 @@ def user_action(user_id, action):
         abort(403)
     if action == "sperren":
         u.status = "blocked"
+        u.end_sessions()
         if u.telegram_user_id:
             telegram.kick(u.telegram_user_id)
         audit("user.block", f"user:{u.id}")
@@ -278,6 +285,7 @@ def user_action(user_id, action):
             abort(400)
         audit("user.role", f"user:{u.id}", f"{u.role} -> {role}")
         u.role = role
+        u.end_sessions()
         flash("Rolle geändert.", "success")
     elif action == "export":
         audit("user.export", f"user:{u.id}")

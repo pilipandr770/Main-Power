@@ -213,6 +213,8 @@ class User(UserMixin, TenantMixin, db.Model):
     status = db.Column(db.String(20), nullable=False, default="active")  # active|blocked
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     last_login_at = db.Column(db.DateTime)
+    # Teil der Session-ID: Erhöhen beendet alle bestehenden Sitzungen und Remember-Cookies (Passwort, Sperre, E-Mail)
+    session_gen = db.Column(db.Integer, default=0, nullable=False)
 
     telegram_user_id = db.Column(db.BigInteger, nullable=True, index=True)
     telegram_username = db.Column(db.String(80))
@@ -236,6 +238,14 @@ class User(UserMixin, TenantMixin, db.Model):
     # --- auth helpers ---
     def set_password(self, raw: str) -> None:
         self.password_hash = generate_password_hash(raw)
+        self.end_sessions()
+
+    def end_sessions(self) -> None:
+        """Alle Anmeldungen dieses Kontos ungültig machen (auch auf anderen Geräten)."""
+        self.session_gen = (self.session_gen or 0) + 1
+
+    def get_id(self) -> str:  # Flask-Login: landet in Session und Remember-Cookie
+        return f"{self.id}:{self.session_gen or 0}"
 
     def check_password(self, raw: str) -> bool:
         return check_password_hash(self.password_hash, raw)

@@ -14,7 +14,9 @@
       {{ input("last_name", "Nachname", v.last_name if v else u.last_name) }}
     </div>
     <div class="grid grid-2">
-      {{ input("email", "E-Mail", v.email if v else u.email, type="email", errors=errors, required=True) }}
+      {{ input("email", "E-Mail", v.email if v else u.email, type="email", errors=errors, required=True,
+               readonly=not current_user.is_superadmin,
+               hint=None if current_user.is_superadmin else "ändert nur die Klubleitung") }}
       {{ input("phone", "Telefon", v.phone if v else u.phone, type="tel") }}
     </div>
   </fieldset>

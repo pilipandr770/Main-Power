@@ -250,14 +250,15 @@ def tariffs():
                            addons=AddOn.query.order_by(AddOn.sort).all(), features=plan_svc.FEATURES,
                            unit_costs={f: plan_svc.unit_cost(f) for f in plan_svc.FEATURES},
                            measured=plan_svc.measured_costs(), vat=plan_svc.vat_rate(),
-                           commission=plan_svc.commission_pct(), revenue=_revenue_by_club())
+                           commission=plan_svc.commission_pct(), revenue=_revenue_by_club(),
+                           daily_cap=plan_svc.daily_cap_cents(), spent_today=plan_svc.free_spend_today_cents())
 
 
 @bp.route("/tarife/einstellungen", methods=["POST"])
 @platform_required
 def tariff_settings():
     f = request.form
-    for key, lo, hi in (("vat_rate", 0, 30), ("commission_pct", 0, 80)):
+    for key, lo, hi in (("vat_rate", 0, 30), ("commission_pct", 0, 80), ("ai_daily_cap_cents", 0, 1_000_000)):
         try:
             v = float(f.get(key, "").replace(",", "."))
             if lo <= v <= hi:

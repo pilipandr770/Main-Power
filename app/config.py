@@ -41,6 +41,7 @@ class Config:
     # Rate limiting
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_HEADERS_ENABLED = True
+    RATELIMIT_IN_MEMORY_FALLBACK_ENABLED = True  # fällt Redis aus, zählt jeder Worker vorübergehend selbst
 
     # AI
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")

@@ -82,6 +82,15 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
 - Verwaltung: Plattform-Konsole „Tarife“ (Preise, Kontingente, Kalkulation mit Marge im ungünstigsten Fall, Umsatz je
   Klub), Admin „Tarif“ (Klub-Abo, Budget, Provision, Vergabe an Mitglieder), Mitglied „Mein Tarif“.
 
+## Sicherheit (White-Team-Audit 29.09.2026)
+- Sitzungen: `User.get_id()` = `"<id>:<session_gen>"`. `set_password`, Sperre, Rollen- und E-Mail-Wechsel rufen
+  `end_sessions()` → alle Sessions/Remember-Cookies des Kontos ungültig; `load_user` lehnt gesperrte Konten ab.
+- E-Mail-Adressen von Mitgliedern ändert nur der Superadmin (Schutz vor Kontoübernahme über Passwort-Reset).
+- Notbremse `ai_daily_cap_cents` (Plattform-Konsole „Tarife“, Standard 30 €): Gratis-KI aller Klubs je UTC-Tag,
+  greift in `plans.guard_llm` vor dem Klub-Budget. Bezahlte Stripe-Abos sind ausgenommen.
+- Rate-Limit in Produktion über Redis (`docker-compose.traefik.yml`), Fallback in-memory.
+- Tests: `tests/test_security.py`. Werkzeuge: `bandit -r app -ll`, `pip-audit -r requirements.txt`.
+
 ## Roadmap nach dem MVP (mit Andrii abgestimmt, 26.09.2026)
 Bewusst zurückgestellt, damit MVP und Demo schlank bleiben: Passwort-Reset und E-Mail-Verifizierung (SMTP), 2FA, Stripe,
 Sicherheitsrunde (White-Team-Audit), Cybersecurity-Angebote (automatisierter Blackbox-Pentest-Service, allgemeine Lektionen).
@@ -95,4 +104,4 @@ Ohne SMTP_HOST wird der Link „Passwort vergessen“ im Login ausgeblendet.
 - [ ] Erinnerungs-Mails/Telegram-Nachrichten vor Terminen + „Wen du beim Hub treffen solltest“-Briefing an Teilnehmende.
 - [ ] Datenschutzhinweise juristisch finalisieren; DSFA (Art. 35) für das Matching prüfen.
 - [ ] Parsing öffentlicher Profile: bewusst NICHT umgesetzt (ToS, Art. 14 DSGVO). Falls gewünscht, nur mit ausdrücklicher Einwilligung und offiziellen APIs.
-- [ ] Rate-Limit-Storage auf Redis bei mehreren Workern.
+- [x] Rate-Limit-Storage auf Redis bei mehreren Workern (docker-compose.traefik.yml).

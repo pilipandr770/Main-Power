@@ -84,7 +84,7 @@ def pair_score(a: Profile, b: Profile) -> float:
 
 def _version(a: Profile, b: Profile) -> str:
     raw = f"{a.user_id}:{a.updated_at}:{b.user_id}:{b.updated_at}"
-    return hashlib.sha1(raw.encode()).hexdigest()
+    return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()
 
 
 def _snip(text: str, n: int = 140) -> str:

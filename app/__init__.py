@@ -54,9 +54,15 @@ def create_app(config_object=Config) -> Flask:
 
     @login_manager.user_loader
     def load_user(uid):
-        user = db.session.get(User, int(uid))
+        # "<id>:<session_gen>" – ältere Sitzungen (nach Passwortwechsel, Sperre, E-Mail-Änderung) gelten nicht mehr
+        user_id, _, gen = str(uid).partition(":")
+        if not user_id.isdigit() or not gen.isdigit():
+            return None
+        user = db.session.get(User, int(user_id))
+        if user is None or int(gen) != (user.session_gen or 0) or not user.is_active:
+            return None
         # Sitzung eines anderen Klubs (z. B. gleiche Domain nach Umzug) nie übernehmen
-        return user if user is not None and user.club_id == tenancy.current_club_id() else None
+        return user if user.club_id == tenancy.current_club_id() else None
 
     from .blueprints.admin import bp as admin_bp
     from .blueprints.auth import bp as auth_bp

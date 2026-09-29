@@ -316,6 +316,29 @@ def club_free_spend_cents(club_id: int) -> float:
     return ((i or 0) * cfg["LLM_PRICE_IN"] + (o or 0) * cfg["LLM_PRICE_OUT"]) / 1_000_000 * 100
 
 
+DEFAULT_DAILY_CAP_CENTS = 3000  # 30 € Gratis-KI je Tag über alle Klubs
+
+
+def daily_cap_cents() -> float:
+    """Notbremse der Plattform: Gratis-KI (alle Klubs, auch ohne Klub-Tarif) je Kalendertag (UTC). 0 = aus."""
+    try:
+        return float(PlatformSetting.get("ai_daily_cap_cents", str(DEFAULT_DAILY_CAP_CENTS)))
+    except ValueError:
+        return DEFAULT_DAILY_CAP_CENTS
+
+
+def free_spend_today_cents() -> float:
+    from sqlalchemy import func
+    cfg = current_app.config
+    day = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    i, o = (db.session.query(func.coalesce(func.sum(LLMUsage.input_tokens), 0),
+                             func.coalesce(func.sum(LLMUsage.output_tokens), 0))
+            .execution_options(all_clubs=True)
+            .filter(LLMUsage.paid.is_(False), LLMUsage.created_at >= day)
+            .one())
+    return ((i or 0) * cfg["LLM_PRICE_IN"] + (o or 0) * cfg["LLM_PRICE_OUT"]) / 1_000_000 * 100
+
+
 def club_budget(club: Club | None) -> dict:
     plan = club_plan(club)
     limit = plan.ai_budget_cents if plan else None
@@ -349,6 +372,10 @@ def guard_llm() -> None:
     _uid, paid = usage_context()
     if paid:
         return
+    cap = daily_cap_cents()
+    if cap and free_spend_today_cents() >= cap:
+        log.warning("Tageslimit der Gratis-KI (%.0f Cent) erreicht – KI bis Mitternacht (UTC) aus", cap)
+        raise LLMUnavailable("Tageslimit der Plattform erreicht")
     b = club_budget(club)
     if b["limit"] and b["spent"] >= b["limit"]:
         raise LLMUnavailable("KI-Budget des Klubs für diesen Monat erreicht")

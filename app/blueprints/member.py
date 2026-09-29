@@ -1104,9 +1104,11 @@ def change_password():
     elif len(request.form.get("new", "")) < 10:
         flash("Das neue Passwort braucht mindestens 10 Zeichen.", "error")
     else:
-        current_user.set_password(request.form["new"])
+        current_user.set_password(request.form["new"])  # beendet alle anderen Sitzungen
         db.session.commit()
-        flash("Passwort geändert.", "success")
+        remember = bool(request.cookies.get(current_app.config.get("REMEMBER_COOKIE_NAME", "remember_token")))
+        login_user(current_user._get_current_object(), remember=remember)  # dieses Gerät bleibt angemeldet
+        flash("Passwort geändert. Andere Geräte sind abgemeldet.", "success")
     return redirect(url_for("member.privacy"))
 
 
