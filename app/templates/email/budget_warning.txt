@@ -1,0 +1,9 @@
+Hallo {{ user.first_name }},
+
+das KI-Budget von {{ club.name }} für die kostenlose Nutzung ist in diesem Monat zu {{ budget.pct }} % aufgebraucht ({{ '%.2f'|format(budget.spent / 100) }} € von {{ '%.2f'|format(budget.limit / 100) }} €{% if plan %}, Tarif {{ plan.name }}{% endif %}).
+
+Wird das Budget erreicht, arbeiten die KI-Funktionen für Mitglieder im Basis-Tarif bis Monatsende ohne KI (Vorlagen statt KI-Texten). Mitglieder mit Plus oder Pro sind nicht betroffen.
+
+Im Adminbereich unter „Tarif“ kannst du den Klub-Tarif erhöhen.
+
+Dein Team von {{ club.name }}

@@ -1,0 +1,62 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import width_class with context %}
+{% block page_title %}Mein Tarif{% endblock %}
+{% macro euro(cents) -%}{{ '%.2f'|format(cents / 100)|replace('.', ',') }} €{%- endmacro %}
+{% macro widerruf(id) -%}
+<label class="check small mt-s"><input type="checkbox" name="widerruf" value="1" id="{{ id }}"><span>Ich verlange ausdrücklich, dass die Leistung sofort beginnt, und weiß, dass mein Widerrufsrecht mit vollständiger Erbringung erlischt bzw. ich bei Widerruf einen anteiligen Betrag zahle. <a href="{{ url_for('public.terms') }}#widerruf">Widerrufsbelehrung</a></span></label>
+{%- endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>Mein Tarif</h1><p class="muted mb-0">Dein Tarif bei {{ club.name }}, dein Verbrauch in diesem Monat und Zusatzpakete. Kontingente beginnen am 1. jedes Monats neu; Pakete verfallen nicht.</p></div></div>
+{% if request.args.ok %}<div class="flash success mb-m">Danke! Dein Tarif ist aktiv, sobald die Zahlung bestätigt ist – meist in wenigen Sekunden.</div>{% endif %}
+{% if request.args.paket %}<div class="flash success mb-m">Danke! Das Paket steht nach der Zahlungsbestätigung unten bereit.</div>{% endif %}
+
+<section class="panel mb-l">
+  <div class="row between"><div><p class="small muted mb-0">Aktueller Tarif</p><h2 class="mb-0">{{ plan.name }}{% if not plan.is_free %} · {{ euro(plan.price_cents) }}/Monat{% endif %}</h2>
+  {% if current_user.plan_source == 'admin' and not plan.is_free %}<p class="small muted mb-0">Vom Klub freigeschaltet{% if current_user.plan_until %} bis {{ current_user.plan_until|dt }}{% endif %}.</p>{% endif %}
+  {% if current_user.plan_status == 'past_due' %}<p class="small mb-0"><span class="tag warn">Zahlung offen</span> Bitte Zahlungsmittel unter „Abo verwalten“ prüfen.</p>{% endif %}
+  {% if current_user.plan_cancel_at_end and current_user.plan_period_end %}<p class="small muted mb-0">Gekündigt – läuft bis {{ current_user.plan_period_end|dt }}, danach Basis.</p>{% elif current_user.plan_period_end and not plan.is_free %}<p class="small muted mb-0">Nächste Abrechnung am {{ current_user.plan_period_end|dt }}.</p>{% endif %}</div>
+  {% if current_user.stripe_customer_id and stripe_on %}<form method="post" action="{{ url_for('member.plan_portal') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Abo verwalten, Rechnungen, kündigen</button></form>{% endif %}</div>
+  <div class="hbars mt-m">{% for u in usage %}
+    <div class="hbar"><span>{{ u.name }}<span class="small muted"> · {{ u.hint }}</span></span>
+      <div class="track"><i class="{{ width_class(u.q.pct) }}"></i></div>
+      <span class="num">{% if u.q.limit is none %}{{ u.q.used }} · unbegrenzt{% else %}{{ u.q.used }} / {{ u.q.limit }}{% endif %}{% if u.q.bonus_left %} <span class="tag ok">+{{ u.q.bonus_left }} Paket</span>{% endif %}</span></div>
+  {% endfor %}</div>
+  <p class="small muted mt-m mb-0">Markt-Panel: bis {{ (plan.limits or {}).get('panel_personas', 0) }} Personas je Lauf im Tarif{% if bonuses %}; größere Läufe mit einem Panel-Paket{% endif %}.</p>
+</section>
+
+<h2>Tarife</h2>
+<div class="grid grid-3 mb-l">
+{% for p in plans %}
+  <div class="panel{% if p.key == plan.key %} plan-current{% endif %}">
+    <h3 class="mb-0">{{ p.name }}</h3>
+    <p class="small muted">{{ p.tagline }}</p>
+    <p><b class="plan-price">{{ 'kostenlos' if p.is_free else euro(p.price_cents) }}</b>{% if not p.is_free %}<span class="small muted"> / Monat inkl. {{ '%g'|format(vat) }} % MwSt.</span>{% endif %}</p>
+    <ul class="small plan-list">{% for f in p.feature_lines %}<li>{{ f }}</li>{% endfor %}</ul>
+    {% if p.key == plan.key %}<span class="tag ok">Dein Tarif</span>
+    {% elif not p.is_free %}
+      <form method="post" action="{{ url_for('member.plan_choose', key=p.key) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if not (current_user.stripe_subscription_id and current_user.plan_status in ('active','trialing','past_due')) %}{{ widerruf('w-' ~ p.key) }}{% endif %}
+        <button class="btn btn-sm mt-s"{% if not stripe_on %} disabled{% endif %}>{{ 'Wechseln' if current_user.stripe_subscription_id and current_user.plan_status in ('active','trialing','past_due') else 'Buchen' }}</button>
+      </form>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+{% if not stripe_on %}<p class="small muted">Online-Buchung ist auf dieser Plattform noch nicht freigeschaltet. Die Klubleitung kann Tarife bis dahin direkt vergeben.</p>{% endif %}
+
+<h2>Zusatzpakete</h2>
+<p class="muted small">Einmalig, ohne Abo. Wird genutzt, wenn das Monatskontingent aufgebraucht ist, und verfällt nicht.</p>
+<div class="grid grid-3 mb-l">
+{% for a in addons %}
+  <div class="panel">
+    <h3 class="mb-0">{{ a.name }}</h3>
+    <p class="small muted">{{ a.description }}</p>
+    <p><b>{{ euro(a.price_cents) }}</b><span class="small muted"> einmalig inkl. MwSt.</span></p>
+    <form method="post" action="{{ url_for('member.addon_buy', key=a.key) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{{ widerruf('wa-' ~ a.key) }}<button class="btn btn-ghost btn-sm mt-s"{% if not stripe_on %} disabled{% endif %}>Kaufen</button></form>
+  </div>
+{% endfor %}
+</div>
+{% if bonuses %}<h3>Deine Pakete</h3>{% for b in bonuses %}<p class="mb-0">{{ features[b.feature][0] }}: noch {{ b.left }} von {{ b.units }}{% if b.personas %} (je Lauf bis {{ b.personas }} Personas){% endif %}</p>{% endfor %}{% endif %}
+<p class="small muted mt-l">Zahlung über Stripe. Abos verlängern sich monatlich und sind jederzeit zum Ende des Abrechnungszeitraums kündbar. Tarifwechsel werden anteilig verrechnet.</p>
+{% endblock %}

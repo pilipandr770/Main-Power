@@ -12,9 +12,8 @@
       {{ input("announcement", "Hinweis in der Mitglieder-Übersicht", v.announcement, hint="Leer = kein Hinweis") }}
       {{ input("telegram_group_title", "Name des Community-Chats", v.telegram_group_title) }}
     </fieldset>
-    <fieldset><legend>Markt-Panel (KI-Personas)</legend>
-      {{ input("panel_monthly_limit", "Läufe je Mitglied und Monat", v.panel_monthly_limit, type="number", hint="Admins unbegrenzt. 0 = gesperrt.") }}
-      {{ input("panel_max_personas", "Maximale Personas je Lauf", v.panel_max_personas, type="number", hint="10 bis 500. Kosten steigen linear (ca. 0,3 Cent je Persona mit Haiku).") }}
+    <fieldset><legend>Kontingente</legend>
+      <p class="small muted mb-0">Wie oft Mitglieder Markt-Panel, Website-Checks, Gesetzes-Suche und KI-Chat nutzen können, legt ihr Tarif fest – siehe <a href="{{ url_for('admin.billing') }}">Tarif</a>. Admins sind beim Markt-Panel nicht begrenzt.</p>
     </fieldset>
     <fieldset><legend>{{ club.assistant_name }}</legend>
       {{ textarea("aiko_extra_instructions", "Zusätzliche Anweisungen", v.aiko_extra_instructions, rows=6, hint="Wird an " ~ club.assistant_name ~ "s Systemanweisung angehängt, z. B. aktuelle Aktionen oder Tonalität. Die KI-VO-/DSGVO-Grundregeln stehen fest im Code und haben immer Vorrang.") }}

@@ -141,7 +141,7 @@ def _register_template_helpers(app: Flask) -> None:
 
 def _register_security_headers(app: Flask) -> None:
     csp = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
-           "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com")
+           "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com")
 
     @app.after_request
     def headers(resp):
@@ -182,7 +182,7 @@ def _register_errors(app: Flask) -> None:
                                msg="Da ist etwas schiefgelaufen. Wir kümmern uns darum."), 500
 
 
-def add_missing_columns() -> list[str]:
+def add_missing_columns(only: set[str] | None = None) -> list[str]:
     """Leichte Schema-Nachführung ohne Alembic: fehlende Spalten bestehender Tabellen per ALTER TABLE ergänzen.
 
     Neue Tabellen legt db.create_all() an. Umbenennen/Löschen/Typwechsel bleibt Sache von Flask-Migrate.
@@ -191,7 +191,7 @@ def add_missing_columns() -> list[str]:
     added = []
     insp = inspect(db.engine)
     for table in db.metadata.sorted_tables:
-        if not insp.has_table(table.name):
+        if not insp.has_table(table.name) or (only and table.name not in only):
             continue
         have = {c["name"] for c in insp.get_columns(table.name)}
         for col in table.columns:
@@ -233,10 +233,15 @@ def _register_cli(app: Flask) -> None:
     def init_db():
         """Tabellen anlegen, Mandanten-Migration ausführen und fehlende Spalten ergänzen."""
         from .migrations_mt import migrate_multitenant
+        for c in add_missing_columns(only={"clubs"}):  # die Migration liest Club – dessen neue Spalten zuerst
+            click.echo(f"Spalte ergaenzt: {c}")
         for line in migrate_multitenant():
             click.echo(line)
         for c in add_missing_columns():
             click.echo(f"Spalte ergaenzt: {c}")
+        from .services.plans import ensure_defaults
+        if ensure_defaults():
+            click.echo("Standard-Tarife und Zusatzpakete angelegt")
         from .seed import refresh_default_faq
         n = refresh_default_faq()
         if n:

@@ -727,6 +727,11 @@ def test_panel_full_run_quota_and_pages(client, app, monkeypatch):
     from app.services import panel
     monkeypatch.setattr(panel, "complete", _fake_panel_llm)
     register(client)
+    with app.app_context():  # Tarif Plus: 2 Läufe à bis zu 100 Personas im Monat
+        u = User.query.filter_by(email="neu@example.com").one()
+        u.plan_key, u.plan_source = "plus", "admin"
+        db.session.commit()
+    db.session.expire_all()  # Requests nutzen die Session des Fixture-Kontexts: veralteten Nutzer verwerfen
     page = client.get("/app/markt-panel").get_data(as_text=True)
     assert "synthetisch" in page and "100 Rollen" in page and client.get("/app/leistungen/markt-panel").status_code == 302
 
@@ -751,13 +756,12 @@ def test_panel_full_run_quota_and_pages(client, app, monkeypatch):
     assert st["status"] == "done" and st["done"] == 50
     assert "Alle Personas (50)" in client.get(f"/app/markt-panel/{rid}").get_data(as_text=True)
 
-    # Kontingent: 3 Läufe pro Monat
-    for _ in range(2):
-        client.post("/app/markt-panel", data={**data, "synthetic": "1"})
+    # Kontingent laut Tarif Plus: 2 Läufe pro Monat
+    client.post("/app/markt-panel", data={**data, "synthetic": "1"})
     r = client.post("/app/markt-panel", data={**data, "synthetic": "1"}, follow_redirects=True)
     assert "Kontingent" in r.get_data(as_text=True)
     with app.app_context():
-        assert PanelRun.query.count() == 3
+        assert PanelRun.query.count() == 2
 
     # fremder Zugriff und Löschen
     client.post("/logout")
@@ -767,7 +771,7 @@ def test_panel_full_run_quota_and_pages(client, app, monkeypatch):
     login(client, "neu@example.com", "sehr-sicheres-pw")
     client.post(f"/app/markt-panel/{rid}/loeschen", follow_redirects=True)
     with app.app_context():
-        assert PanelRun.query.count() == 2
+        assert PanelRun.query.count() == 1
 
 
 def test_panel_parse_robust_and_stale():

@@ -18,7 +18,7 @@ from datetime import timedelta
 from flask import current_app
 
 from ..extensions import db
-from ..models import PanelResponse, PanelRun, Setting, utcnow
+from ..models import PanelResponse, PanelRun, utcnow
 from . import panel_personas as pp
 from .llm import LLMUnavailable, complete
 
@@ -44,22 +44,6 @@ SYSTEM = (
 )
 
 
-# --------------------------------------------------------------------------- Einstellungen und Kontingent
-def limits() -> tuple[int, int]:
-    def num(key, default):
-        try:
-            return max(0, int(Setting.get(key) or default))
-        except ValueError:
-            return default
-    return num("panel_monthly_limit", 3), num("panel_max_personas", 100)
-
-
-def used_this_month(user_id: int) -> int:
-    start = utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    return PanelRun.query.filter(PanelRun.user_id == user_id, PanelRun.created_at >= start, PanelRun.status != "failed").count()
-
-
-# --------------------------------------------------------------------------- Persona-Befragung
 def _num(v) -> float | None:
     """Zahl aus Modellantwort lesen: 1.299,50 / 12,5 € / 42 / 42.5."""
     t = str(v).replace("€", "").replace("EUR", "").replace(" ", "").strip()
@@ -332,17 +316,26 @@ def start_run(user, form: dict, background: bool = True) -> PanelRun:
     return run
 
 
-def _enter_club(club_id: int) -> None:
-    """Hintergrund-Threads haben keinen Request: Klub des Laufs explizit setzen (Mandantenfilter, Token-Zuordnung)."""
+def _enter_club(club_id: int, who: tuple | None = None) -> None:
+    """Hintergrund-Threads haben keinen Request: Klub des Laufs explizit setzen (Mandantenfilter, Token-Zuordnung)
+    und – für Budget und Kostenzuordnung – wer den Lauf gestartet hat und ob diese Person zahlt."""
+    from flask import g
     from ..models import Club
     from ..tenancy import set_club
     set_club(db.session.get(Club, club_id))
+    if who:
+        g.usage_user_id, g.usage_paid = who
 
 
 def run_worker(app, run_id: int, club_id: int) -> None:
     with app.app_context():
         _enter_club(club_id)
         run = db.session.get(PanelRun, run_id)
+        from ..models import User
+        from .plans import is_paying
+        starter = db.session.get(User, run.user_id)
+        who = (run.user_id, is_paying(starter))
+        _enter_club(club_id, who)
         try:
             run.status = "running"
             db.session.commit()
@@ -359,7 +352,7 @@ def run_worker(app, run_id: int, club_id: int) -> None:
                 variant = "B" if (price_b and p.idx % 2 == 1) else "A"
                 price = price_b if variant == "B" else price_a
                 with app.app_context():
-                    _enter_club(club_id)
+                    _enter_club(club_id, who)
                     return p, variant, ask_persona(p, ctx, price, usage, model)
 
             # Tests (SQLite im Speicher, eine gemeinsame Verbindung): nacheinander, sonst parallel

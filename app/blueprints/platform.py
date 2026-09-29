@@ -149,7 +149,8 @@ def club_new():
                                demo=bool(form.get("demo")), contact_email=form.get("contact_email", "").strip())
             flash(f"Klub „{club.name}“ angelegt. Erster Superadmin: {email}.", "success")
             return redirect(url_for("platform.dashboard"))
-    return render_template("platform/club_form.html", klub=None, errors=errors, form=form, presets=PRESETS)
+    return render_template("platform/club_form.html", klub=None, errors=errors, form=form, presets=PRESETS,
+                           club_plans=_club_plans())
 
 
 @bp.route("/klub/<int:cid>", methods=["GET", "POST"])
@@ -164,13 +165,20 @@ def club_edit(cid):
             club.name = form["name"].strip()[:120]
             club.domains = ",".join(d.strip().lower() for d in form.get("domains", "").replace(";", ",").split(",")
                                     if d.strip())
-            club.plan = form.get("plan", club.plan)[:30]
+            if form.get("plan") == "pilot" or any(p.key == form.get("plan") for p in _club_plans()):
+                club.plan = form["plan"]
             club.contact_email = form.get("contact_email", "").strip()[:255]
             club.notes = form.get("notes", "").strip()[:4000]
             db.session.commit()
             flash("Gespeichert.", "success")
             return redirect(url_for("platform.club_edit", cid=club.id))
-    return render_template("platform/club_form.html", klub=club, errors=errors, form=form, presets=PRESETS)
+    return render_template("platform/club_form.html", klub=club, errors=errors, form=form, presets=PRESETS,
+                           club_plans=_club_plans())
+
+
+def _club_plans():
+    from ..models import Plan
+    return Plan.query.filter_by(kind="club").order_by(Plan.sort).all()
 
 
 @bp.route("/klub/<int:cid>/status", methods=["POST"])
@@ -184,3 +192,180 @@ def club_status(cid):
         db.session.commit()
         flash(f"„{club.name}“ ist jetzt {'pausiert' if club.status == 'suspended' else 'aktiv'}.", "info")
     return redirect(url_for("platform.dashboard"))
+
+
+# --------------------------------------------------------------------------- Tarife, Pakete, Kalkulation, Umsatz
+from ..models import AddOn, Payment, Plan, PlatformSetting  # noqa: E402
+from ..services import plans as plan_svc  # noqa: E402
+
+
+def _euro_to_cents(raw: str) -> int | None:
+    try:
+        v = float((raw or "").replace("€", "").replace(",", ".").strip() or "0")
+    except ValueError:
+        return None
+    return int(round(v * 100)) if 0 <= v < 100_000 else None
+
+
+def _int_or_none(raw: str | None) -> int | None:
+    raw = (raw or "").strip()
+    return int(raw) if raw.isdigit() else None
+
+
+def _revenue_by_club() -> list[dict]:
+    """Umsatz (netto), Provision an den Klub, KI-Kosten und Ergebnis je Klub im laufenden Monat."""
+    month = plan_svc.month_start()
+
+    def q(*cols):
+        return db.session.query(*cols).execution_options(all_clubs=True)
+
+    pay: dict[int, dict] = {}
+    for cid, kind, total in (q(Payment.club_id, Payment.kind, func.sum(Payment.amount_cents))
+                             .filter(Payment.created_at >= month).group_by(Payment.club_id, Payment.kind)):
+        pay.setdefault(cid, {})[kind] = int(total or 0)
+    cfg = current_app.config
+    cost = {cid: ((i or 0) * cfg["LLM_PRICE_IN"] + (o or 0) * cfg["LLM_PRICE_OUT"]) / 1_000_000 * 100
+            for cid, i, o in q(LLMUsage.club_id, func.sum(LLMUsage.input_tokens), func.sum(LLMUsage.output_tokens))
+            .filter(LLMUsage.created_at >= month).group_by(LLMUsage.club_id)}
+    vat, comm = plan_svc.vat_rate() / 100, plan_svc.commission_pct() / 100
+    rows = []
+    for club in Club.query.order_by(Club.id).all():
+        p = pay.get(club.id, {})
+        member_net = (p.get("member_plan", 0) + p.get("addon", 0)) / (1 + vat)
+        club_net = p.get("club_plan", 0) / (1 + vat)
+        commission = p.get("member_plan", 0) / (1 + vat) * comm
+        ai = cost.get(club.id, 0.0)
+        rows.append({"club": club, "member": member_net, "club_plan": club_net, "commission": commission, "ai": ai,
+                     "result": member_net + club_net - commission - ai})
+    return rows
+
+
+@bp.route("/tarife")
+@platform_required
+def tariffs():
+    plan_svc.ensure_defaults()
+    all_plans = Plan.query.order_by(Plan.kind.desc(), Plan.sort).all()
+    return render_template("platform/tariffs.html", plans=all_plans,
+                           calc={p.id: plan_svc.calculation(p) for p in all_plans},
+                           addons=AddOn.query.order_by(AddOn.sort).all(), features=plan_svc.FEATURES,
+                           unit_costs={f: plan_svc.unit_cost(f) for f in plan_svc.FEATURES},
+                           measured=plan_svc.measured_costs(), vat=plan_svc.vat_rate(),
+                           commission=plan_svc.commission_pct(), revenue=_revenue_by_club())
+
+
+@bp.route("/tarife/einstellungen", methods=["POST"])
+@platform_required
+def tariff_settings():
+    f = request.form
+    for key, lo, hi in (("vat_rate", 0, 30), ("commission_pct", 0, 80)):
+        try:
+            v = float(f.get(key, "").replace(",", "."))
+            if lo <= v <= hi:
+                PlatformSetting.set(key, f"{v:g}")
+        except ValueError:
+            pass
+    for feat in plan_svc.FEATURES:
+        try:
+            v = float(f.get(f"cost.{feat}", "").replace(",", "."))
+            if 0 <= v < 1000:
+                PlatformSetting.set(f"cost.{feat}", f"{v:g}")
+        except ValueError:
+            pass
+    db.session.commit()
+    flash("Einstellungen gespeichert. Die Kalkulation ist neu berechnet.", "success")
+    return redirect(url_for("platform.tariffs"))
+
+
+@bp.route("/tarife/neu", methods=["GET", "POST"])
+@bp.route("/tarife/<int:pid>", methods=["GET", "POST"])
+@platform_required
+def tariff_edit(pid=None):
+    plan = db.session.get(Plan, pid) if pid else Plan(kind=request.args.get("kind", "member"), active=True, limits={})
+    if plan is None:
+        abort(404)
+    errors = {}
+    f = request.form
+    if request.method == "POST":
+        if not plan.id:
+            key = re.sub(r"[^a-z0-9-]+", "-", f.get("key", "").strip().lower()).strip("-")[:30]
+            if not key or key == "pilot" or Plan.query.filter_by(key=key).first():
+                errors["key"] = "Eindeutiger Schlüssel nötig (Kleinbuchstaben, Ziffern, Bindestrich)."
+            plan.key = key
+            plan.kind = f.get("kind") if f.get("kind") in Plan.KINDS else "member"
+        price = _euro_to_cents(f.get("price", ""))
+        if price is None:
+            errors["price"] = "Bitte einen Preis in Euro angeben, z. B. 9 oder 29,00."
+        if not f.get("name", "").strip():
+            errors["name"] = "Name fehlt."
+        limits = {}
+        for feat in plan_svc.FEATURES:
+            raw = f.get(f"limit.{feat}", "").strip()
+            if raw == "":
+                limits[feat] = None
+            elif raw.isdigit():
+                limits[feat] = int(raw)
+            else:
+                errors[f"limit.{feat}"] = "Ganze Zahl oder leer (= unbegrenzt)."
+        if not errors:
+            plan.name, plan.tagline = f["name"].strip()[:80], f.get("tagline", "").strip()[:200]
+            plan.price_cents, plan.limits = price, limits
+            plan.features = f.get("features", "").strip()[:2000]
+            plan.active = bool(f.get("active"))
+            plan.sort = _int_or_none(f.get("sort")) or 0
+            if plan.kind == "club":
+                plan.members_included = _int_or_none(f.get("members_included"))
+                plan.max_club_questions = _int_or_none(f.get("max_club_questions"))
+                plan.extra_member_cents = _euro_to_cents(f.get("extra_member", "")) or 0
+                budget = f.get("ai_budget", "").strip()
+                plan.ai_budget_cents = _euro_to_cents(budget) if budget else None
+            db.session.add(plan)
+            db.session.commit()
+            c = plan_svc.calculation(plan)
+            if c["unbounded"]:
+                flash("Gespeichert. Achtung: Mindestens ein Kontingent ist unbegrenzt – die Kosten sind nach oben offen.",
+                      "error")
+            elif c["margin_pct"] is not None and c["margin_pct"] < 30:
+                flash(f"Gespeichert. Achtung: Marge im ungünstigsten Fall nur {c['margin_pct']:.0f} %.", "error")
+            else:
+                flash("Tarif gespeichert.", "success")
+            return redirect(url_for("platform.tariff_edit", pid=plan.id))
+    return render_template("platform/tariff_form.html", plan=plan, errors=errors, form=f, features=plan_svc.FEATURES,
+                           calc=plan_svc.calculation(plan) if plan.id else None, vat=plan_svc.vat_rate())
+
+
+@bp.route("/pakete/neu", methods=["GET", "POST"])
+@bp.route("/pakete/<int:aid>", methods=["GET", "POST"])
+@platform_required
+def addon_edit(aid=None):
+    addon = db.session.get(AddOn, aid) if aid else AddOn(active=True, units=1, feature="site_check")
+    if addon is None:
+        abort(404)
+    errors = {}
+    f = request.form
+    if request.method == "POST":
+        if not addon.id:
+            key = re.sub(r"[^a-z0-9-]+", "-", f.get("key", "").strip().lower()).strip("-")[:40]
+            if not key or AddOn.query.filter_by(key=key).first():
+                errors["key"] = "Eindeutiger Schlüssel nötig."
+            addon.key = key
+        price = _euro_to_cents(f.get("price", ""))
+        if not price:
+            errors["price"] = "Bitte einen Preis angeben."
+        if f.get("feature") not in plan_svc.QUOTA_FEATURES:
+            errors["feature"] = "Bitte eine Funktion wählen."
+        if not _int_or_none(f.get("units")):
+            errors["units"] = "Mindestens 1."
+        if not f.get("name", "").strip():
+            errors["name"] = "Name fehlt."
+        if not errors:
+            addon.name, addon.description = f["name"].strip()[:120], f.get("description", "").strip()[:300]
+            addon.price_cents, addon.feature, addon.units = price, f["feature"], _int_or_none(f.get("units"))
+            addon.personas = _int_or_none(f.get("personas"))
+            addon.active = bool(f.get("active"))
+            addon.sort = _int_or_none(f.get("sort")) or 0
+            db.session.add(addon)
+            db.session.commit()
+            flash("Paket gespeichert.", "success")
+            return redirect(url_for("platform.tariffs") + "#pakete")
+    return render_template("platform/addon_form.html", addon=addon, errors=errors, form=f, features=plan_svc.FEATURES,
+                           quota_features=plan_svc.QUOTA_FEATURES)

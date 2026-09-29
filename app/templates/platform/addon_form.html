@@ -1,0 +1,26 @@
+{% extends "platform/_layout.html" %}
+{% from "partials/_macros.html" import input, check with context %}
+{% block page_title %}{{ addon.name or 'Neues Paket' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('platform.tariffs') }}#pakete">Tarife</a></p><h1>{{ addon.name or 'Neues Zusatzpaket' }}</h1>
+<p class="muted mb-0">Einmal-Kauf ohne Abo, Preis inkl. MwSt. Das Kontingent verfällt nicht und wird genutzt, wenn das Monatskontingent aufgebraucht ist.</p></div></div>
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset><legend>Paket</legend>
+    {% if not addon.id %}{{ input("key", "Schlüssel", form.get("key"), errors=errors, required=True, hint="z. B. panel-500") }}{% else %}<p class="small muted">Schlüssel: <b>{{ addon.key }}</b></p>{% endif %}
+    <div class="grid grid-2">
+      {{ input("name", "Name", form.get("name") or addon.name, errors=errors, required=True) }}
+      {{ input("price", "Preis in Euro", form.get("price") or ('%.2f'|format((addon.price_cents or 0) / 100)), errors=errors) }}
+    </div>
+    {{ input("description", "Beschreibung", form.get("description") or addon.description) }}
+    <div class="grid grid-3">
+      <div class="field{% if errors.feature %} has-error{% endif %}"><label for="f-feature">Funktion</label><select id="f-feature" name="feature">{% for f in quota_features %}<option value="{{ f }}"{% if (form.get('feature') or addon.feature) == f %} selected{% endif %}>{{ features[f][0] }}</option>{% endfor %}</select></div>
+      {{ input("units", "Anzahl", form.get("units") or addon.units|string, errors=errors) }}
+      {{ input("personas", "Personas je Lauf (nur Markt-Panel)", form.get("personas") or (addon.personas or '')|string) }}
+    </div>
+    {{ input("sort", "Reihenfolge", (form.get("sort") or addon.sort or 0)|string, type="number") }}
+    {{ check("active", "Aktiv (kaufbar)", addon.active if not form else form.get("active")) }}
+  </fieldset>
+  <button class="btn" type="submit">Speichern</button>
+</form>
+{% endblock %}

@@ -58,18 +58,7 @@ def create_checkout(reg: Registration) -> str:
 def handle_webhook(payload: bytes, sig_header: str) -> str:
     stripe = _stripe()
     event = stripe.Webhook.construct_event(payload, sig_header, current_app.config["STRIPE_WEBHOOK_SECRET"])
-    if event["type"] in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
-        obj = event["data"]["object"]
-        if obj.get("payment_status") == "paid":
-            reg_id = int(obj.get("metadata", {}).get("registration_id", 0))
-            # Ein Webhook-Endpunkt für alle Klubs: Anmeldung klubübergreifend suchen, dann in ihrem Klub arbeiten
-            reg = Registration.query.execution_options(all_clubs=True).filter_by(id=reg_id).first()
-            if reg:
-                from ..tenancy import set_club
-                from ..models import Club
-                set_club(db.session.get(Club, reg.club_id))
-                reg.status = "paid"
-                reg.amount_cents = obj.get("amount_total") or reg.amount_cents
-                db.session.commit()
-                log.info("Registrierung %s bezahlt", reg_id)
-    return event["type"]
+    # Termine, Mitglieder- und Klub-Abos, Zusatzpakete: ein Endpunkt für alle Klubs (siehe services/billing.py)
+    from .billing import as_dict, process_event
+    event = as_dict(event)  # stripe-python >= 15: Objekte sind keine dicts mehr (kein .get)
+    return f"{event['type']}: {process_event(event)}"

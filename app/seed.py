@@ -624,6 +624,8 @@ def _seed_club(demo: bool, preset: str) -> None:
 
 def seed(demo: bool = True, club: Club | None = None, preset: str = "mainpower") -> None:
     db.create_all()
+    from .services.plans import ensure_defaults
+    ensure_defaults()  # plattformweite Tarife und Zusatzpakete
     club = club or ensure_default_club()
     with use_club(club):
         _seed_club(demo=False, preset=preset)

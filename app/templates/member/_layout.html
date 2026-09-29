@@ -32,6 +32,7 @@
       <div class="navlabel">Konto</div>
       <a href="{{ url_for('member.profile') }}" class="{{ 'on' if ep in ('member.profile', 'member.interview_page') }}">Mein Profil</a>
       <a href="{{ url_for('member.goal_page') }}" class="{{ 'on' if ep == 'member.goal_page' }}">Mein Ziel{% if goal_due %}<span class="badge">1</span>{% endif %}</a>
+      <a href="{{ url_for('member.plan_page') }}" class="{{ 'on' if ep == 'member.plan_page' }}">Mein Tarif</a>
       <a href="{{ url_for('member.privacy') }}" class="{{ 'on' if ep == 'member.privacy' }}">Privatsphäre</a>
       {% if current_user.is_admin %}<a href="{{ url_for('admin.dashboard') }}">Adminbereich</a>{% endif %}
     </nav>

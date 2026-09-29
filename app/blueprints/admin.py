@@ -191,6 +191,7 @@ def user_edit(user_id):
             values.update({f"custom:{q.key}": (f.getlist(f"custom_{q.key}") if q.kind == "multi" else
                                                f.get(f"custom_{q.key}", "")) for q in questionnaire.club_questions()})
             questionnaire.apply_values(p, values)
+            _assign_member_plan(u, f)
             p.preferred_formats = ",".join(k for k in f.getlist("formats") if k in FORMATS)
             for key in SOCIALS:
                 setattr(p, f"{key}_url", clean_social(key, f.get(f"{key}_url", "")))
@@ -202,8 +203,36 @@ def user_edit(user_id):
             db.session.commit()
             flash("Mitglied gespeichert.", "success")
             return redirect(url_for("admin.user_detail", user_id=u.id))
+    from ..models import Plan as _Plan
+    from ..services import plans as _plans
     return render_template("admin/user_edit.html", u=u, p=p, errors=errors, formats=FORMATS, socials=SOCIALS,
+                           member_plans=_Plan.query.filter_by(kind="member").order_by(_Plan.sort).all(),
+                           stripe_managed=u.plan_source == "stripe" and u.plan_status in _plans.PAID_STATUS,
                            form=request.form if request.method == "POST" else None)
+
+
+def _assign_member_plan(u: User, f) -> None:
+    """Tarif vom Klub vergeben (z. B. Vorstand, Partner, Kulanz). Laufende Stripe-Abos bleiben unangetastet."""
+    from ..models import Plan as _Plan
+    from ..services import plans as _plans
+    key = f.get("plan_key")
+    if not key or (u.plan_source == "stripe" and u.plan_status in _plans.PAID_STATUS):
+        return
+    if not _Plan.query.filter_by(key=key, kind="member").first():
+        return
+    until = None
+    if f.get("plan_until"):
+        try:
+            until = datetime.strptime(f["plan_until"], "%Y-%m-%d") + timedelta(hours=23, minutes=59)
+        except ValueError:
+            until = None
+    before = (u.plan_key, u.plan_until)
+    if key == "basis":
+        u.plan_key, u.plan_source, u.plan_until = "basis", "", None
+    else:
+        u.plan_key, u.plan_source, u.plan_until = key, "admin", until
+    if before != (u.plan_key, u.plan_until):
+        audit("user.plan", f"user:{u.id}", f"{key} bis {until:%d.%m.%Y}" if until else key)
 
 
 @bp.route("/mitglieder/<int:user_id>/als-nutzer", methods=["POST"])
@@ -578,10 +607,6 @@ def settings():
         f = request.form
         Setting.set("member_events_require_approval", "1" if f.get("member_events_require_approval") else "0")
         Setting.set("auto_invites", "1" if f.get("auto_invites") else "0")
-        for key, lo, hi in (("panel_monthly_limit", 0, 1000), ("panel_max_personas", 10, 500)):
-            v = f.get(key, "")
-            if v.isdigit():
-                Setting.set(key, str(max(lo, min(hi, int(v)))))
         Setting.set("aiko_extra_instructions", f.get("aiko_extra_instructions", "").strip()[:4000])
         Setting.set("telegram_group_title", f.get("telegram_group_title", "").strip()[:120])
         Setting.set("announcement", f.get("announcement", "").strip()[:500])
@@ -909,3 +934,69 @@ def question_delete(qid):
     db.session.commit()
     flash(f"Frage gelöscht, {len(affected)} Antworten entfernt.", "success")
     return redirect(url_for("admin.questions"))
+
+
+# --------------------------------------------------------------------------- Tarif des Klubs, Budget, Provision
+from ..models import Payment, Plan  # noqa: E402
+from ..services import billing as billing_service, plans  # noqa: E402
+from ..tenancy import current_club  # noqa: E402
+
+
+@bp.route("/tarif")
+def billing():
+    club = current_club()
+    if request.args.get("portal") and club and club.stripe_subscription_id:
+        try:
+            billing_service.sync_subscription(club.stripe_subscription_id)
+        except Exception:
+            current_app.logger.exception("Abo-Abgleich fehlgeschlagen")
+            db.session.rollback()
+        club = current_club()
+    if request.args.get("session_id") and current_user.is_superadmin:
+        try:
+            billing_service.sync_checkout(request.args["session_id"], club=club)
+        except Exception:
+            current_app.logger.exception("Checkout-Abgleich fehlgeschlagen")
+            db.session.rollback()
+        club = current_club()
+    month = plans.month_start()
+    members = User.query.filter(User.status == "active").count()
+    by_plan = dict(db.session.query(User.plan_key, func.count(User.id)).filter(User.status == "active")
+                   .group_by(User.plan_key).all())
+    paying = [u for u in User.query.filter(User.plan_key != "basis").order_by(User.first_name).all()
+              if not plans.user_plan(u).is_free]
+    revenue = (db.session.query(func.coalesce(func.sum(Payment.amount_cents), 0))
+               .filter(Payment.kind == "member_plan", Payment.created_at >= month).scalar()) or 0
+    return render_template("admin/billing.html", club_obj=club, cplan=plans.club_plan(club), budget=plans.club_budget(club),
+                           members=members, by_plan=by_plan, paying=paying, revenue=revenue,
+                           commission=revenue * plans.commission_pct() / 100, commission_pct=plans.commission_pct(),
+                           club_plans=Plan.query.filter_by(kind="club", active=True).order_by(Plan.sort).all(),
+                           member_plans={p.key: p for p in Plan.query.filter_by(kind="member")},
+                           stripe_on=billing_service.enabled(), vat=plans.vat_rate())
+
+
+
+
+@bp.route("/tarif/<key>", methods=["POST"])
+@superadmin_required
+def billing_choose(key):
+    plan = Plan.query.filter_by(key=key, kind="club", active=True).first_or_404()
+    try:
+        target = billing_service.checkout_club_plan(current_club(), plan, current_user)
+    except billing_service.BillingError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("admin.billing"))
+    audit("club.plan_checkout", f"plan:{plan.key}")
+    db.session.commit()
+    return redirect(target)
+
+
+@bp.route("/tarif/verwalten", methods=["POST"])
+@superadmin_required
+def billing_portal():
+    try:
+        return redirect(billing_service.portal_url(current_club().stripe_customer_id,
+                                                   url_for("admin.billing", portal=1, _external=True)))
+    except billing_service.BillingError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("admin.billing"))

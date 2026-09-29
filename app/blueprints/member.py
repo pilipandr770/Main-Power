@@ -10,10 +10,11 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from .. import questionnaire
 from ..extensions import db, limiter
-from ..models import (FORMATS, SOCIALS, ChatMessage, Event, GoalCheckin, IntroRequest, LawQuery, Match, Notification,
-                      PanelRun, Profile, Registration, Service, ServiceInquiry, SeoReport, Setting, User, utcnow)
-from ..services import (aiko, compliance_check, goals, insights, interview, laws, matching, media, panel, payments,
-                        security_check, seo_check, telegram)
+from ..models import (FORMATS, SOCIALS, AddOn, ChatMessage, Event, GoalCheckin, IntroRequest, LawQuery, Match,
+                      Notification, PairInsight, PanelRun, Plan, Profile, QuotaBonus, Registration, Service,
+                      ServiceInquiry, SeoReport, Setting, User, utcnow)
+from ..services import (aiko, billing, compliance_check, goals, insights, interview, laws, matching, media, panel,
+                        payments, plans, security_check, seo_check, telegram)
 from ..services import club as club_settings
 from ..services.audit import audit
 from ..services.gdpr import delete_user, export_user
@@ -216,6 +217,9 @@ def profile():
 def profile_coach():
     """KI-Feedback zu den (noch ungespeicherten) Profilantworten."""
     data = request.get_json(silent=True) or {}
+    blocked = _quota_json("ki_aktionen")
+    if blocked:
+        return blocked
     return jsonify(insights.profile_coach({k: str(v) for k, v in data.items() if isinstance(v, (str, int))}))
 
 
@@ -365,6 +369,11 @@ def contact_assistant(user_id):
         return jsonify(error=f"Fülle zuerst dein Profil aus, dann kann {club_settings.settings()['assistant_name']} "
                              "dir sagen, was dieser Kontakt dir bringt."), 400
     force = bool((request.get_json(silent=True) or {}).get("refresh"))
+    cached = PairInsight.query.filter_by(user_id=current_user.id, other_id=u.id).first()
+    if force or cached is None:
+        blocked = _quota_json("ki_aktionen")
+        if blocked:
+            return blocked
     return jsonify(insights.pair_insight(current_user, u, force=force))
 
 
@@ -401,6 +410,11 @@ def goal_page():
         if not p.milestone_90d and not request.form.get("next_milestone", "").strip():
             flash("Trag zuerst einen Meilenstein ein – dann kannst du den Fortschritt melden.", "error")
             return redirect(url_for("member.goal_page"))
+        try:
+            plans.consume(current_user, "goal_checkin")
+        except plans.QuotaExceeded as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("member.plan_page"))
         c = goals.record_checkin(current_user, request.form.get("status", "auf_kurs"), request.form.get("note", ""),
                                  request.form.get("next_milestone", ""), request.form.get("goal"))
         flash(f"Check-in gespeichert: {c.status_label}. Der nächste 90-Tage-Zeitraum läuft ab heute.", "success")
@@ -431,6 +445,9 @@ def interview_next():
 def interview_answer():
     data = request.get_json(silent=True) or {}
     field = str(data.get("field", ""))[:60]
+    blocked = _quota_json("ki_aktionen")
+    if blocked:
+        return blocked
     proposals, ai = interview.extract(current_user.profile, field, str(data.get("answer", "")))
     return jsonify(proposals=proposals, ai=ai)
 
@@ -446,6 +463,94 @@ def interview_apply():
         matching.refresh_embeddings(p, commit=False)
         db.session.commit()
     return jsonify(saved=changed, question=interview.next_question(p, _interview_skip()), completeness=p.completeness)
+
+
+# --------------------------------------------------------------------------- Tarif & Kontingente
+def _quota_json(feature: str):
+    """Kontingent verbrauchen; bei Überschreitung JSON-Antwort mit Hinweis auf den Tarif (sonst None)."""
+    try:
+        plans.consume(current_user, feature)
+    except plans.QuotaExceeded as exc:
+        return jsonify(error=str(exc), upgrade_url=url_for("member.plan_page")), 402
+    return None
+
+
+def _quota_form(feature: str, field: str = "url") -> dict:
+    """Wie _quota_json, aber als Formularfehler."""
+    try:
+        plans.consume(current_user, feature)
+    except plans.QuotaExceeded as exc:
+        return {field: str(exc) + " Siehe „Mein Tarif“."}
+    return {}
+
+
+@bp.route("/tarif")
+def plan_page():
+    if request.args.get("portal") and current_user.stripe_subscription_id:
+        try:
+            billing.sync_subscription(current_user.stripe_subscription_id)
+        except Exception:
+            current_app.logger.exception("Abo-Abgleich fehlgeschlagen")
+            db.session.rollback()
+    if request.args.get("session_id"):
+        try:
+            billing.sync_checkout(request.args["session_id"], user=current_user)
+        except Exception:  # Webhook übernimmt, falls Stripe gerade nicht antwortet
+            current_app.logger.exception("Checkout-Abgleich fehlgeschlagen")
+            db.session.rollback()
+    plan = plans.user_plan(current_user)
+    return render_template("member/plan.html", plan=plan, usage=plans.usage_overview(current_user),
+                           plans=Plan.query.filter_by(kind="member", active=True).order_by(Plan.sort).all(),
+                           addons=AddOn.query.filter_by(active=True).order_by(AddOn.sort).all(),
+                           bonuses=[b for b in QuotaBonus.query.filter_by(user_id=current_user.id) if b.left],
+                           features=plans.FEATURES, stripe_on=billing.enabled(), vat=plans.vat_rate())
+
+
+@bp.route("/tarif/<key>", methods=["POST"])
+@limiter.limit("10 per hour")
+def plan_choose(key):
+    plan = Plan.query.filter_by(key=key, kind="member", active=True).first_or_404()
+    if plan.is_free:
+        flash("Den Basis-Tarif erreichst du, indem du dein Abo unter „Abo verwalten“ kündigst.", "info")
+        return redirect(url_for("member.plan_page"))
+    new_sub = not (current_user.stripe_subscription_id and current_user.plan_status in plans.PAID_STATUS)
+    if new_sub and not request.form.get("widerruf"):
+        flash("Bitte bestätige den Hinweis zum Widerrufsrecht, damit der Tarif sofort starten kann.", "error")
+        return redirect(url_for("member.plan_page"))
+    try:
+        target = billing.checkout_member_plan(current_user, plan)
+    except billing.BillingError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("member.plan_page"))
+    audit("plan.checkout", f"user:{current_user.id}", plan.key)
+    db.session.commit()
+    if not new_sub:
+        flash(f"Tarif gewechselt: {plan.name}. Die Differenz wird anteilig verrechnet.", "success")
+    return redirect(target)
+
+
+@bp.route("/tarif/paket/<key>", methods=["POST"])
+@limiter.limit("10 per hour")
+def addon_buy(key):
+    addon = AddOn.query.filter_by(key=key, active=True).first_or_404()
+    if not request.form.get("widerruf"):
+        flash("Bitte bestätige den Hinweis zum Widerrufsrecht, damit das Paket sofort nutzbar ist.", "error")
+        return redirect(url_for("member.plan_page"))
+    try:
+        return redirect(billing.checkout_addon(current_user, addon))
+    except billing.BillingError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("member.plan_page"))
+
+
+@bp.route("/tarif/verwalten", methods=["POST"])
+def plan_portal():
+    try:
+        return redirect(billing.portal_url(current_user.stripe_customer_id,
+                                           url_for("member.plan_page", portal=1, _external=True)))
+    except billing.BillingError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("member.plan_page"))
 
 
 # --------------------------------------------------------------------------- Termine
@@ -595,6 +700,9 @@ def aiko_api():
     msg = str((request.get_json(silent=True) or {}).get("message", "")).strip()
     if not msg:
         return jsonify(error="Leere Nachricht"), 400
+    blocked = _quota_json("ki_aktionen")
+    if blocked:
+        return blocked
     return jsonify(reply=aiko.answer_member(current_user, msg))
 
 
@@ -649,10 +757,13 @@ def seo_check_page():
             errors["authorized"] = "Bitte bestätige, dass du diese Website prüfen darfst."
         keywords = [k.strip()[:60] for k in re.split(r"[,\n;]", form.get("keywords", "")) if k.strip()][:5]
         if not errors:
+            errors.update(_quota_form("site_check"))
+        if not errors:
             try:
                 result = seo_check.analyze(form.get("url", ""), keywords)
             except seo_check.SeoCheckError as exc:
                 errors["url"] = str(exc)
+                plans.refund(current_user, "site_check")
             else:
                 report = seo_check.build_report(result, keywords)
                 row = SeoReport(user_id=current_user.id, url=result["url"][:500], keywords=", ".join(keywords),
@@ -675,10 +786,13 @@ def compliance_check_page():
         if not form.get("authorized"):
             errors["authorized"] = "Bitte bestätige, dass du diese Website prüfen darfst."
         if not errors:
+            errors.update(_quota_form("site_check"))
+        if not errors:
             try:
                 result = compliance_check.analyze(form.get("url", ""))
             except seo_check.SeoCheckError as exc:
                 errors["url"] = str(exc)
+                plans.refund(current_user, "site_check")
             else:
                 report = compliance_check.build_report(result)
                 row = SeoReport(user_id=current_user.id, kind="compliance", url=result["url"][:500], score=result["score"],
@@ -696,10 +810,12 @@ def compliance_check_page():
 @bp.route("/markt-panel", methods=["GET", "POST"])
 @limiter.limit("8 per hour", methods=["POST"])
 def panel_page():
-    limit, max_n = panel.limits()
-    used = panel.used_this_month(current_user.id)
+    max_n = max(plans.PERSONA_SIZES)  # größte Laufgröße überhaupt
     unlimited = current_user.is_admin
-    sizes = [n for n in (25, 50, 100, 200, 300, 500) if n <= max_n] or [max_n]
+    q = plans.quota(current_user, "panel_runs")
+    limit, used = (q.limit or 0) + q.bonus_left, q.used
+    allowed = max_n if unlimited else min(max_n, plans.panel_persona_limit(current_user))
+    sizes = [n for n in plans.PERSONA_SIZES if n <= allowed] or [allowed or 25]
     errors: dict[str, str] = {}
     form = request.form
     if request.method == "POST":
@@ -723,8 +839,15 @@ def panel_page():
             errors["price_b"] = "Bitte einen gültigen Preis in Euro angeben."
         if not form.get("synthetic"):
             errors["synthetic"] = "Bitte bestätige, dass dir bewusst ist: Die Ergebnisse sind synthetisch (KI-generiert)."
-        if not unlimited and used >= limit:
-            errors["quota"] = f"Du hast dein Kontingent von {limit} Läufen in diesem Monat aufgebraucht."
+        if not errors and not unlimited:
+            if n > ((plans.user_plan(current_user).limits or {}).get("panel_personas") or 0):
+                try:
+                    plans.consume_pack(current_user, "panel_runs", n)
+                except plans.QuotaExceeded:
+                    errors["quota"] = (f"Für {n} Personas brauchst du ein passendes Markt-Panel-Paket oder einen "
+                                       "höheren Tarif. Siehe „Mein Tarif“.")
+            else:
+                errors.update(_quota_form("panel_runs", field="quota"))
         if not errors:
             run = panel.start_run(current_user, {"product_name": name, "description": desc, "audience": audience,
                                                  "regional": regional, "unit": unit, "price_a": pa, "price_b": pb, "n": n})
@@ -779,10 +902,13 @@ def security_check_page():
         if not form.get("authorized"):
             errors["authorized"] = "Bitte bestätige, dass du diese Domain prüfen darfst."
         if not errors:
+            errors.update(_quota_form("site_check"))
+        if not errors:
             try:
                 result = security_check.analyze(form.get("url", ""))
             except seo_check.SeoCheckError as exc:
                 errors["url"] = str(exc)
+                plans.refund(current_user, "site_check")
             else:
                 report = security_check.build_report(result)
                 row = SeoReport(user_id=current_user.id, kind="security", url=result["url"][:500], score=result["score"],
@@ -829,10 +955,13 @@ def laws_page():
         if not form.get("kein_ersatz"):
             errors["kein_ersatz"] = "Bitte bestätige, dass dir bewusst ist: Das ist keine Rechtsberatung."
         if not errors:
+            errors.update(_quota_form("law_search", field="query"))
+        if not errors:
             try:
                 hits = laws.search(query, category)
             except laws.LawsUnavailable as exc:
                 errors["query"] = str(exc)
+                plans.refund(current_user, "law_search")
             else:
                 answer = laws.explain(query, hits)
                 row = LawQuery(user_id=current_user.id, question=query[:1000], category=category, hits=hits,

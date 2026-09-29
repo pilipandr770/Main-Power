@@ -1,0 +1,58 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import width_class with context %}
+{% block page_title %}Tarif{% endblock %}
+{% macro euro(cents) -%}{{ '%.2f'|format((cents or 0) / 100)|replace('.', ',') }} €{%- endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>Tarif</h1><p class="muted mb-0">Klub-Tarif, KI-Budget für die kostenlose Nutzung, Tarife der Mitglieder und eure Provision.</p></div>
+{% if club_obj.stripe_customer_id and stripe_on and current_user.is_superadmin %}<form method="post" action="{{ url_for('admin.billing_portal') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Abo verwalten, Rechnungen</button></form>{% endif %}</div>
+{% if request.args.ok %}<div class="flash success mb-m">Danke! Der Klub-Tarif ist aktiv, sobald Stripe die Zahlung bestätigt.</div>{% endif %}
+
+<div class="kpis mb-l">
+  <div class="kpi"><b>{{ cplan.name if cplan else ('Pilot' if club_obj.plan == 'pilot' else club_obj.plan or '—') }}</b><span>Klub-Tarif{% if club_obj.plan_status %} · {{ club_obj.plan_status }}{% endif %}{% if club_obj.plan_period_end %} · bis {{ club_obj.plan_period_end|dt }}{% endif %}</span></div>
+  <div class="kpi"><b>{{ members }}{% if cplan and cplan.members_included %} / {{ cplan.members_included }}{% endif %}</b><span>aktive Mitglieder{% if cplan and cplan.members_included and members > cplan.members_included %} · {{ members - cplan.members_included }} × {{ euro(cplan.extra_member_cents) }} zusätzlich{% endif %}</span></div>
+  <div class="kpi"><b>{{ euro(budget.spent) }}{% if budget.limit %} / {{ euro(budget.limit) }}{% endif %}</b><span>KI-Kosten der Gratis-Nutzung (Monat){% if not budget.limit %} · ohne Obergrenze{% endif %}</span></div>
+  <div class="kpi"><b>{{ euro(commission) }}</b><span>eure Provision ({{ '%g'|format(commission_pct) }} % von {{ euro(revenue) }} Mitglieder-Abos, Monat)</span></div>
+</div>
+
+{% if budget.limit %}
+<section class="panel mb-l">
+  <h2>KI-Budget</h2>
+  <div class="progress"><span class="{{ width_class(budget.pct) }}"></span></div>
+  <p class="small muted mt-s mb-0">{{ budget.pct }} % genutzt. Ist das Budget erreicht, arbeiten die KI-Funktionen für Mitglieder im Basis-Tarif, die öffentliche {{ club.assistant_name }} und automatische Matching-Texte bis Monatsende ohne KI (Vorlagen). Mitglieder mit Plus oder Pro sind nicht betroffen. Bei 80 % bekommen Superadmins eine E-Mail.</p>
+</section>
+{% endif %}
+
+<section class="mb-l">
+  <h2>Klub-Tarife</h2>
+  <div class="grid grid-3">
+  {% for p in club_plans %}
+    <div class="panel{% if cplan and p.key == cplan.key %} plan-current{% endif %}">
+      <h3 class="mb-0">{{ p.name }}</h3><p class="small muted">{{ p.tagline }}</p>
+      <p><b class="plan-price">{{ euro(p.price_cents) }}</b><span class="small muted"> / Monat zzgl. {{ '%g'|format(vat) }} % MwSt.</span></p>
+      <ul class="small plan-list">{% for f in p.feature_lines %}<li>{{ f }}</li>{% endfor %}
+        <li>KI-Budget für Gratis-Nutzung: {{ euro(p.ai_budget_cents) if p.ai_budget_cents else 'ohne Obergrenze' }}/Monat</li></ul>
+      {% if cplan and p.key == cplan.key %}<span class="tag ok">Aktueller Tarif</span>
+      {% elif current_user.is_superadmin %}
+        <form method="post" action="{{ url_for('admin.billing_choose', key=p.key) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm"{% if not stripe_on %} disabled{% endif %}>{{ 'Wechseln' if club_obj.stripe_subscription_id else 'Buchen' }}</button></form>
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  {% if not stripe_on %}<p class="small muted mt-s">Online-Buchung ist noch nicht freigeschaltet; der Plattform-Betrieb kann den Tarif in der Konsole setzen.</p>{% endif %}
+</section>
+
+<div class="split">
+  <section>
+    <h2>Mitglieder nach Tarif</h2>
+    <div class="hbars">{% for key, p in member_plans.items() %}
+      <div class="hbar"><span>{{ p.name }}</span><div class="track"><i class="{{ width_class(100 * (by_plan.get(key, 0)) / (members or 1)) }}"></i></div><span class="num">{{ by_plan.get(key, 0) }}</span></div>
+    {% endfor %}</div>
+    <p class="small muted mt-m">Plus und Pro buchen Mitglieder selbst unter „Mein Tarif“. Ihr könnt einzelnen Mitgliedern einen Tarif auch schenken – im Mitgliedsprofil unter „Bearbeiten“.</p>
+  </section>
+  <section class="panel">
+    <h2>Zahlende und freigeschaltete Mitglieder</h2>
+    {% for u in paying %}<p class="mb-0"><a href="{{ url_for('admin.user_detail', user_id=u.id) }}">{{ u.full_name }}</a> <span class="small muted">· {{ member_plans[u.plan_key].name if u.plan_key in member_plans else u.plan_key }} · {{ 'vom Klub' if u.plan_source == 'admin' else 'Abo' }}{% if u.plan_until %} bis {{ u.plan_until|dt }}{% endif %}</span></p>
+    {% else %}<p class="muted mb-0">Noch niemand.</p>{% endfor %}
+  </section>
+</div>
+{% endblock %}

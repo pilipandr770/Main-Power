@@ -49,7 +49,10 @@ def _record_usage(purpose: str, model: str, resp, sink: dict | None = None) -> N
         if sink is not None:  # Verbrauch je Auftrag (z. B. Markt-Panel) mitzählen
             sink["in"] = sink.get("in", 0) + t_in
             sink["out"] = sink.get("out", 0) + t_out
-        db.session.add(LLMUsage(purpose=purpose, model=model, input_tokens=t_in, output_tokens=t_out))
+        from .plans import usage_context
+        user_id, paid = usage_context()
+        db.session.add(LLMUsage(purpose=purpose, model=model, input_tokens=t_in, output_tokens=t_out,
+                                user_id=user_id, paid=paid))
         db.session.commit()
     except Exception:  # pragma: no cover
         log.exception("Token-Zähler konnte nicht gespeichert werden")
@@ -80,6 +83,8 @@ def complete(system: str, messages: list[dict], max_tokens: int = 900, temperatu
     `temperature` wird bewusst nicht gesendet: aktuelle Anthropic-SDKs/Modelle lehnen den Parameter ab."""
     if not llm_enabled():
         raise LLMUnavailable("ANTHROPIC_API_KEY fehlt")
+    from .plans import guard_llm
+    guard_llm()  # Gratis-Nutzung über dem Klub-Budget -> Fallbacks ohne KI
     import anthropic
 
     client = anthropic.Anthropic(api_key=current_app.config["ANTHROPIC_API_KEY"], timeout=45.0)

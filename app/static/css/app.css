@@ -449,3 +449,11 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
 }
 select.w-auto { width: auto; max-width: 100%; }
 @media (max-width: 640px) { select.w-auto { width: 100%; } }
+
+/* ---------- Tarife ---------- */
+.plan-current { border-color: var(--ember); }
+.plan-price { font-size: 1.5rem; letter-spacing: -0.02em; }
+.plan-list { padding-left: 1.1rem; margin: .4rem 0 .6rem; }
+.plan-list li { margin-bottom: .25rem; }
+.calc td, .calc th { font-variant-numeric: tabular-nums; }
+.tag.bad { border-color: var(--err); color: var(--err); }

@@ -87,6 +87,13 @@ class Club(db.Model):
     notes = db.Column(db.Text, default="")
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
+    # Klub-Abo (B2B) über Stripe; plan = Plan.key eines Klub-Tarifs („pilot“ = ohne Abrechnung, unbegrenzt)
+    plan_status = db.Column(db.String(20), default="")          # active|trialing|past_due|canceled
+    stripe_customer_id = db.Column(db.String(80))
+    stripe_subscription_id = db.Column(db.String(80), index=True)
+    plan_period_end = db.Column(db.DateTime)
+    plan_cancel_at_end = db.Column(db.Boolean, default=False, nullable=False)
+
     @property
     def domain_list(self) -> list[str]:
         return [d.strip().lower() for d in (self.domains or "").replace(";", ",").split(",") if d.strip()]
@@ -210,6 +217,16 @@ class User(UserMixin, TenantMixin, db.Model):
     telegram_user_id = db.Column(db.BigInteger, nullable=True, index=True)
     telegram_username = db.Column(db.String(80))
     telegram_link_token = db.Column(db.String(64), unique=True, nullable=True)
+
+    # Mitglieder-Tarif (Plan.key). Quelle: stripe (Abo) | admin (vom Klub vergeben, optional bis plan_until)
+    plan_key = db.Column(db.String(30), default="basis", nullable=False)
+    plan_source = db.Column(db.String(10), default="")
+    plan_status = db.Column(db.String(20), default="")          # Stripe: active|trialing|past_due|canceled
+    plan_until = db.Column(db.DateTime)                         # Ende einer Vergabe durch den Klub
+    plan_period_end = db.Column(db.DateTime)                    # Ende der bezahlten Periode (Stripe)
+    plan_cancel_at_end = db.Column(db.Boolean, default=False, nullable=False)
+    stripe_customer_id = db.Column(db.String(80))
+    stripe_subscription_id = db.Column(db.String(80), index=True)
 
     profile = db.relationship("Profile", uselist=False, back_populates="user", cascade="all, delete-orphan")
     consents = db.relationship("Consent", back_populates="user", cascade="all, delete-orphan",
@@ -641,6 +658,129 @@ class LLMUsage(TenantMixin, db.Model):
     input_tokens = db.Column(db.Integer, default=0, nullable=False)
     output_tokens = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
+    user_id = db.Column(db.Integer, index=True)                 # wer den Aufruf ausgelöst hat (falls angemeldet)
+    paid = db.Column(db.Boolean, default=False, nullable=False)  # zahlender Tarif: zählt nicht gegen das Klub-Budget
+
+
+# --------------------------------------------------------------------------- Tarife, Kontingente, Zahlungen
+class Plan(db.Model):
+    """Tarif der Plattform (für alle Klubs gleich): Mitglieder-Tarife (Basis/Plus/Pro) und Klub-Tarife (B2B).
+
+    limits: {Funktion: Monatskontingent | None = unbegrenzt}; Funktionen siehe services/plans.FEATURES.
+    Preise in Cent je Monat; Mitglieder-Tarife inkl. MwSt. (Verbraucher), Klub-Tarife zzgl. MwSt.
+    """
+    __tablename__ = "plans"
+    KINDS = {"member": "Mitglieder-Tarif", "club": "Klub-Tarif"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(30), unique=True, nullable=False)
+    kind = db.Column(db.String(10), nullable=False, default="member")
+    name = db.Column(db.String(80), nullable=False)
+    tagline = db.Column(db.String(200), default="")
+    price_cents = db.Column(db.Integer, default=0, nullable=False)
+    features = db.Column(db.Text, default="")                  # Leistungsbeschreibung, eine Zeile je Punkt
+    limits = db.Column(db.JSON)
+    members_included = db.Column(db.Integer)                   # Klub-Tarif
+    extra_member_cents = db.Column(db.Integer, default=0)       # Klub-Tarif: je weiteres Mitglied/Monat
+    ai_budget_cents = db.Column(db.Integer)                     # Klub-Tarif: Obergrenze KI-Kosten der Gratis-Nutzung
+    max_club_questions = db.Column(db.Integer)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    sort = db.Column(db.Integer, default=0)
+    stripe_product_id = db.Column(db.String(80))
+    stripe_price_id = db.Column(db.String(80))
+    stripe_price_amount = db.Column(db.Integer)                  # Betrag, für den stripe_price_id angelegt wurde
+
+    @property
+    def is_free(self) -> bool:
+        return not self.price_cents
+
+    @property
+    def feature_lines(self) -> list[str]:
+        return [f.strip() for f in (self.features or "").splitlines() if f.strip()]
+
+
+class AddOn(db.Model):
+    """Einmal-Kauf (Zusatzpaket), z. B. „Markt-Panel 100 Personas“ oder „10 Website-Checks“. Preise inkl. MwSt."""
+    __tablename__ = "addons"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(40), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(300), default="")
+    price_cents = db.Column(db.Integer, nullable=False, default=0)
+    feature = db.Column(db.String(30), nullable=False)
+    units = db.Column(db.Integer, nullable=False, default=1)
+    personas = db.Column(db.Integer)                             # nur Markt-Panel: Personas je Lauf
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    sort = db.Column(db.Integer, default=0)
+    stripe_product_id = db.Column(db.String(80))
+    stripe_price_id = db.Column(db.String(80))
+    stripe_price_amount = db.Column(db.Integer)
+
+
+class PlatformSetting(db.Model):
+    """Plattformweite Einstellungen (nicht je Klub): MwSt.-Satz, Provision, Kostenansätze, Stripe-IDs."""
+    __tablename__ = "platform_settings"
+
+    key = db.Column(db.String(80), primary_key=True)
+    value = db.Column(db.Text, default="")
+
+    @classmethod
+    def get(cls, key: str, default: str = "") -> str:
+        row = db.session.get(cls, key)
+        return row.value if row and row.value is not None else default
+
+    @classmethod
+    def set(cls, key: str, value) -> None:
+        row = db.session.get(cls, key) or cls(key=key)
+        row.value = str(value)
+        db.session.add(row)
+
+
+class UsageEvent(TenantMixin, db.Model):
+    """Nutzung einer kontingentierten Funktion (zählt gegen das Monatskontingent des Tarifs)."""
+    __tablename__ = "usage_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    feature = db.Column(db.String(30), nullable=False, index=True)
+    units = db.Column(db.Integer, default=1, nullable=False)
+    from_bonus = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+
+class QuotaBonus(TenantMixin, db.Model):
+    """Zusätzliches Kontingent aus einem Zusatzpaket (verfällt nicht am Monatsende)."""
+    __tablename__ = "quota_bonus"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    feature = db.Column(db.String(30), nullable=False)
+    units = db.Column(db.Integer, nullable=False)
+    used = db.Column(db.Integer, default=0, nullable=False)
+    personas = db.Column(db.Integer)                             # Markt-Panel-Paket: Personas je Lauf
+    source = db.Column(db.String(120), unique=True)              # Stripe-Session (Idempotenz) oder „admin:…“
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    @property
+    def left(self) -> int:
+        return max(0, self.units - self.used)
+
+
+class Payment(TenantMixin, db.Model):
+    """Zahlungseingang (Stripe) – Grundlage für Umsatz je Klub und Provision."""
+    __tablename__ = "payments"
+    KINDS = {"member_plan": "Mitglieder-Abo", "club_plan": "Klub-Abo", "addon": "Zusatzpaket", "event": "Termin"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, index=True)
+    kind = db.Column(db.String(20), nullable=False)
+    plan_key = db.Column(db.String(40), default="")
+    amount_cents = db.Column(db.Integer, nullable=False, default=0)
+    currency = db.Column(db.String(3), default="eur")
+    reference = db.Column(db.String(120), unique=True)           # Stripe-Rechnung oder Checkout-Session
+    description = db.Column(db.String(200), default="")
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
 class Service(TenantMixin, db.Model):
@@ -759,8 +899,6 @@ class Setting(TenantMixin, db.Model):
     DEFAULTS = {
         "member_events_require_approval": "1",
         "auto_invites": "1",
-        "panel_monthly_limit": "3",   # Markt-Panel-Läufe je Mitglied und Monat (Admins unbegrenzt)
-        "panel_max_personas": "100",  # Obergrenze Personas je Lauf
         "aiko_extra_instructions": "",
         "telegram_group_title": "",  # leer = Klubname
         "announcement": "",

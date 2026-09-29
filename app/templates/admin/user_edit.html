@@ -57,6 +57,18 @@
     {{ textarea("unknown_fact", "Steht in keinem Lebenslauf", v.unknown_fact if v else p.unknown_fact, rows=2) }}
     {% set cqs = qn.club_questions() %}{% if cqs %}<h3 class="mt-m">Fragen von {{ club.name }}</h3>{{ club_question_fields(cqs) }}{% endif %}
   </fieldset>
+  <fieldset><legend>Tarif</legend>
+    {% if stripe_managed %}
+      <p class="mb-0">{{ u.plan_key }} – eigenes Abo über Stripe (Status {{ u.plan_status }}). Änderungen nimmt das Mitglied selbst unter „Mein Tarif“ vor.</p>
+    {% else %}
+    <div class="grid grid-2">
+      <div class="field"><label for="f-plan_key">Tarif vergeben<span class="hint">Z. B. für Vorstand, Partner oder als Kulanz. Die KI-Nutzung zählt – anders als bei eigenen Abos – gegen das KI-Budget des Klubs.</span></label>
+        <select id="f-plan_key" name="plan_key">{% for mp in member_plans %}<option value="{{ mp.key }}"{% if u.plan_key == mp.key %} selected{% endif %}>{{ mp.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="f-plan_until">Gültig bis (optional)<span class="hint">Leer = unbefristet. Danach gilt automatisch Basis.</span></label>
+        <input id="f-plan_until" type="date" name="plan_until" value="{{ u.plan_until.strftime('%Y-%m-%d') if u.plan_until else '' }}"></div>
+    </div>
+    {% endif %}
+  </fieldset>
   <fieldset><legend>Bevorzugte Formate</legend>
     {% for key, f in formats.items() if key != 'community' %}
     <label class="check"><input type="checkbox" name="formats" value="{{ key }}"{% if key in p.formats_list %} checked{% endif %}><span>{{ f.name }}</span></label>

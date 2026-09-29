@@ -1,0 +1,53 @@
+{% extends "platform/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
+{% block page_title %}{{ plan.name or 'Neuer Tarif' }}{% endblock %}
+{% macro euro(cents) -%}{{ '%.2f'|format((cents or 0) / 100)|replace('.', ',') }} €{%- endmacro %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('platform.tariffs') }}">Tarife</a></p><h1>{{ plan.name or 'Neuer Tarif' }}</h1>
+<p class="muted mb-0">{{ plan.KINDS[plan.kind] }} · {{ 'Preis inkl. MwSt. (Verbraucher)' if plan.kind == 'member' else 'Preis zzgl. MwSt. (B2B)' }}</p></div></div>
+{% if calc %}
+<div class="kpis mb-l">
+  <div class="kpi"><b>{{ euro(calc.net) }}</b><span>Netto-Erlös / Monat</span></div>
+  <div class="kpi"><b>{{ '∞' if calc.unbounded else euro(calc.cost) }}</b><span>KI-Kosten im ungünstigsten Fall{% if plan.kind == 'club' %} (Gratis-Nutzung, gedeckelt durch Budget){% endif %}</span></div>
+  <div class="kpi"><b>{{ euro(calc.fee) }}</b><span>Stripe-Gebühr (1,5 % + 0,25 €)</span></div>
+  <div class="kpi"><b>{{ '—' if calc.unbounded else euro(calc.margin) }}</b><span>Ergebnis im ungünstigsten Fall{% if calc.margin_pct is not none %} · {{ '%.0f'|format(calc.margin_pct) }} %{% endif %}</span></div>
+</div>
+{% endif %}
+<form method="post" class="maxw">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset><legend>Tarif</legend>
+    {% if not plan.id %}
+    <div class="grid grid-2">
+      {{ input("key", "Schlüssel", form.get("key"), errors=errors, required=True, hint="z. B. plus-jahr – nicht mehr änderbar") }}
+      <div class="field"><label for="f-kind">Art</label><select id="f-kind" name="kind">{% for k, l in plan.KINDS.items() %}<option value="{{ k }}"{% if (form.get('kind') or plan.kind) == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    </div>{% else %}<p class="small muted">Schlüssel: <b>{{ plan.key }}</b></p>{% endif %}
+    <div class="grid grid-2">
+      {{ input("name", "Name", form.get("name") or plan.name, errors=errors, required=True) }}
+      {{ input("price", "Preis je Monat in Euro", form.get("price") or ('%.2f'|format((plan.price_cents or 0) / 100)), errors=errors, hint="0 = kostenlos") }}
+    </div>
+    {{ input("tagline", "Unterzeile", form.get("tagline") or plan.tagline) }}
+    {{ textarea("features", "Leistungen (eine Zeile je Punkt)", form.get("features") or plan.features, rows=4) }}
+    <div class="grid grid-2">{{ input("sort", "Reihenfolge", (form.get("sort") or plan.sort or 0)|string, type="number") }}</div>
+    {{ check("active", "Aktiv (buchbar)", plan.active if not form else form.get("active")) }}
+  </fieldset>
+  <fieldset><legend>Monatskontingente{% if plan.kind == 'club' %} (werden für Klub-Tarife nicht genutzt){% endif %}</legend>
+    <p class="small muted">Leer = unbegrenzt. Unbegrenzte Kontingente machen die Kosten nach oben offen – nur mit Bedacht.</p>
+    <div class="grid grid-3">{% for f, (name, hint, _c) in features.items() %}
+      {% set cur = (plan.limits or {}).get(f) %}
+      {{ input("limit." ~ f, name, form.get("limit." ~ f) if form else ('' if cur is none else cur|string), errors=errors, hint=hint, type="text") }}
+    {% endfor %}</div>
+  </fieldset>
+  {% if plan.kind == 'club' %}
+  <fieldset><legend>Klub-Tarif</legend>
+    <div class="grid grid-2">
+      {{ input("members_included", "Mitglieder inklusive", form.get("members_included") or (plan.members_included or '')|string) }}
+      {{ input("extra_member", "Je weiteres Mitglied (Euro/Monat)", form.get("extra_member") or ('%.2f'|format((plan.extra_member_cents or 0) / 100))) }}
+      {{ input("ai_budget", "KI-Budget für Gratis-Nutzung (Euro/Monat)", form.get("ai_budget") or ('' if plan.ai_budget_cents is none else '%.2f'|format(plan.ai_budget_cents / 100)), hint="Leer = ohne Obergrenze. Empfehlung: höchstens 50 % des Preises.") }}
+      {{ input("max_club_questions", "Eigene Fragen höchstens", form.get("max_club_questions") or (plan.max_club_questions or '')|string) }}
+    </div>
+  </fieldset>
+  {% endif %}
+  <button class="btn" type="submit">Speichern</button>
+  <p class="small muted mt-s">Preisänderungen gelten für neue Buchungen; bestehende Abos behalten ihren Preis, bis sie gewechselt werden.</p>
+</form>
+{% endblock %}

@@ -13,6 +13,7 @@
       <a href="{{ url_for('admin.users') }}" class="{{ 'on' if ep.startswith('admin.user') }}">Mitglieder</a>
       <a href="{{ url_for('admin.expert_search') }}" class="{{ 'on' if ep == 'admin.expert_search' }}">Expert:innen finden</a>
       <a href="{{ url_for('admin.analytics') }}" class="{{ 'on' if ep.startswith('admin.analytics') }}">Auswertung</a>
+      <a href="{{ url_for('admin.billing') }}" class="{{ 'on' if ep.startswith('admin.billing') }}">Tarif</a>
       <a href="{{ url_for('admin.events') }}" class="{{ 'on' if ep.startswith('admin.event') }}">Termine</a>
       <a href="{{ url_for('admin.intros') }}" class="{{ 'on' if ep == 'admin.intros' }}">Kontaktanfragen</a>
       <a href="{{ url_for('admin.services') }}" class="{{ 'on' if ep.startswith('admin.service') }}">Leistungen & Anfragen</a>

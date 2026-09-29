@@ -69,6 +69,19 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
 - Nicht je Klub: Telegram-Bot, SMTP, Stripe, Anthropic-Key (plattformweit). KI-Verbrauch wird je Klub gezählt.
 - Nie Texte aus dem vertraulichen Main-Power-Konzept in andere Presets übernehmen.
 
+## Tarife, Kontingente, Stripe
+- `services/plans.py`: Mitglieder-Tarife (Basis/Plus/Pro) und Klub-Tarife (Starter/Club/Verband) als Daten (`Plan`,
+  plattformweit), Zusatzpakete (`AddOn`). Monatskontingente je Funktion (`FEATURES`), Verbrauch in `UsageEvent`,
+  Pakete in `QuotaBonus`. Routen verbrauchen vor der KI (`plans.consume`), gescheiterte Checks werden zurückgebucht.
+- KI-Budget je Klub (`ai_budget_cents`): `llm.complete` ruft `plans.guard_llm()`; ist die Gratis-Nutzung des Monats
+  darüber, gibt es `LLMUnavailable` → Fallbacks. Nur bezahlte Stripe-Abos sind ausgenommen (vom Klub vergebene
+  Tarife zählen gegen das Budget). `LLMUsage.user_id/paid` ordnen Kosten zu.
+- `services/billing.py`: Stripe Checkout (Abo inkl. MwSt. für Mitglieder, zzgl. MwSt. + USt-ID für Klubs), Tarifwechsel
+  mit Proration, Kundenportal, Webhooks (`process_event`, idempotent über `Payment.reference`), Abgleich bei Rückkehr
+  (`sync_checkout`, `sync_subscription`). stripe-python >= 15: Objekte mit `as_dict()` umwandeln (kein `.get`).
+- Verwaltung: Plattform-Konsole „Tarife“ (Preise, Kontingente, Kalkulation mit Marge im ungünstigsten Fall, Umsatz je
+  Klub), Admin „Tarif“ (Klub-Abo, Budget, Provision, Vergabe an Mitglieder), Mitglied „Mein Tarif“.
+
 ## Roadmap nach dem MVP (mit Andrii abgestimmt, 26.09.2026)
 Bewusst zurückgestellt, damit MVP und Demo schlank bleiben: Passwort-Reset und E-Mail-Verifizierung (SMTP), 2FA, Stripe,
 Sicherheitsrunde (White-Team-Audit), Cybersecurity-Angebote (automatisierter Blackbox-Pentest-Service, allgemeine Lektionen).

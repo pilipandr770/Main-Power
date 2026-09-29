@@ -1,0 +1,69 @@
+{% extends "platform/_layout.html" %}
+{% block page_title %}Tarife{% endblock %}
+{% macro euro(cents) -%}{{ '%.2f'|format((cents or 0) / 100)|replace('.', ',') }} €{%- endmacro %}
+{% macro marge(c) -%}
+{% if c.unbounded %}<span class="tag bad">offen</span>{% elif c.margin_pct is none %}—{% else %}<span class="tag {{ 'ok' if c.margin_pct >= 40 else 'warn' if c.margin_pct >= 30 else 'bad' }}">{{ '%.0f'|format(c.margin_pct) }} %</span>{% endif %}
+{%- endmacro %}
+{% block content %}
+<div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('platform.dashboard') }}">Klubs</a></p><h1>Tarife und Kontingente</h1>
+<p class="muted mb-0">Preise, Monatskontingente je Funktion und Zusatzpakete für alle Klubs. Die Kalkulation zeigt den ungünstigsten Fall: alle Kontingente voll ausgeschöpft.</p></div>
+<div class="row"><a class="btn btn-sm" href="{{ url_for('platform.tariff_edit', kind='member') }}">Mitglieder-Tarif</a><a class="btn btn-ghost btn-sm" href="{{ url_for('platform.tariff_edit', kind='club') }}">Klub-Tarif</a></div></div>
+
+{% for kind, title in (('member', 'Mitglieder-Tarife (Preise inkl. MwSt.)'), ('club', 'Klub-Tarife (Preise zzgl. MwSt.)')) %}
+<section class="mb-l"><h2>{{ title }}</h2>
+<div class="table-wrap"><table class="calc">
+<thead><tr><th>Tarif</th><th>Preis</th><th>Netto</th><th>{{ 'Kontingente' if kind == 'member' else 'Mitglieder / KI-Budget' }}</th><th>Kosten max.</th><th>Stripe</th><th>Ergebnis max.</th><th>Marge</th><th>Status</th></tr></thead>
+<tbody>
+{% for p in plans if p.kind == kind %}{% set c = calc[p.id] %}
+<tr>
+  <td><a href="{{ url_for('platform.tariff_edit', pid=p.id) }}"><b>{{ p.name }}</b></a><br><span class="small muted">{{ p.key }}</span></td>
+  <td>{{ euro(p.price_cents) }}</td><td>{{ euro(c.net) }}</td>
+  <td class="small">{% if kind == 'member' %}{% for f, (name, _h, _c) in features.items() %}{{ name }}: {{ '∞' if (p.limits or {}).get(f) is none else (p.limits or {}).get(f) }}{{ '' if loop.last else ' · ' }}{% endfor %}
+      {% else %}{{ p.members_included or '∞' }} Mitglieder · Budget {{ euro(p.ai_budget_cents) if p.ai_budget_cents else '∞' }}{% endif %}</td>
+  <td>{{ '∞' if c.unbounded else euro(c.cost) }}</td><td>{{ euro(c.fee) }}</td>
+  <td>{{ '—' if c.unbounded else euro(c.margin) }}</td><td>{{ marge(c) }}</td>
+  <td><span class="tag {{ 'ok' if p.active else '' }}">{{ 'aktiv' if p.active else 'aus' }}</span></td>
+</tr>
+{% endfor %}
+</tbody></table></div></section>
+{% endfor %}
+
+<section class="mb-l" id="pakete"><div class="row between"><h2 class="mb-0">Zusatzpakete (inkl. MwSt.)</h2><a class="btn btn-ghost btn-sm" href="{{ url_for('platform.addon_edit') }}">Neues Paket</a></div>
+<div class="table-wrap mt-m"><table class="calc">
+<thead><tr><th>Paket</th><th>Preis</th><th>Inhalt</th><th>Kosten max.</th><th>Marge</th><th>Status</th></tr></thead>
+<tbody>{% for a in addons %}
+  {% set net = a.price_cents / (1 + vat / 100) %}
+  {% set cost = a.units * (unit_costs[a.feature] + ((a.personas or 0) * unit_costs['panel_personas'] if a.feature == 'panel_runs' else 0)) %}
+  {% set fee = a.price_cents * 0.015 + 25 %}
+  <tr><td><a href="{{ url_for('platform.addon_edit', aid=a.id) }}"><b>{{ a.name }}</b></a><br><span class="small muted">{{ a.key }}</span></td>
+    <td>{{ euro(a.price_cents) }}</td><td class="small">{{ a.units }} × {{ features[a.feature][0] }}{% if a.personas %} à {{ a.personas }} Personas{% endif %}</td>
+    <td>{{ euro(cost) }}</td><td><span class="tag {{ 'ok' if (net - cost - fee) / net >= 0.4 else 'warn' }}">{{ '%.0f'|format(100 * (net - cost - fee) / net) }} %</span></td>
+    <td><span class="tag {{ 'ok' if a.active else '' }}">{{ 'aktiv' if a.active else 'aus' }}</span></td></tr>
+{% endfor %}</tbody></table></div></section>
+
+<section class="panel mb-l"><h2>Kalkulationsgrundlagen</h2>
+<form method="post" action="{{ url_for('platform.tariff_settings') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="grid grid-3">
+    <div class="field"><label for="f-vat">MwSt.-Satz in %<span class="hint">0 bei Kleinunternehmerregelung</span></label><input id="f-vat" name="vat_rate" value="{{ '%g'|format(vat) }}"></div>
+    <div class="field"><label for="f-comm">Provision an Klubs in %<span class="hint">auf Mitglieder-Abos (netto)</span></label><input id="f-comm" name="commission_pct" value="{{ '%g'|format(commission) }}"></div>
+  </div>
+  <h3>Kostenansatz je Nutzung (Cent, mit Puffer)</h3>
+  <div class="grid grid-3">{% for f, (name, hint, _d) in features.items() %}
+    <div class="field"><label for="f-cost-{{ f }}">{{ name }}<span class="hint">{{ hint }}{% if f == 'panel_personas' %} – je Persona{% elif f == 'panel_runs' %} – Auswertung je Lauf{% endif %}</span></label>
+    <input id="f-cost-{{ f }}" name="cost.{{ f }}" value="{{ '%g'|format(unit_costs[f]) }}"></div>{% endfor %}</div>
+  <button class="btn btn-sm">Speichern</button>
+</form>
+{% if measured %}<h3 class="mt-l">Gemessene Ø-Kosten der letzten 30 Tage (Cent je Aufruf)</h3>
+<p class="small">{% for p, c in measured|dictsort %}<span class="tag">{{ p }}: {{ '%.2f'|format(c) }}</span> {% endfor %}</p>
+<p class="small muted mb-0">Liegen gemessene Werte über dem Ansatz, Ansatz erhöhen – die Margen oben passen sich an.</p>{% endif %}
+</section>
+
+<section class="mb-l"><h2>Umsatz und Ergebnis im laufenden Monat (netto)</h2>
+<div class="table-wrap"><table class="calc">
+<thead><tr><th>Klub</th><th>Mitglieder-Abos + Pakete</th><th>Klub-Abo</th><th>Provision an Klub</th><th>KI-Kosten</th><th>Ergebnis</th></tr></thead>
+<tbody>{% for r in revenue %}<tr><td>{{ r.club.name }}<br><span class="small muted">{{ r.club.plan }}{% if r.club.plan_status %} · {{ r.club.plan_status }}{% endif %}</span></td>
+<td>{{ euro(r.member) }}</td><td>{{ euro(r.club_plan) }}</td><td>{{ euro(r.commission) }}</td><td>{{ euro(r.ai) }}</td>
+<td><b class="{{ '' if r.result >= 0 else 'error-text' }}">{{ euro(r.result) }}</b></td></tr>{% endfor %}</tbody></table></div>
+<p class="small muted">Ohne Hosting-Fixkosten (VPS, E-Mail, Mistral für die Gesetzes-Suche: zusammen ca. 40 €/Monat).</p></section>
+{% endblock %}
