@@ -24,7 +24,13 @@
     {% if h.id in nicht_passend %}<span class="tag warn">nicht einschlägig</span>{% elif h.id in erl_by_id %}<span class="tag ok">passt zur Frage</span>{% endif %}
   </div>
   {% if h.titel %}<p class="small muted mb-0">{{ h.law_title }}{% if h.law_title %} — {% endif %}{{ h.titel }}</p>{% endif %}
+  {% if h.auszug %}
+  <p class="small muted mt-s mb-0">Ausschnitt aus dem Wortlaut (Anfang der Vorschrift und die zur Frage passende Stelle, Auslassungen mit „…“):</p>
+  <p class="pre mt-s">{{ h.auszug }}</p>
+  <details class="guide"><summary>Vollständigen Text von {{ h.law_abbreviation or h.slug }} {{ h.enbez }} anzeigen</summary><p class="pre mt-s">{{ h.text }}</p></details>
+  {% else %}
   <p class="pre mt-s">{{ h.text }}</p>
+  {% endif %}
   {% if h.id in erl_by_id %}
   <div class="mt-s"><span class="ai-mark">Erläuterung · {{ club.assistant_name }} (KI)</span><p class="mb-0 mt-s">{{ erl_by_id[h.id] }}</p></div>
   {% elif h.id in nicht_passend %}

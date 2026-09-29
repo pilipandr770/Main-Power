@@ -105,13 +105,17 @@ def search(query: str, category: str = "", k: int = 6, expand: bool = True) -> l
     ranked = sorted(best.values(), key=lambda h: -float(h.get("score", 0)))[:k]
     hits = []
     for i, h in enumerate(ranked):
+        # laws-api v2 liefert je § den vollständigen Text (full_text); ältere Versionen nur das gefundene Stück (part)
+        text = str(h.get("text", ""))[:30_000]
         hits.append({"id": i + 1, "slug": str(h.get("slug", ""))[:80],
                      "law_abbreviation": str(h.get("law_abbreviation", ""))[:120],
                      "law_title": str(h.get("law_title", ""))[:300], "category": str(h.get("category", ""))[:80],
                      "enbez": str(h.get("enbez", ""))[:60], "titel": str(h.get("titel", ""))[:300],
-                     "text": str(h.get("text", ""))[:6000], "stand": h.get("stand") or [],
+                     "text": text, "auszug": excerpt(text, query, anchor=str(h.get("matched_part") or ""))
+                     if len(text) > 3000 else "", "matched_part": str(h.get("matched_part") or "")[:4000],
+                     "stand": h.get("stand") or [],
                      "source_url": str(h.get("source_url", ""))[:300], "score": round(float(h.get("score", 0)), 3),
-                     "part": str(h.get("part") or "")[:10]})
+                     "part": str(h.get("part") or "")[:10], "full_text": bool(h.get("full_text"))})
     return hits
 
 
@@ -143,7 +147,7 @@ _STOP = set("der die das und oder ein eine einen einem einer ich du wir mich mir
              "welche welcher welches bis zu zum zur von vom mit für bei auf aus als ist sind wird werden nach".split())
 
 
-def excerpt(text: str, query: str, size: int = 2400) -> str:
+def excerpt(text: str, query: str, size: int = 2400, anchor: str = "") -> str:
     """Ausschnitt einer langen Vorschrift für die KI-Erläuterung, ohne Sinnverlust:
 
     Anfang der Vorschrift (Absatz 1 mit Definitionen und Aufzählungen, auf die später verwiesen wird) + Einleitungssatz
@@ -154,11 +158,18 @@ def excerpt(text: str, query: str, size: int = 2400) -> str:
         return text
     head_len, lead_len = 700, 300
     win = size - head_len - lead_len
-    stems = {w[:6] for w in re.findall(r"[a-zäöüß]{4,}", query.lower()) if w not in _STOP}
+    # Wortstämme der Frage; seltene Wörter zählen mehr („Arbeitszimmer“ schlägt das allgegenwärtige „Steuer“)
+    stems = {w[:max(6, len(w) - 3)] for w in re.findall(r"[a-zäöüß]{4,}", query.lower()) if w not in _STOP}
     low = text.lower()
-    best, best_hits = head_len, 0
-    for start in range(head_len, max(head_len + 1, len(text) - win + 1), 150):
-        n = sum(low[start:start + win].count(s) for s in stems)
+    weight = {s: 1.0 / (1 + low.count(s)) for s in stems if s in low}
+    lo, hi = head_len, len(text)
+    if anchor:  # Suche auf das Stück beschränken, das die Vektorsuche gefunden hat
+        pos = text.find(anchor.strip()[:200])
+        if pos >= 0:
+            lo, hi = max(head_len, pos - win // 2), min(len(text), pos + len(anchor) + win // 2)
+    best, best_hits = head_len, 0.0
+    for start in range(lo, max(lo + 1, hi - win + 1), 100):
+        n = sum(low[start:start + win].count(s) * w for s, w in weight.items())
         if n > best_hits:
             best, best_hits = start, n
     if not best_hits:
@@ -200,7 +211,8 @@ def explain(query: str, hits: list[dict]) -> dict:
                            "wir sie nicht ein – lies bitte den vollständigen amtlichen Text über den Link."}
     payload = {"frage": query, "fundstellen": [
         {"id": h["id"], "gesetz": h["law_abbreviation"] or h["slug"], "paragraph": h["enbez"], "titel": h["titel"],
-         "kategorie": h["category"], "text": excerpt(h["text"], query)} for h in explainable]}
+         "kategorie": h["category"], "text": excerpt(h["text"], query, anchor=h.get("matched_part", ""))}
+        for h in explainable]}
     data = None
     for attempt in (1, 2):
         try:

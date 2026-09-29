@@ -99,3 +99,29 @@ def test_panel_business_personas_have_no_health_segment_and_ab_flag():
     assert seg({"kind": "b", "health": "gesund"}) is None
     assert seg({"kind": "c", "health": "gesund"}) == "gesund"
     assert panel._cut("Ein recht langer Satz über den Preis von neunundvierzig Euro", 30).endswith(" …")
+
+
+def test_laws_api_v2_full_text_is_explained_with_context(app, monkeypatch):
+    """laws-api v2: je § der Volltext (full_text) – kein Mittelteil mehr, Ausschnitt enthält den Einleitungssatz."""
+    full = ("(1) Gewinn ist der Unterschiedsbetrag. " * 40 + "(5) Die folgenden Betriebsausgaben dürfen den Gewinn "
+            "nicht mindern: " + "Nr. x. " * 400 + "6b. Aufwendungen für ein häusliches Arbeitszimmer. Dies gilt nicht, "
+            "wenn das Arbeitszimmer den Mittelpunkt bildet. " + "y. " * 800)
+
+    class R:
+        def raise_for_status(self): pass
+        def json(self): return [{"slug": "estg", "enbez": "§ 4", "law_abbreviation": "EStG", "text": full,
+                                 "full_text": True, "matched_part": "6b. …", "score": 0.85}]
+    monkeypatch.setattr(laws.requests, "get", lambda *a, **k: R())
+    seen = []
+    monkeypatch.setattr(laws, "complete", lambda s, m, **k: seen.append(json.loads(m[-1]["content"])) or
+                        json.dumps({"erlaeuterungen": [{"id": 1, "text": "ok"}], "nicht_passend": [], "hinweis": ""}))
+    app.config["LAWS_API_URL"] = "http://laws.test"
+    with app.app_context():
+        hits = laws.search("Kann ich ein häusliches Arbeitszimmer absetzen?", expand=False)
+        ans = laws.explain("Kann ich ein häusliches Arbeitszimmer absetzen?", hits)
+    h = hits[0]
+    assert h["full_text"] and not h["part"] and "dürfen den Gewinn nicht mindern" in h["auszug"]
+    assert "Arbeitszimmer" in h["auszug"] and len(h["auszug"]) < len(h["text"])
+    sent = seen[0]["fundstellen"][0]["text"]
+    assert "dürfen den Gewinn nicht mindern" in sent and "Arbeitszimmer" in sent
+    assert ans["nur_wortlaut"] == [] and ans["erlaeuterungen"][0]["id"] == 1
