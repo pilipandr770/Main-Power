@@ -51,7 +51,7 @@ def export_user(user: User) -> dict:
 
 def delete_user(user: User) -> None:
     uid = user.id
-    Match.query.filter((Match.user_id == uid) | (Match.other_id == uid)).delete(synchronize_session=False)
+    Match.query.filter((Match.user_id == uid) | (Match.other_id == uid)).delete(synchronize_session="fetch")
     IntroRequest.query.filter((IntroRequest.from_user_id == uid) |
                               (IntroRequest.to_user_id == uid)).delete(synchronize_session=False)
     ChatMessage.query.filter_by(user_id=uid).delete(synchronize_session=False)

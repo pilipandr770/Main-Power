@@ -49,7 +49,7 @@
       {% for m in matches %}{% with compact=True %}{% include "member/_match_card.html" %}{% endwith %}{% else %}
       <div class="empty">
         {% if not p.allow_matching %}Matching ist ausgeschaltet. <a href="{{ url_for('member.privacy') }}">Unter Privatsphäre aktivieren</a>, um passende Menschen vorgeschlagen zu bekommen.
-        {% else %}Beantworte die vier Fragen in deinem <a href="{{ url_for('member.profile') }}">Profil</a> — dann zeigt dir {{ club.assistant_name }}, wen du kennenlernen solltest.{% endif %}
+        {% else %}Beschreib in deinem <a href="{{ url_for('member.profile') }}">Profil</a>, wen du suchst und womit du hilfst — oder <a href="{{ url_for('member.interview_page') }}">im Gespräch mit {{ club.assistant_name }}</a>. Dann zeigt dir {{ club.assistant_name }}, wen du kennenlernen solltest.{% endif %}
       </div>{% endfor %}
     </div>
   </section>

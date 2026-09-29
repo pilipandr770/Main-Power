@@ -22,6 +22,7 @@ from .llm import LLMUnavailable, complete
 
 log = logging.getLogger(__name__)
 REPORT_KEY = "insights.club_report"
+MUTUAL = {"kooperation", "mitgruender", "peers"}  # Partnertypen, die sich gegenseitig suchen
 
 # Terminideen, wenn ein Partnertyp deutlich häufiger gesucht als angeboten wird
 GAP_IDEAS = {
@@ -64,12 +65,13 @@ def overview() -> dict:
     market = []
     for key, lbl in qn.PARTNER_TYPES.items():
         d = demand.get(key, 0)
-        if key == "peers":
-            s = d  # Gleichgesinnte suchen sich gegenseitig
-        else:
-            s = _supply(ps, key)
+        if key in MUTUAL:  # wer das sucht, ist zugleich Angebot für die anderen Suchenden
+            if d:
+                market.append({"key": key, "label": lbl, "demand": d, "supply": d, "gap": 0, "mutual": True})
+            continue
+        s = _supply(ps, key)
         if d or s:
-            market.append({"key": key, "label": lbl, "demand": d, "supply": s, "gap": d - s})
+            market.append({"key": key, "label": lbl, "demand": d, "supply": s, "gap": d - s, "mutual": False})
     market.sort(key=lambda r: (-r["gap"], -r["demand"]))
     top = max([max(r["demand"], r["supply"]) for r in market] + [1])
     for r in market:

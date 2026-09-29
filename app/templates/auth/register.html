@@ -3,7 +3,7 @@
 {% block title %}Mitglied werden — {{ club.name }}{% endblock %}
 {% block content %}
 <h1>Mitglied werden</h1>
-<p class="muted">Kostenlos. Danach füllst du dein Profil in vier Fragen aus.</p>
+<p class="muted">Kostenlos. Danach beschreibst du in wenigen Minuten, wen du suchst und womit du hilfst – im Formular oder im Gespräch mit {{ club.assistant_name }}.</p>
 <form method="post" novalidate>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="grid grid-2">

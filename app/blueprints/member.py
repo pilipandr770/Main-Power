@@ -298,6 +298,8 @@ def respond_intro(ir_id, action):
 def directory():
     q = request.args.get("q", "").strip()[:200]
     branche = request.args.get("branche", "").strip()[:120]
+    rolle = request.args.get("rolle", "") if request.args.get("rolle") in questionnaire.ROLES else ""
+    bringt = request.args.get("bringt", "") if request.args.get("bringt") in questionnaire.RESOURCES else ""
     if q:
         results = [p for _, p in matching.semantic_search(q, k=24, only_directory=True,
                                                           exclude_user_id=current_user.id)]
@@ -308,9 +310,13 @@ def directory():
                                                  Profile.user_id != current_user.id))
         if branche:
             query = query.filter(Profile.industry == branche)
-        results = query.order_by(Profile.updated_at.desc()).limit(60).all()
-    return render_template("member/directory.html", results=results, q=q, branche=branche,
-                           me_visible=current_user.profile.visible_in_directory)
+        results = query.order_by(Profile.updated_at.desc()).limit(200).all()
+    if rolle:
+        results = [p for p in results if p.role == rolle]
+    if bringt:
+        results = [p for p in results if bringt in questionnaire.split(p.resources)]
+    return render_template("member/directory.html", results=results[:60], q=q, branche=branche, rolle=rolle,
+                           bringt=bringt, me_visible=current_user.profile.visible_in_directory)
 
 
 ACTIVE_REG = ("registered", "paid", "reserved")
@@ -935,7 +941,7 @@ def privacy():
         p.event_invites = bool(f.get("event_invites"))
         if not p.allow_matching:
             Match.query.filter((Match.user_id == current_user.id) |
-                               (Match.other_id == current_user.id)).delete(synchronize_session=False)
+                               (Match.other_id == current_user.id)).delete(synchronize_session="fetch")
         elif not p.embed_need:
             matching.refresh_embeddings(p, commit=False)
         db.session.commit()

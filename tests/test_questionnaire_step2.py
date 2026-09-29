@@ -142,3 +142,16 @@ def test_club_analytics_counts_and_keeps_private_texts_out(client, app):
         assert "Förderanträge" not in raw and "Pitch-Deck fertig" not in raw and "Network-Marketing" not in raw
     idea_page = client.get("/admin/termine/neu?title=Investor%3Ainnen-Abend&format=hub").get_data(as_text=True)
     assert "Investor:innen-Abend" in idea_page
+
+
+def test_directory_filters_by_role_and_resources(client, app):
+    login(client, f"julia.wagner@{DEMO}", "demo-passwort-123")
+    html = client.get("/app/mitglieder?rolle=investor").get_data(as_text=True)
+    assert "Nadine S." in html and "Markus A." not in html
+    html = client.get("/app/mitglieder?bringt=auftraege").get_data(as_text=True)
+    assert "Daniel H." in html and "Kerem Y." in html and "Nadine S." not in html
+    assert "Nadine S." in client.get("/app/mitglieder?rolle=unsinn").get_data(as_text=True)  # ungültig = kein Filter
+    with app.app_context(), use_club(default_club()):
+        from app.services.club_insights import overview
+        coop = next(r for r in overview()["market"] if r["key"] == "kooperation")
+        assert coop["mutual"] and coop["gap"] == 0

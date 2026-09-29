@@ -40,8 +40,8 @@ FAQ = [
      "Ja, sehr gerne. Schreib uns an hallo@main-power.org und erzähl uns kurz, wie du Main Power mitgestalten "
      "möchtest.", True),
     ("Wie funktioniert das Matching?",
-     "Du beantwortest in deinem Profil vier Fragen: dein Tätigkeitsbereich, deine größte Herausforderung, womit du "
-     "anderen helfen kannst und wonach du konkret suchst. Die KI vergleicht Bedarf und Angebot inhaltlich — nicht "
+     "Du beschreibst in deinem Profil, was du machst, was du erreichen willst, wen du suchst und womit du anderen "
+     "helfen kannst – im Formular oder im Gespräch mit Aiko. Die KI vergleicht Bedarf und Angebot inhaltlich — nicht "
      "nur über Schlagworte — und schlägt dir Menschen vor, die sich gegenseitig weiterhelfen können. Matching ist "
      "freiwillig und jederzeit abschaltbar.", True),
     ("Wer sieht meine Kontaktdaten?",

@@ -81,8 +81,8 @@ NEUTRAL = {
         COMMUNITY_FORMAT,
     ],
     "faq": [
-        ("Wie werde ich Mitglied?", "Registriere dich kostenlos und beantworte in deinem Profil vier Fragen. Danach "
-         "schlägt dir die KI passende Menschen vor.", True),
+        ("Wie werde ich Mitglied?", "Registriere dich kostenlos und beantworte in deinem Profil die wichtigsten Fragen – "
+         "im Formular oder im Gespräch mit der KI-Assistenz. Danach schlägt dir die KI passende Menschen vor.", True),
         ("Was kostet die Teilnahme?", "Die Mitgliedschaft auf der Plattform ist kostenlos. Einzelne Formate können einen "
          "Kostenbeitrag haben; er steht jeweils beim Termin.", True),
         ("Wie funktioniert das Matching?", "Du beschreibst, was du machst, wo es hakt, womit du helfen kannst und wonach du "

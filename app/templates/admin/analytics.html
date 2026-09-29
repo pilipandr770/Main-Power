@@ -25,7 +25,7 @@
   <div class="hbars mt-m">{% for r in ov.market %}
     <div class="hbar"><span>{{ r.label }}</span>
       <div class="track"><i class="{{ width_class(r.demand_pct) }}"></i><i class="supply {{ width_class(r.supply_pct) }}"></i></div>
-      <span class="num">{{ r.demand }} / {{ r.supply }}{% if r.gap > 0 %} <span class="tag warn">Lücke</span>{% endif %}</span></div>
+      <span class="num">{% if r.mutual %}{{ r.demand }} suchen sich gegenseitig{% else %}{{ r.demand }} / {{ r.supply }}{% if r.gap > 0 %} <span class="tag warn">Lücke</span>{% endif %}{% endif %}</span></div>
   {% else %}<p class="muted mb-0">Noch keine Angaben zur Partnersuche. Sobald Mitglieder den Fragebogen nutzen, erscheint hier die Übersicht.</p>{% endfor %}</div>
   {% if ov.gaps %}<p class="small mt-m mb-0"><b>Tipp:</b> Für Lücken lohnt es sich, gezielt Gäste einzuladen oder ein passendes Format anzusetzen — Vorschläge unten unter „Themen und Terminideen“.</p>{% endif %}
 </section>

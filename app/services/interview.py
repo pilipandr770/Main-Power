@@ -94,6 +94,16 @@ def _match_options(field: str, text: str) -> str:
     return qn.clean_choice(field, hits)
 
 
+def _to_key(field: str, item) -> str:
+    """Modelle liefern gelegentlich die Bezeichnung statt des Schlüssels („Gründer/in“ statt „gruender“)."""
+    options = qn.CHOICE_FIELDS[field][0]
+    item = str(item).strip()
+    if item in options:
+        return item
+    by_label = {lbl.casefold(): key for key, lbl in options.items()}
+    return by_label.get(item.casefold()) or (_match_options(field, item).split(",")[0] if item else "")
+
+
 def _fallback(field: str, answer: str) -> dict:
     if field in qn.CHOICE_FIELDS:
         value = _match_options(field, answer)
@@ -143,7 +153,7 @@ def extract(p, field: str, answer: str) -> tuple[list[dict], bool]:
     proposals = []
     for f, v in values.items():
         if f in qn.CHOICE_FIELDS:
-            v = qn.clean_choice(f, v if isinstance(v, list) else qn.split(str(v)))
+            v = qn.clean_choice(f, [_to_key(f, i) for i in (v if isinstance(v, list) else qn.split(str(v)))])
             if not v:
                 continue
         elif f in qn.ALL_TEXT_FIELDS:

@@ -8,6 +8,10 @@
   <label class="sr-only" for="q">Suche</label>
   {% if branche %}<input type="hidden" name="branche" value="{{ branche }}">{% endif %}
   <input id="q" type="search" name="q" value="{{ q }}" placeholder="z. B. Fachanwalt für Arbeitsrecht, Partner für ein IT-Start-up …">
+  <label class="sr-only" for="f-rolle">Rolle</label>
+  <select id="f-rolle" name="rolle" class="w-auto"><option value="">Alle Rollen</option>{% for k, l in qn.ROLES.items() %}<option value="{{ k }}"{% if rolle == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <label class="sr-only" for="f-bringt">Bringt ein</label>
+  <select id="f-bringt" name="bringt" class="w-auto"><option value="">Bringt ein: alles</option>{% for k, l in qn.RESOURCES.items() %}<option value="{{ k }}"{% if bringt == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
   <button class="btn" type="submit">Suchen</button>
 </form>
 {% if branche %}<p class="mb-m"><span class="tag ember">{{ branche }}</span> <a class="small" href="{{ url_for('member.directory', q=q) }}">Filter entfernen</a></p>{% endif %}
@@ -15,7 +19,7 @@
 <a class="person" href="{{ url_for('member.member_detail', user_id=p.user.id) }}">
   {{ avatar(p.user) }}
   <span><b>{{ p.user.first_name }} {{ p.user.last_name[:1] }}.</b> <span class="muted">{{ p.headline }}</span><br>
-  <span class="small muted">{{ (p.q_can_help or p.q_focus or '')[:180] }}</span></span>
+  <span class="small muted">{{ (p.q_can_help or p.q_focus or '')[:180] }}</span>{% set tags = [qn.label(qn.ROLES, p.role)] + qn.labels(qn.RESOURCES, p.resources)[:2] %}{% if tags|select|list %}<br><span class="small">{% for t in tags|select %}<span class="tag">{{ t }}</span> {% endfor %}</span>{% endif %}</span>
 </a>
-{% else %}<div class="empty">{% if q %}Niemand gefunden. Formulier die Suche anders oder frag {{ club.assistant_name }}.{% else %}Noch keine sichtbaren Profile.{% endif %}</div>{% endfor %}
+{% else %}<div class="empty">{% if q or rolle or bringt %}Niemand gefunden. Formulier die Suche anders oder frag {{ club.assistant_name }}.{% else %}Noch keine sichtbaren Profile.{% endif %}</div>{% endfor %}
 {% endblock %}

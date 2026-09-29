@@ -447,3 +447,5 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
   .hbar .num { text-align: left; }
   .interview .bubble.me { margin-left: 0; }
 }
+select.w-auto { width: auto; max-width: 100%; }
+@media (max-width: 640px) { select.w-auto { width: 100%; } }
