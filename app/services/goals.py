@@ -15,6 +15,7 @@ from datetime import timedelta
 from flask import url_for
 
 from ..extensions import db
+from ..utils import scrub_contacts
 from ..models import Event, GoalCheckin, Notification, Profile, User, utcnow
 from .llm import LLMUnavailable, complete
 from .matching import _snip, card
@@ -56,7 +57,7 @@ def _context(user: User) -> dict:
     if user.profile.allow_matching and user.profile.embed_need:
         for m in top_matches(user, k=4, explain=False):
             o = m.other.profile
-            matches.append({"vorname": m.other.first_name, "rolle": o.headline, "kann_helfen": _snip(o.q_can_help, 160),
+            matches.append({"vorname": m.other.first_name, "rolle": o.headline, "kann_helfen": scrub_contacts(_snip(o.q_can_help, 160)),
                             "bringt_ein": card(o).get("bringt_ein", [])})
     events = [{"titel": e.title, "wann": f"{e.starts_at:%d.%m.%Y}"} for e in
               Event.query.filter(Event.status == "published", Event.starts_at >= utcnow())

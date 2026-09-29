@@ -89,6 +89,10 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
 - Notbremse `ai_daily_cap_cents` (Plattform-Konsole „Tarife“, Standard 30 €): Gratis-KI aller Klubs je UTC-Tag,
   greift in `plans.guard_llm` vor dem Klub-Budget. Bezahlte Stripe-Abos sind ausgenommen.
 - Rate-Limit in Produktion über Redis (`docker-compose.traefik.yml`), Fallback in-memory.
+- Injektionen: SQL nur über ORM/gebundene Parameter; Templates autoescaped, kein `|safe`; Chat-Rendering in `app.js`
+  escaped zuerst. CSV-Exporte über `utils.csv_safe` (Formel-Injection), ICS-Werte über `_ics` (RFC 5545).
+- Prompt-Injection: Texte ANDERER Personen gehen nur über `matching.card(p)` bzw. `utils.scrub_contacts` in Prompts
+  (Links, Domains, E-Mails entfernt); Grundregel 6 in `llm.AI_ACT_RULES` erklärt Fremdinhalte zu Daten.
 - Tests: `tests/test_security.py`. Werkzeuge: `bandit -r app -ll`, `pip-audit -r requirements.txt`.
 
 ## Roadmap nach dem MVP (mit Andrii abgestimmt, 26.09.2026)

@@ -18,7 +18,7 @@ from ..services import insights, matching, media, telegram
 from ..services.audit import audit
 from ..services.events_sync import sync_events
 from ..services.gdpr import delete_user, export_user
-from ..utils import admin_required, clean_social, fmt_dt, fmt_event_date, local_to_utc, superadmin_required, to_local
+from ..utils import admin_required, clean_social, csv_safe, fmt_dt, fmt_event_date, local_to_utc, superadmin_required, to_local
 
 bp = Blueprint("admin", __name__)
 
@@ -137,8 +137,9 @@ def users_csv():
                 "matching", "verzeichnis", "profil_%", "registriert"])
     for u in User.query.order_by(User.id):
         p = u.profile or Profile()
-        w.writerow([u.id, u.first_name, u.last_name, u.email, u.role, u.status, p.industry, p.headline,
-                    int(bool(p.allow_matching)), int(bool(p.visible_in_directory)), p.completeness, fmt_dt(u.created_at)])
+        w.writerow(map(csv_safe, [u.id, u.first_name, u.last_name, u.email, u.role, u.status, p.industry, p.headline,
+                                  int(bool(p.allow_matching)), int(bool(p.visible_in_directory)), p.completeness,
+                                  fmt_dt(u.created_at)]))
     audit("users.export_csv")
     db.session.commit()
     return Response("\ufeff" + buf.getvalue(), mimetype="text/csv",
@@ -450,8 +451,8 @@ def event_csv(event_id):
     w.writerow(["name", "email", "telefon", "rolle_unternehmen", "status", "betrag_eur", "notiz", "angemeldet"])
     for r in ev.registrations:
         p = r.user.profile or Profile()
-        w.writerow([r.user.full_name, r.user.email, r.user.phone, p.headline, r.status,
-                    f"{(r.amount_cents or 0) / 100:.2f}", r.note, fmt_dt(r.created_at)])
+        w.writerow(map(csv_safe, [r.user.full_name, r.user.email, r.user.phone, p.headline, r.status,
+                                  f"{(r.amount_cents or 0) / 100:.2f}", r.note, fmt_dt(r.created_at)]))
     audit("event.export_csv", f"event:{ev.id}")
     db.session.commit()
     return Response("\ufeff" + buf.getvalue(), mimetype="text/csv",

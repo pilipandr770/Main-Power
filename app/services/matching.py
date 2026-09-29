@@ -15,6 +15,7 @@ import re
 
 from ..extensions import db
 from ..models import Match, Profile, User, utcnow
+from ..utils import scrub_contacts
 from ..questionnaire import (FIRST_OUTCOMES, GOAL_CATEGORIES, HELP_MODES, LANGUAGES, PARTNER_TYPES, RESOURCES, ROLES,
                              STAGES, club_questions, custom_display, label, labels, shared_facts, structured_fit)
 from . import embeddings as emb
@@ -119,7 +120,8 @@ def card(p: Profile, own: bool = False) -> dict:
     if p.custom_answers:
         data["klubfragen"] = {q.label: custom_display(p, q) for q in club_questions()
                               if (own or q.public) and custom_display(p, q)}
-    return {k: v for k, v in data.items() if v}
+    data = {k: v for k, v in data.items() if v}
+    return data if own else scrub_contacts(data)
 
 
 def _llm_reasons(a: Profile, others: list[Profile]) -> dict[int, tuple[str, str]]:

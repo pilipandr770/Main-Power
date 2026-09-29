@@ -15,6 +15,7 @@ from datetime import timedelta
 from flask import current_app, url_for
 
 from ..extensions import db
+from ..utils import scrub_contacts
 from ..models import FORMATS, ChatMessage, Event, KnowledgeItem, Service, Setting, User, utcnow
 from .llm import LLMUnavailable, complete
 
@@ -132,8 +133,8 @@ def _matches_block(user: User) -> str:
     lines = []
     for m in ms:
         o = m.other.profile
-        lines.append(f"- {m.other.first_name} {m.other.last_name[:1]}. — {o.headline}; kann helfen mit: "
-                     f"{(o.q_can_help or '')[:160]} (Score {m.score:.2f})")
+        lines.append(f"- {m.other.first_name} {m.other.last_name[:1]}. — {scrub_contacts(o.headline or '')}; kann helfen mit: "
+                     f"{scrub_contacts((o.q_can_help or '')[:160])} (Score {m.score:.2f})")
     return "\n".join(lines)
 
 

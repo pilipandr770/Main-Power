@@ -15,6 +15,7 @@ from datetime import timedelta
 from flask import current_app, url_for
 
 from ..extensions import db
+from ..utils import scrub_contacts
 from ..models import Event, Notification, PairInsight, Profile, User, utcnow
 from . import embeddings as emb
 from . import club as club_settings
@@ -77,7 +78,7 @@ def _card(p: Profile, own: bool = False) -> dict:
     data.pop("id", None)
     data["vorname"] = data.pop("name", p.user.first_name)
     if p.company:
-        data["unternehmen"] = p.company
+        data["unternehmen"] = p.company if own else scrub_contacts(p.company)
     return data
 
 

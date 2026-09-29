@@ -15,6 +15,7 @@ from datetime import timedelta
 from types import SimpleNamespace
 
 from ..extensions import db
+from ..utils import scrub_contacts
 from ..models import FORMATS, GoalCheckin, Profile, Setting, User, utcnow
 from .. import questionnaire as qn
 from .insights import json_call
@@ -121,7 +122,7 @@ def _texts(ps) -> tuple[list[str], list[str]]:
     rnd = random.Random(len(need) * 31 + len(offer))  # gemischt, damit keine Zuordnung zur Mitgliederliste möglich
     rnd.shuffle(need)
     rnd.shuffle(offer)
-    return [t[:300] for t in need[:150]], [t[:300] for t in offer[:150]]
+    return [scrub_contacts(t[:300]) for t in need[:150]], [scrub_contacts(t[:300]) for t in offer[:150]]
 
 
 def _keywords(texts: list[str], k: int = 8) -> list[dict]:

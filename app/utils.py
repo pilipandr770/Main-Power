@@ -44,6 +44,32 @@ def money(cents: int | None) -> str:
     return "kostenlos" if cents == 0 else (f"{cents / 100:.2f} €".replace(".", ",").replace(",00 €", " €"))
 
 
+# Links, Domains und E-Mail-Adressen in fremden Texten, bevor sie in einen KI-Prompt gehen: So kann niemand über
+# sein Profil Aiko dazu bringen, anderen einen Phishing-Link oder Kontaktdaten „zu empfehlen“ (Prompt-Injection).
+_CONTACTISH = re.compile(
+    r"\b(?i:https?://|www\.)\S+?(?=[.,;:!?)]*(?:\s|$))"
+    r"|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+"
+    r"|\b[\w-]+(?:\.[\w-]+)*\.(?:de|com|net|org|io|eu|info|biz|xyz|ru|app|online|shop|store|me|co|ly|link)\b(?:/\S*?(?=[.,;:!?)]*(?:\s|$)))?")
+
+
+def scrub_contacts(value):
+    """Für KI-Kontext aus Texten ANDERER Personen: Links/E-Mails durch einen Platzhalter ersetzen (rekursiv)."""
+    if isinstance(value, str):
+        return _CONTACTISH.sub("[Link entfernt]", value)
+    if isinstance(value, list):
+        return [scrub_contacts(v) for v in value]
+    if isinstance(value, dict):
+        return {k: scrub_contacts(v) for k, v in value.items()}
+    return value
+
+
+# Werte, die Tabellenprogramme als Formel ausführen würden (CSV-Injection), bekommen ein führendes Apostroph.
+def csv_safe(value):
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 def clean_url(url: str) -> str:
     """Nur http(s)-Links zulassen (verhindert javascript:-URLs in Profilen)."""
     url = (url or "").strip()

@@ -635,16 +635,23 @@ def event_cancel(event_id):
     return redirect(url_for("member.event_detail", event_id=event_id))
 
 
+def _ics(text: str) -> str:
+    """Textwert nach RFC 5545 maskieren: Zeilenumbrüche dürfen keine eigenen Kalender-Eigenschaften erzeugen."""
+    text = (text or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
+    return text.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
+
+
 @bp.route("/termine/<int:event_id>/ics")
 def event_ics(event_id):
     ev = db.session.get(Event, event_id) or abort(404)
     fmt = "%Y%m%dT%H%M%SZ"
     end = ev.ends_at or (ev.starts_at + timedelta(hours=2))
     body = "\r\n".join([
-        "BEGIN:VCALENDAR", "VERSION:2.0", f"PRODID:-//{club_settings.settings()['name']}//Plattform//DE", "BEGIN:VEVENT",
-        f"UID:ev-{ev.id}@{request.host.split(':')[0]}", f"DTSTAMP:{utcnow():{fmt}}", f"DTSTART:{ev.starts_at:{fmt}}",
-        f"DTEND:{end:{fmt}}", f"SUMMARY:{ev.title}", f"LOCATION:{ev.location or club_settings.settings().get('city', '')}",
-        "DESCRIPTION:" + (ev.description or "").replace("\n", "\\n")[:900], "END:VEVENT", "END:VCALENDAR", ""])
+        "BEGIN:VCALENDAR", "VERSION:2.0", f"PRODID:-//{_ics(club_settings.settings()['name'])}//Plattform//DE",
+        "BEGIN:VEVENT", f"UID:ev-{ev.id}@{request.host.split(':')[0]}", f"DTSTAMP:{utcnow():{fmt}}",
+        f"DTSTART:{ev.starts_at:{fmt}}", f"DTEND:{end:{fmt}}", f"SUMMARY:{_ics(ev.title)}",
+        f"LOCATION:{_ics(ev.location or club_settings.settings().get('city', ''))}",
+        f"DESCRIPTION:{_ics((ev.description or '')[:900])}", "END:VEVENT", "END:VCALENDAR", ""])
     return Response(body, mimetype="text/calendar",
                     headers={"Content-Disposition": f"attachment; filename={club_settings.slug(club_settings.settings()['name'])}-{ev.id}.ics"})
 
