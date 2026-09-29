@@ -237,6 +237,10 @@ def _register_cli(app: Flask) -> None:
             click.echo(line)
         for c in add_missing_columns():
             click.echo(f"Spalte ergaenzt: {c}")
+        from .seed import refresh_default_faq
+        n = refresh_default_faq()
+        if n:
+            click.echo(f"FAQ aktualisiert: {n} Standardantworten")
         click.echo("Datenbank initialisiert.")
 
     @app.cli.command("list-clubs")

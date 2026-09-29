@@ -1,5 +1,6 @@
 {% extends "admin/_layout.html" %}
 {% from "partials/_macros.html" import input, textarea with context %}
+{% from "partials/_questionnaire.html" import select, pills, club_question_fields with context %}
 {% block page_title %}{{ u.full_name }} bearbeiten{% endblock %}
 {% block content %}
 {% set v = form if form else None %}
@@ -36,6 +37,25 @@
       {% for key, s in socials.items() %}{{ input(key ~ "_url", s[0], p|attr(key ~ "_url"), placeholder=s[1]) }}{% endfor %}
     </div>
     {% if p.photo %}<label class="check mt-s"><input type="checkbox" name="remove_photo" value="1"><span>Profilfoto entfernen (Moderation)</span></label>{% endif %}
+  </fieldset>
+  <fieldset><legend>Fragebogen</legend>
+    <p class="muted small">Ziel, 90-Tage-Meilenstein, „Schon versucht“ und Ausschlüsse sind private Angaben der Person und hier bewusst nicht bearbeitbar.</p>
+    <div class="grid grid-2">{{ select("role", "Rolle") }}{{ select("stage", "Phase") }}</div>
+    <div class="grid grid-2">{{ select("team_size", "Teamgröße") }}{{ select("goal_category", "Ziel-Kategorie") }}</div>
+    {{ pills("customer_types", "Kund:innen") }}
+    {{ input("markets", "Märkte und Regionen", v.markets if v else p.markets) }}
+    {{ pills("languages", "Sprachen") }}
+    {{ pills("partner_types", "Sucht") }}
+    {{ select("first_outcome", "Gutes erstes Gespräch") }}
+    {{ textarea("asked_for", "Wird oft gefragt zu", v.asked_for if v else p.asked_for, rows=2) }}
+    {{ pills("resources", "Bringt ein") }}
+    {{ select("help_mode", "So hilft die Person") }}
+    {{ textarea("proud_of", "Stolz auf", v.proud_of if v else p.proud_of, rows=2) }}
+    <div class="grid grid-2">{{ select("network_time", "Zeit fürs Netzwerk") }}{{ select("meeting_mode", "Treffen") }}</div>
+    {{ pills("work_values", "Wichtig in der Zusammenarbeit") }}
+    {{ textarea("talk_topics", "Kann stundenlang reden über", v.talk_topics if v else p.talk_topics, rows=2) }}
+    {{ textarea("unknown_fact", "Steht in keinem Lebenslauf", v.unknown_fact if v else p.unknown_fact, rows=2) }}
+    {% set cqs = qn.club_questions() %}{% if cqs %}<h3 class="mt-m">Fragen von {{ club.name }}</h3>{{ club_question_fields(cqs) }}{% endif %}
   </fieldset>
   <fieldset><legend>Bevorzugte Formate</legend>
     {% for key, f in formats.items() if key != 'community' %}

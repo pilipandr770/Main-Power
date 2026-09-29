@@ -352,6 +352,35 @@ def _seed_demo_questionnaire() -> None:
     db.session.commit()
 
 
+# Frühere Standardantworten, die bei `flask init-db` auf den aktuellen Text gehoben werden – nur wenn der Klub sie
+# unverändert übernommen hat (eigene Formulierungen bleiben unangetastet).
+OUTDATED_FAQ = [  # (Vorlage, Frage, frühere Standardantwort)
+    ("mainpower", "Wie funktioniert das Matching?",
+     "Du beantwortest in deinem Profil vier Fragen: dein Tätigkeitsbereich, deine größte Herausforderung, womit du "
+     "anderen helfen kannst und wonach du konkret suchst. Die KI vergleicht Bedarf und Angebot inhaltlich — nicht "
+     "nur über Schlagworte — und schlägt dir Menschen vor, die sich gegenseitig weiterhelfen können. Matching ist "
+     "freiwillig und jederzeit abschaltbar."),
+    ("neutral", "Wie werde ich Mitglied?",
+     "Registriere dich kostenlos und beantworte in deinem Profil vier Fragen. Danach schlägt dir die KI passende "
+     "Menschen vor."),
+]
+
+
+def refresh_default_faq() -> int:
+    """Veraltete Standardantworten in allen Klubs aktualisieren. Gibt die Zahl geänderter Einträge zurück."""
+    from .club_presets import preset_faq
+    changed = 0
+    for preset, question, old in OUTDATED_FAQ:
+        new = next((a for q, a, _ in preset_faq(preset) if q == question), None)
+        if not new or new == old:
+            continue
+        for item in KnowledgeItem.query.execution_options(all_clubs=True).filter_by(question=question, answer=old):
+            item.answer = new
+            changed += 1
+    db.session.commit()
+    return changed
+
+
 def _seed_content(preset: str = "mainpower") -> None:
     from .club_presets import apply_faq, apply_formats, preset_faq, preset_formats
     if MeetingFormat.query.count() == 0:

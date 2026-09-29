@@ -10,6 +10,7 @@ from flask import Blueprint, Response, abort, current_app, flash, redirect, rend
 from flask_login import current_user, login_required, login_user
 from sqlalchemy import func
 
+from .. import questionnaire
 from ..extensions import db, limiter
 from ..models import (CONSENT_KINDS, FORMATS, ROLES, SOCIALS, AuditLog, ChatMessage, Consent, Event, IntroRequest,
                       KnowledgeItem, LLMUsage, Notification, Profile, Registration, Service, ServiceInquiry, Setting, User, utcnow)
@@ -152,6 +153,8 @@ def user_detail(user_id):
                            roles=ROLES, consent_kinds=CONSENT_KINDS)
 
 
+# Fragebogen-Freitexte, die die Klubleitung korrigieren darf (private Zielangaben der Person bleiben außen vor)
+ADMIN_QUESTIONNAIRE_TEXT = ("markets", "asked_for", "proud_of", "talk_topics", "unknown_fact")
 MEMBER_TEXT_FIELDS = {"headline": 160, "company": 160, "industry": 120, "city": 120, "bio": 2000, "q_focus": 800,
                       "q_challenge": 800, "q_can_help": 800, "q_looking_for": 800, "expertise": 500}
 
@@ -181,6 +184,11 @@ def user_edit(user_id):
             u.email, u.phone = email, f.get("phone", "").strip()[:40]
             for field, limit in MEMBER_TEXT_FIELDS.items():
                 setattr(p, field, f.get(field, "").strip()[:limit])
+            values = {field: f.get(field, "") for field in ADMIN_QUESTIONNAIRE_TEXT}
+            values.update({field: f.getlist(field) for field in questionnaire.CHOICE_FIELDS})
+            values.update({f"custom:{q.key}": (f.getlist(f"custom_{q.key}") if q.kind == "multi" else
+                                               f.get(f"custom_{q.key}", "")) for q in questionnaire.club_questions()})
+            questionnaire.apply_values(p, values)
             p.preferred_formats = ",".join(k for k in f.getlist("formats") if k in FORMATS)
             for key in SOCIALS:
                 setattr(p, f"{key}_url", clean_social(key, f.get(f"{key}_url", "")))

@@ -155,3 +155,34 @@ def test_directory_filters_by_role_and_resources(client, app):
         from app.services.club_insights import overview
         coop = next(r for r in overview()["market"] if r["key"] == "kooperation")
         assert coop["mutual"] and coop["gap"] == 0
+
+
+def test_admin_edits_questionnaire_but_not_private_goals(client, app):
+    with app.app_context(), use_club(default_club()):
+        t = User.query.filter_by(email=f"tobias.kern@{DEMO}").one()
+        tid, goal, tried = t.id, t.profile.goal_12m, t.profile.q_tried
+    admin_login(client)
+    page = client.get(f"/admin/mitglieder/{tid}/bearbeiten").get_data(as_text=True)
+    assert "Fragebogen" in page and 'name="role"' in page and 'name="goal_12m"' not in page
+    client.post(f"/admin/mitglieder/{tid}/bearbeiten", data={
+        "first_name": "Tobias", "last_name": "Kern", "email": f"tobias.kern@{DEMO}", "role": "inhaber",
+        "partner_types": ["investor"], "proud_of": "Korrigiert", "goal_12m": "Überschrieben?"})
+    with app.app_context(), use_club(default_club()):
+        p = db.session.get(User, tid).profile
+        assert p.role == "inhaber" and p.partner_types == "investor" and p.proud_of == "Korrigiert"
+        assert p.goal_12m == goal and p.q_tried == tried        # private Angaben unverändert
+
+
+def test_init_db_refreshes_only_untouched_default_faq(app):
+    from app.models import KnowledgeItem
+    from app.seed import OUTDATED_FAQ, refresh_default_faq
+    with app.app_context(), use_club(default_club()):
+        _, question, old = OUTDATED_FAQ[0]
+        item = KnowledgeItem.query.filter_by(question=question).first()
+        item.answer = old
+        db.session.add(KnowledgeItem(question="Wie werde ich Mitglied?", answer="Eigener Text des Klubs", public=True))
+        db.session.commit()
+        assert refresh_default_faq() == 1
+        assert "vier Fragen" not in KnowledgeItem.query.filter_by(question=question).first().answer
+        assert KnowledgeItem.query.filter_by(answer="Eigener Text des Klubs").count() == 1
+        assert refresh_default_faq() == 0

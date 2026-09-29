@@ -1,5 +1,6 @@
 {% extends "member/_layout.html" %}
 {% from "partials/_macros.html" import input, textarea, width_class, avatar with context %}
+{% from "partials/_questionnaire.html" import select, pills, club_question_fields with context %}
 {% block page_title %}Mein Profil{% endblock %}
 {% macro guide_box(key) -%}
 {% set g = guide[key] %}
@@ -9,20 +10,6 @@
   <p class="small muted">{{ g.tips }}</p>
   <ul class="examples">{% for e in g.examples %}<li><span>{{ e }}</span> <button type="button" class="linkbtn small" data-example="{{ e }}" data-target="f-{{ key }}">Übernehmen</button></li>{% endfor %}</ul>
 </details>
-{%- endmacro %}
-{% macro select(field, text, hint=None) -%}
-{% set opts = qn.CHOICE_FIELDS[field][0] %}{% set cur = p|attr(field) %}
-<div class="field">
-  <label for="f-{{ field }}">{{ text }}{% if hint %}<span class="hint">{{ hint }}</span>{% endif %}</label>
-  <select id="f-{{ field }}" name="{{ field }}"><option value="">Keine Angabe</option>{% for k, l in opts.items() %}<option value="{{ k }}"{% if cur == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
-</div>
-{%- endmacro %}
-{% macro pills(field, text, hint=None) -%}
-{% set opts = qn.CHOICE_FIELDS[field][0] %}{% set sel = qn.split(p|attr(field)) %}
-<div class="field" role="group" aria-labelledby="g-{{ field }}">
-  <span class="group-label" id="g-{{ field }}">{{ text }}{% if hint %}<span class="hint">{{ hint }}</span>{% endif %}</span>
-  <div class="pills">{% for k, l in opts.items() %}<label class="pill"><input type="checkbox" name="{{ field }}" value="{{ k }}"{% if k in sel %} checked{% endif %}><span>{{ l }}</span></label>{% endfor %}</div>
-</div>
 {%- endmacro %}
 {% macro private_toggle(field) -%}
 <label class="check private-toggle"><input type="checkbox" name="public_fields" value="{{ field }}"{% if p.is_public(field) %} checked{% endif %}><span>Im Profil für andere Mitglieder zeigen <span class="lock">— sonst privat: nur fürs Matching und für deine {{ club.assistant_name }}</span></span></label>
@@ -139,19 +126,7 @@
   {% if cqs %}
   <fieldset>
     <legend>7 · Fragen von {{ club.name }}</legend>
-    {% for q in cqs %}{% set cur = (p.custom_answers or {}).get(q.key) %}
-      {% if q.kind == 'text' %}
-        <div class="field"><label for="f-custom_{{ q.key }}">{{ q.label }}{% if q.help %}<span class="hint">{{ q.help }}</span>{% endif %}</label>
-        <textarea id="f-custom_{{ q.key }}" name="custom_{{ q.key }}" rows="2">{{ cur or '' }}</textarea></div>
-      {% elif q.kind == 'choice' %}
-        <div class="field"><label for="f-custom_{{ q.key }}">{{ q.label }}{% if q.help %}<span class="hint">{{ q.help }}</span>{% endif %}</label>
-        <select id="f-custom_{{ q.key }}" name="custom_{{ q.key }}"><option value="">Keine Angabe</option>{% for o in q.option_list %}<option value="{{ o }}"{% if cur == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select></div>
-      {% else %}
-        <div class="field" role="group" aria-labelledby="g-custom_{{ q.key }}"><span class="group-label" id="g-custom_{{ q.key }}">{{ q.label }}{% if q.help %}<span class="hint">{{ q.help }}</span>{% endif %}</span>
-        <div class="pills">{% for o in q.option_list %}<label class="pill"><input type="checkbox" name="custom_{{ q.key }}" value="{{ o }}"{% if cur and o in cur %} checked{% endif %}><span>{{ o }}</span></label>{% endfor %}</div></div>
-      {% endif %}
-      {% if not q.public %}<p class="private-toggle">Privat: nur fürs Matching, nicht im Profil sichtbar.</p>{% endif %}
-    {% endfor %}
+    {{ club_question_fields(cqs) }}
   </fieldset>
   {% endif %}
 
