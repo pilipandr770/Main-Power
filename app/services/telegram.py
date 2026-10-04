@@ -137,7 +137,7 @@ def handle_update(update: dict) -> None:
         send(chat_id, f"Bitte verbinde zuerst dein Konto bei {_c()['name']}: {base}/app/community")
         return
     if text in ("/hilfe", "/help"):
-        send(chat_id, "Frag mich z. B.: „Wen sollte ich beim nächsten Hub kennenlernen?“ oder "
+        send(chat_id, "Frag mich z. B.: „Wen sollte ich beim nächsten Treffen kennenlernen?“ oder "
                       "„Welche Termine passen zu mir?“")
         return
     reply = answer_member(user, text, channel="telegram")

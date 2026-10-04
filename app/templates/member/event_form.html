@@ -12,7 +12,7 @@
     {{ input("time", "Uhrzeit", form.get("time") or "18:00", type="time") }}
   </div>
   <div class="grid grid-2">
-    {{ input("location", "Ort", form.get("location"), placeholder="Frankfurt, Café …") }}
+    {{ input("location", "Ort", form.get("location"), placeholder="Stadt, Café …") }}
     {{ input("capacity", "Maximale Teilnehmendenzahl", form.get("capacity"), type="number", hint="Leer lassen für unbegrenzt") }}
   </div>
   <button class="btn" type="submit">Treffen einreichen</button>

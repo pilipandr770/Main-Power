@@ -1,6 +1,6 @@
 # /etc/systemd/system/mainpower.service
 [Unit]
-Description=Main Power Plattform (Gunicorn)
+Description=Klub-Plattform (Gunicorn)
 After=network.target postgresql.service
 
 [Service]

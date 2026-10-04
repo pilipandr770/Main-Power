@@ -21,7 +21,7 @@ from .llm import LLMUnavailable, complete
 
 log = logging.getLogger(__name__)
 
-UA = "Mozilla/5.0 (compatible; MainPowerSEOCheck/1.0; +https://mainpower.andrii-it.de)"
+UA = "Mozilla/5.0 (compatible; KlubSEOCheck/1.0)"
 MAX_BYTES = 2 * 1024 * 1024
 TIMEOUT = 8
 

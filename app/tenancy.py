@@ -79,7 +79,7 @@ def use_club(club):
 
 def default_club():
     from .models import Club
-    slug = current_app.config.get("DEFAULT_CLUB_SLUG", "mainpower")
+    slug = current_app.config.get("DEFAULT_CLUB_SLUG", "klub")
     return (Club.query.execution_options(all_clubs=True).filter_by(slug=slug).first()
             or Club.query.execution_options(all_clubs=True).order_by(Club.id).first())
 

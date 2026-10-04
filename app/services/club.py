@@ -2,8 +2,8 @@
 
 Alles, was einen Klub von einem anderen unterscheidet — Name, Farben, Logo, Texte der Startseite, Bilder, Stimmen,
 Rechtliches, Persona der KI-Assistenz, Termin-Import — liegt als Einstellung `club.<schlüssel>` in der
-(klubbezogenen) Tabelle `settings`. Fehlende Werte fallen auf DEFAULTS zurück (= bisheriger Stand von Main Power),
-damit eine bestehende Installation nach dem Update unverändert aussieht.
+(klubbezogenen) Tabelle `settings`. Fehlende Werte fallen auf DEFAULTS zurück (= neutraler „Klub“). Jeder Klub überschreibt sie
+in den Klub-Einstellungen mit eigenem Namen, Texten, Logo und Bildern.
 """
 from __future__ import annotations
 
@@ -18,64 +18,51 @@ PREFIX = "club."
 
 # Einfache Textfelder: key -> (Label im Admin, Standardwert, max. Länge, mehrzeilig)
 TEXT_FIELDS: dict[str, tuple[str, str, int, bool]] = {
-    "name": ("Name (kurz)", "Main Power", 60, False),
-    "full_name": ("Voller Name", "Main Power Community", 120, False),
-    "subtitle": ("Zusatz neben dem Logo", "Community Frankfurt", 60, False),
-    "tagline": ("Slogan", "Geladen bleiben.", 80, False),
-    "city": ("Stadt / Region", "Frankfurt am Main", 80, False),
-    "operator": ("Betreiber (für Datenschutz und Bedingungen)", "Main Power Community, Asset Beissenov, Frankfurt am Main",
-                 300, False),
-    "contact_email": ("Kontakt-E-Mail", "hallo@main-power.org", 120, False),
-    "main_site_url": ("Hauptwebsite des Klubs (optional)", "https://www.main-power.org", 200, False),
-    "impressum_url": ("Impressum-Link", "https://www.main-power.org/impressum", 200, False),
-    "privacy_main_url": ("Datenschutzerklärung der Hauptwebsite (optional)", "https://www.main-power.org/datenschutz", 200, False),
-    "instagram_url": ("Instagram (optional)", "https://instagram.com/mainpowercommunity", 200, False),
-    "accent": ("Akzentfarbe (Hex)", "#fe4716", 7, False),
+    "name": ("Name (kurz)", "Klub", 60, False),
+    "full_name": ("Voller Name", "Klub", 120, False),
+    "subtitle": ("Zusatz neben dem Logo", "Netzwerk", 60, False),
+    "tagline": ("Slogan", "Gemeinsam weiterkommen.", 80, False),
+    "city": ("Stadt / Region", "", 80, False),
+    "operator": ("Betreiber (für Datenschutz und Bedingungen)",
+                 "Betreiber des Klubs — bitte in den Klub-Einstellungen eintragen", 300, False),
+    "contact_email": ("Kontakt-E-Mail", "kontakt@example.org", 120, False),
+    "main_site_url": ("Hauptwebsite des Klubs (optional)", "", 200, False),
+    "impressum_url": ("Impressum-Link", "", 200, False),
+    "privacy_main_url": ("Datenschutzerklärung der Hauptwebsite (optional)", "", 200, False),
+    "instagram_url": ("Instagram (optional)", "", 200, False),
+    "accent": ("Akzentfarbe (Hex)", "#14b8a6", 7, False),
     "assistant_name": ("Name der KI-Assistenz", "Aiko", 30, False),
-    "hero_title": ("Startseite: Überschrift", "Nicht mehr Kontakte. Relevantere Kontakte.", 120, False),
+    "hero_title": ("Startseite: Überschrift", "Die richtigen Menschen. Zur richtigen Zeit.", 120, False),
     "hero_lead": ("Startseite: Einleitung",
-                  "Die Plattform der Main Power Community in Frankfurt. Du erzählst uns, wo du stehst und was du suchst — wir "
-                  "bringen dich mit den Menschen zusammen, die dir wirklich weiterhelfen. Schon vor dem ersten Treffen.", 500, True),
+                  "Unser Klub bringt Unternehmer:innen, Selbstständige und Fachleute zusammen. Du erzählst, wo du stehst und "
+                  "was du suchst — die KI schlägt dir Menschen vor, die dir wirklich weiterhelfen. Schon vor dem ersten "
+                  "Treffen.", 500, True),
     "meta_description": ("Beschreibung für Suchmaschinen",
-                         "Menschen. Energie. Echte Verbindungen. Die Plattform der Main Power Community Frankfurt.", 200, False),
+                         "Klub mit KI-Matching: relevante Kontakte für Unternehmer:innen und Fachleute.", 200, False),
     "about": ("Wofür steht der Klub? (für die KI-Assistenz)",
-              "Main Power bringt Unternehmer:innen, Expert:innen und Freelancer in kuratierten Offline-Formaten zusammen. "
-              "Leitgedanke: „Nicht mehr Kontakte. Relevantere Kontakte.“ Markenversprechen: „Geladen bleiben.“", 800, True),
-    "assistant_facts": ("Feste Fakten für die KI-Assistenz (z. B. Preisaufschlüsselung)",
-                        "Hub-Preis: 25 € = 18 € Frühstück im Hotel + 7 € Organisationsbeitrag.", 1500, True),
+              "Der Klub verbindet Unternehmer:innen, Selbstständige und Fachleute in regelmäßigen, kuratierten Treffen. "
+              "Ziel: wenige, dafür relevante Kontakte, die sich gegenseitig weiterbringen.", 800, True),
+    "assistant_facts": ("Feste Fakten für die KI-Assistenz (z. B. Preise, Orte, Regeln)", "", 1500, True),
     "steps_meet_text": ("Startseite: Schritt „Begegnung“",
-                        "Beim Hub-Frühstück, Stammtisch, Laufen oder im Frauenkreis — mit dem Wissen, wen du treffen solltest.",
-                        300, True),
-    "formats_title": ("Startseite: Überschrift Formate", "Vier Wege, sich wirklich zu begegnen.", 120, False),
+                        "Beim Business-Frühstück, im Themenabend, beim Walk & Talk oder online — mit dem Wissen, wen du "
+                        "treffen solltest.", 300, True),
+    "formats_title": ("Startseite: Überschrift Formate", "Vier Formate für echte Begegnungen.", 120, False),
     "formats_intro": ("Startseite: Text Formate",
-                      "Vier Formate, eine Community. Wähle, was gerade zu deinem Leben passt — oder lerne nach und nach "
-                      "alle Seiten von Main Power kennen.", 400, True),
+                      "Vom Frühstück bis zur Online-Runde: Wähle, was zu deinem Kalender passt.", 400, True),
     "values_label": ("Registrierung: Werte-Bestätigung",
-                     "Ich akzeptiere die Werte und Struktur von Main Power und werde mich respektvoll und konstruktiv in die "
-                     "Gemeinschaft einbringen.", 300, True),
-    "events_sync_url": ("Termin-Import: JSON-Adresse (optional)", "https://www.main-power.org/api/events", 300, False),
-    "events_sync_label": ("Termin-Import: Name der Quelle", "main-power.org", 60, False),
+                     "Ich akzeptiere die Werte des Klubs und bringe mich respektvoll und konstruktiv ein.", 300, True),
+    "events_sync_url": ("Termin-Import: JSON-Adresse (optional)", "", 300, False),
+    "events_sync_label": ("Termin-Import: Name der Quelle", "", 60, False),
 }
 
 # Bilder: Liste aus {"src": "img/…" | "upload:<datei>", "alt": "…"}
 DEFAULT_HERO = [
-    {"src": "img/community-conversation.jpg", "alt": "Zwei Mitglieder im Gespräch bei einem Main-Power-Abend"},
-    {"src": "img/community-hero.jpg", "alt": "Main-Power-Frühstück auf einer Hotelterrasse in Frankfurt"},
-    {"src": "img/community-voice.jpg", "alt": "Eine Teilnehmerin teilt ihre Gedanken in der Runde"},
+    {"src": "img/neutral/hero-1.jpg", "alt": "Abstraktes Netz aus Verbindungen"},
+    {"src": "img/neutral/hero-2.jpg", "alt": ""},
+    {"src": "img/neutral/hero-3.jpg", "alt": ""},
 ]
-DEFAULT_BAND = [
-    {"src": "img/community-table.jpg", "alt": "Main-Power-Stammtisch in warmer Restaurantatmosphäre"},
-    {"src": "img/community-moment.jpg", "alt": "Offenes Gespräch bei einem Main-Power-Abend"},
-    {"src": "img/community-voice.jpg", "alt": "Eine Teilnehmerin spricht in der Gruppe"},
-]
-DEFAULT_TESTIMONIALS = [
-    {"name": "Roland", "text": "Die Idee mit den Fragekarten war klasse – sie haben alle vier Energien sehr treffend adressiert "
-                               "und den Einstieg in tiefere Gespräche enorm erleichtert."},
-    {"name": "Sabine", "text": "Durch die Möglichkeit Fragen zu stellen entstand ein offener ehrlicher Austausch, abseits von "
-                               "Small Talk."},
-    {"name": "Sini", "text": "Ich konnte wirklich einiges mitnehmen und bin echt beflügelt!!"},
-    {"name": "Brian", "text": "Danke für das Organisieren des coolen Abends. Das mit den Karten im Brief fand ich spaßig :)"},
-]
+DEFAULT_BAND = [{"src": f"img/neutral/band-{i}.jpg", "alt": ""} for i in (1, 2, 3)]
+DEFAULT_TESTIMONIALS: list[dict] = []  # keine erfundenen Stimmen — echte Zitate trägt der Klub selbst ein
 JSON_FIELDS = {"hero_images": DEFAULT_HERO, "band_images": DEFAULT_BAND, "testimonials": DEFAULT_TESTIMONIALS}
 OTHER_FIELDS = {"logo": ""}  # "upload:<datei>" oder leer (= Standard-Logo)
 

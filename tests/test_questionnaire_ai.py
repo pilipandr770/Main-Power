@@ -5,7 +5,7 @@ from app.models import User
 from app.tenancy import default_club, use_club
 from tests.test_smoke import app, client, login, register  # noqa: F401  (Fixtures)
 
-DEMO = "demo.main-power.local"
+DEMO = "demo.klub.local"
 
 
 def fake_llm(monkeypatch, module, answer, seen=None):
@@ -64,13 +64,13 @@ def test_club_report_ai_parsed_and_payload_anonymous(client, app, monkeypatch):
     fake_llm(monkeypatch, club_insights, "```json\n" + json.dumps({
         "nachfrage": [{"thema": "Finanzierung", "anzahl": 3}], "angebot": [{"thema": "Steuern", "anzahl": 2}],
         "luecken": [{"thema": "Kapital", "hinweis": "Wenige Investor:innen."}],
-        "ideen": [{"titel": "Investor:innen-Abend", "format": "hub", "warum": "Nachfrage nach Kapital."}]}) + "\n```",
+        "ideen": [{"titel": "Investor:innen-Abend", "format": "fruehstueck", "warum": "Nachfrage nach Kapital."}]}) + "\n```",
         seen)
     with app.app_context(), use_club(default_club()):
         report = club_insights.build_report()
     assert report["ai"] is True and report["ideen"][0]["titel"] == "Investor:innen-Abend"
     content = seen[0]["content"]
-    for name in ("Tobias", "Julia", "Nadine", "Kern", "demo.main-power.local"):
+    for name in ("Tobias", "Julia", "Nadine", "Kern", "demo.klub.local"):
         assert name not in content                      # keine Namen/E-Mails an das Modell
     assert "Förderanträge" not in content and "Network-Marketing" not in content  # keine privaten Felder
 

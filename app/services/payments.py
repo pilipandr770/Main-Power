@@ -1,4 +1,4 @@
-"""Stripe Checkout für kostenpflichtige Termine (z. B. Main Power Hub, 25 €).
+"""Stripe Checkout für kostenpflichtige Termine (z. B. ein Business-Frühstück).
 
 Feature-Flag STRIPE_ENABLED. Ist Stripe aus, wird eine Anmeldung als 'reserved' (Zahlung vor Ort) gespeichert.
 """

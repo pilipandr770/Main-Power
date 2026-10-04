@@ -1,10 +1,10 @@
-# CLAUDE.md — Main Power Plattform
+# CLAUDE.md — Klub-Plattform (SaaS für Business-Klubs)
 
-Kontext für Claude Code. Auftraggeber: Main Power Community (Asset Beissenov), Frankfurt. Umsetzung: Andrii-IT.
+Kontext für Claude Code. Neutrale Mehrklub-Plattform („Klub“) von Andrii-IT: Jeder Klub passt Name, Beschreibung, Impressum, Logo, Fotos und Farben in den Klub-Einstellungen an, die Funktionen für Mitglieder sind für alle gleich.
 Kommunikation mit dem Entwickler: Russisch. UI-Texte, Kommentare im Code und Commit-Messages: Deutsch.
 
 ## Befehle
-- `flask init-db && flask seed` — lokale DB mit Demo-Daten (SQLite `instance/mainpower.db`)
+- `flask init-db && flask seed` — lokale DB mit Demo-Daten (SQLite `instance/klub.db`)
 - `flask run` — Dev-Server; `pytest -q` — Smoke-Tests (offline)
 - `flask sync-events`, `flask reembed`, `flask remove-demo`, `flask create-admin <email>`
 - `flask telegram-poll` (lokal) / `flask telegram-set-webhook` (Prod)
@@ -17,8 +17,8 @@ Kommunikation mit dem Entwickler: Russisch. UI-Texte, Kommentare im Code und Com
 
 ## Konventionen (wichtig)
 - **Keine Inline-Styles und keine Inline-Skripte** — die CSP (`style-src 'self'; script-src 'self'`) blockiert sie. Nur Klassen aus `static/css/app.css` (Utilities: `mt-s/m/l`, `mb-0/m/l`, `w-0…w-100`, `h-0…h-100`, `maxw`, `split`, `pre`, `nowrap`, …).
-- Keine Google Fonts / externen CDNs (DSGVO). Systemschrift wie auf main-power.org.
-- Markenfarben als CSS-Variablen: `--night #0c0a09`, `--bone #f4eee9`, `--ember #fe4716`, `--ash #aaa19b`, `--cream #f0e9e2`.
+- Keine Google Fonts / externen CDNs (DSGVO). Systemschrift (Helvetica/Arial).
+- Farben als CSS-Variablen: `--night #0b0f14`, `--bone #eef2f6`, `--ember #14b8a6` (Akzent, je Klub überschreibbar), `--ash #9ba5b1`, `--cream #e6ecf1`.
 - Tonalität: du-Form, ruhig, hochwertig, keine Pfeile in Buttons, keine GROSSBUCHSTABEN-Labels.
 - Jede Admin-Aktion mit `audit(...)` protokollieren. Einwilligungen nur über `record_consent` (append-only).
 - Nutzer-URLs immer durch `utils.clean_url` (verhindert `javascript:`).
@@ -62,12 +62,11 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
   automatisch auf den aktuellen Klub; neue Objekte bekommen `club_id` beim Flush. Klubübergreifend nur bewusst mit
   `.execution_options(all_clubs=True)`. Hintergrund-Threads/CLI: `with use_club(club): ...`.
 - Branding/Texte/Rechtliches je Klub: `services/club.py` (`club.<feld>` in Templates, Settings `club.*`), Formate in
-  `meeting_formats` (`FORMATS` ist ein DB-Register). Vorlagen `club_presets.py` (mainpower, neutral), Export/Import JSON.
+  `meeting_formats` (`FORMATS` ist ein DB-Register). Vorlage `club_presets.py` (neutral = Standard), Export/Import JSON.
 - Admin: „Klub & Branding“, „Formate“ (nur Superadmin). Betreiber-Konsole `/plattform` (eigene Env-Anmeldung).
 - `flask init-db` migriert eine Einzelklub-DB idempotent (`migrations_mt.py`). `flask create-club`, `flask list-clubs`,
   CLI-Befehle mit `--club <slug>`.
 - Nicht je Klub: Telegram-Bot, SMTP, Stripe, Anthropic-Key (plattformweit). KI-Verbrauch wird je Klub gezählt.
-- Nie Texte aus dem vertraulichen Main-Power-Konzept in andere Presets übernehmen.
 
 ## Tarife, Kontingente, Stripe
 - `services/plans.py`: Mitglieder-Tarife (Basis/Plus/Pro) und Klub-Tarife (Starter/Club/Verband) als Daten (`Plan`,
@@ -101,7 +100,7 @@ Sicherheitsrunde (White-Team-Audit), Cybersecurity-Angebote (automatisierter Bla
 Ohne SMTP_HOST wird der Link „Passwort vergessen“ im Login ausgeblendet.
 
 ## Offene Punkte / TODO
-- [ ] Tarife/Mitgliedschaften (Stripe Subscriptions) — nach Termin mit Asset am 28.09. klären; aktuell nur Ticketzahlung pro Termin.
+- [ ] Tarife/Mitgliedschaften (Stripe Subscriptions) — umgesetzt (Mitglieder- und Klub-Tarife, siehe Abschnitt Tarife); Stripe-Webhook für Prod noch anlegen.
 - [ ] Erstattungen bei Abmeldung bezahlter Termine (derzeit manuell).
 - [ ] Flask-Migrate initialisieren (`flask db init && flask db migrate -m init`) sobald das Schema stabil ist.
 - [ ] E-Mail-Verifizierung bei Registrierung (Token-Infrastruktur wie bei Passwort-Reset vorhanden).

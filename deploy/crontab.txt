@@ -1,2 +1,2 @@
-# crontab -e (User www-data): Termine stündlich von main-power.org übernehmen
+# crontab -e (User www-data): Termine stündlich aus der Quelle jedes Klubs übernehmen
 15 * * * * cd /srv/mainpower && set -a && . ./.env && set +a && .venv/bin/flask sync-events >> /var/log/mainpower-sync.log 2>&1

@@ -30,7 +30,7 @@ def _base() -> Path:
 def club_root() -> Path:
     from ..tenancy import current_club
     club = current_club()
-    default_slug = current_app.config.get("DEFAULT_CLUB_SLUG", "mainpower")
+    default_slug = current_app.config.get("DEFAULT_CLUB_SLUG", "klub")
     if club is None or club.slug == default_slug:
         return _base()
     return _base() / "clubs" / str(club.id)

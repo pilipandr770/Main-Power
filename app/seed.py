@@ -1,8 +1,8 @@
 """Startdaten je Klub: Branding-Vorlage, Formate, FAQ, Leistungen, Beispieltermine und (optional) Demo-Mitglieder.
 
-Standardklub (DEFAULT_CLUB_SLUG) = Main Power; weitere Klubs legt create_club() an (Plattform-Konsole oder CLI).
+Standardklub (DEFAULT_CLUB_SLUG) = „Klub“; weitere Klubs legt create_club() an (Plattform-Konsole oder CLI).
 
-Demo-Mitglieder haben E-Mails @demo.main-power.local und lassen sich mit `flask remove-demo` entfernen.
+Demo-Mitglieder haben E-Mails @demo.klub.local und lassen sich mit `flask remove-demo` entfernen.
 """
 from __future__ import annotations
 
@@ -19,31 +19,31 @@ from .tenancy import use_club
 from .services.matching import refresh_embeddings
 
 log = logging.getLogger(__name__)
-DEMO_DOMAIN = "demo.main-power.local"
+DEMO_DOMAIN = "demo.klub.local"
 
 FAQ = [
+    ("Wie werde ich Mitglied?",
+     "Registriere dich kostenlos und beantworte in deinem Profil die wichtigsten Fragen – im Formular oder im Gespräch "
+     "mit der KI-Assistenz. Danach schlägt dir die KI passende Menschen vor.", True),
     ("Muss ich mich vorher anmelden?",
      "Ja, für die meisten Formate ist eine Anmeldung nötig — so können wir Locations passend planen und dir einen "
      "Platz sicher zusagen.", True),
     ("Was kostet die Teilnahme?",
-     "Main Power Hub kostet 25 € pro Person: 18 € für das Frühstück und 7 € Organisationsbeitrag. Stammtisch, "
-     "Laufen und Frauenkreis sind kostenlos.", True),
+     "Die Mitgliedschaft auf der Plattform ist kostenlos. Einzelne Formate können einen Kostenbeitrag haben; er steht "
+     "jeweils beim Termin.", True),
     ("Muss ich etwas erzählen, oder kann ich einfach zuhören?",
      "Niemand muss sprechen. Du kannst erzählen, zuhören oder einfach dabei sein — beides ist willkommen.", True),
-    ("In welcher Sprache erhalte ich Informationen?",
-     "Die Website und die Orientierung durch Aiko sind auf Deutsch. Bei Fragen zu einem konkreten Treffen schreib "
-     "uns gerne.", True),
     ("Was mache ich, wenn ich kurzfristig doch nicht kann?",
      "Bitte gib uns kurz Bescheid, damit wir den Platz an jemand anderen weitergeben können. Auf der Plattform "
      "kannst du dich im Termin selbst abmelden.", True),
     ("Kann ich als Unternehmen oder Expert:in mitwirken?",
-     "Ja, sehr gerne. Schreib uns an hallo@main-power.org und erzähl uns kurz, wie du Main Power mitgestalten "
+     "Ja, sehr gerne. Melde dich über die Kontaktadresse des Klubs und erzähl uns kurz, wie du dich einbringen "
      "möchtest.", True),
     ("Wie funktioniert das Matching?",
      "Du beschreibst in deinem Profil, was du machst, was du erreichen willst, wen du suchst und womit du anderen "
-     "helfen kannst – im Formular oder im Gespräch mit Aiko. Die KI vergleicht Bedarf und Angebot inhaltlich — nicht "
-     "nur über Schlagworte — und schlägt dir Menschen vor, die sich gegenseitig weiterhelfen können. Matching ist "
-     "freiwillig und jederzeit abschaltbar.", True),
+     "helfen kannst – im Formular oder im Gespräch mit der KI-Assistenz. Die KI vergleicht Bedarf und Angebot "
+     "inhaltlich — nicht nur über Schlagworte — und schlägt dir Menschen vor, die sich gegenseitig weiterhelfen "
+     "können. Matching ist freiwillig und jederzeit abschaltbar.", True),
     ("Wer sieht meine Kontaktdaten?",
      "Niemand, ohne dass du zustimmst. Andere Mitglieder können dir eine Kontaktanfrage senden. Erst wenn du sie "
      "annimmst, sehen beide Seiten E-Mail, Telefon und Profil-Links.", True),
@@ -218,7 +218,7 @@ DEMO_MEMBERS = [
      "Gründer:innen mit skalierbaren Geschäftsmodellen, insbesondere Software",
      "Finanzierung, Business Angel, Pitch"),
     ("Kerem", "Yilmaz", "Inhaber, Restaurantgruppe (3 Standorte)", "Gastronomie",
-     "Gastronomie in Frankfurt, Catering für Firmenevents",
+     "Gastronomie in der Region, Catering für Firmenevents",
      "Firmenkund:innen für Catering gewinnen und Personal halten",
      "Catering, Eventlocations, Erfahrung als Arbeitgeber in der Gastronomie",
      "Unternehmen mit Eventbedarf, Marketing-Unterstützung, Arbeitsrecht",
@@ -355,11 +355,6 @@ def _seed_demo_questionnaire() -> None:
 # Frühere Standardantworten, die bei `flask init-db` auf den aktuellen Text gehoben werden – nur wenn der Klub sie
 # unverändert übernommen hat (eigene Formulierungen bleiben unangetastet).
 OUTDATED_FAQ = [  # (Vorlage, Frage, frühere Standardantwort)
-    ("mainpower", "Wie funktioniert das Matching?",
-     "Du beantwortest in deinem Profil vier Fragen: dein Tätigkeitsbereich, deine größte Herausforderung, womit du "
-     "anderen helfen kannst und wonach du konkret suchst. Die KI vergleicht Bedarf und Angebot inhaltlich — nicht "
-     "nur über Schlagworte — und schlägt dir Menschen vor, die sich gegenseitig weiterhelfen können. Matching ist "
-     "freiwillig und jederzeit abschaltbar."),
     ("neutral", "Wie werde ich Mitglied?",
      "Registriere dich kostenlos und beantworte in deinem Profil vier Fragen. Danach schlägt dir die KI passende "
      "Menschen vor."),
@@ -381,7 +376,7 @@ def refresh_default_faq() -> int:
     return changed
 
 
-def _seed_content(preset: str = "mainpower") -> None:
+def _seed_content(preset: str = "neutral") -> None:
     from .club_presets import apply_faq, apply_formats, preset_faq, preset_formats
     if MeetingFormat.query.count() == 0:
         apply_formats(preset_formats(preset))
@@ -425,17 +420,17 @@ def _preferred_formats() -> str:
 
 def _seed_admin() -> None:
     """Erster Superadmin des Standardklubs (aus .env)."""
-    email = os.environ.get("ADMIN_EMAIL", "admin@main-power.local").lower()
+    email = os.environ.get("ADMIN_EMAIL", "admin@klub.local").lower()
     if User.query.filter_by(email=email).first():
         return
     pw = os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern")
-    u = User(email=email, first_name="Asset", last_name="Beissenov", role="superadmin")
+    u = User(email=email, first_name="Admin", last_name="", role="superadmin")
     u.set_password(pw)
-    u.profile = Profile(headline="Founder, Connector & Ecosystem Builder", company="Main Power Community",
-                        industry="Community & Netzwerk", q_focus="Aufbau der Main Power Community in Frankfurt",
-                        q_can_help="Kontakte in die Frankfurter Unternehmerszene, Moderation, Community-Aufbau",
+    u.profile = Profile(headline="Klubleitung", company="", industry="Community & Netzwerk",
+                        q_focus="Aufbau und Betreuung des Klubs",
+                        q_can_help="Kontakte innerhalb des Klubs, Moderation, Community-Aufbau",
                         q_looking_for="Expert:innen, die Themen-Frühstücke mitgestalten",
-                        q_challenge="Die Community auf weitere Regionen skalieren")
+                        q_challenge="Den Klub mit den richtigen Mitgliedern wachsen lassen")
     db.session.add(u)
     db.session.commit()
     log.warning("Superadmin angelegt: %s / %s  (Passwort sofort ändern!)", email, pw)
@@ -491,16 +486,16 @@ DEMO_SCENARIOS = [
      "Softwarepartner für Datenerfassung und Finanzierungsexpert:innen für Investitionen",
      "ESG, CSRD, CO₂-Bilanz, Förderung", "normal"),
     ("Petra", "Lang", "Immobilienmaklerin", "Immobilien",
-     "Vermittlung von Gewerbeflächen und Praxisräumen in Frankfurt",
+     "Vermittlung von Gewerbeflächen und Praxisräumen in der Stadt",
      "Selbstständige und Start-ups finden schwer passende Büros",
-     "Bürosuche, Marktüberblick zu Mieten in Frankfurt", "Kontakt zu Gründer:innen mit Raumbedarf",
+     "Bürosuche, Marktüberblick zu Mieten vor Ort", "Kontakt zu Gründer:innen mit Raumbedarf",
      "Gewerbeimmobilien, Büro, Miete", "privat"),
     ("Felix", "Baumann", "", "", "", "", "", "", "", "neu"),
     ("Oleg", "Petrenko", "Import/Export-Händler", "Handel",
      "Handel mit Baustoffen zwischen Deutschland und Osteuropa", "Zahlungsausfälle bei Neukunden",
      "Kontakte zu Lieferanten in Osteuropa", "Inkasso- und Rechtsberatung", "Handel, Import, Export", "gesperrt"),
     ("Lisa", "Team", "Community-Managerin", "Community",
-     "Organisation der Main-Power-Formate und Betreuung der Mitglieder",
+     "Organisation der Klub-Formate und Betreuung der Mitglieder",
      "Passende Gäste für jedes Format finden", "Fragen zu Formaten, Terminen und Anmeldung",
      "Expert:innen für Themen-Frühstücke", "Community, Events, Moderation", "moderator"),
 ]
@@ -561,12 +556,12 @@ def _seed_demo_scenarios() -> None:
     if not Event.query.filter_by(source="member", title="Themen-Frühstück: Cybersecurity im Mittelstand").first():
         db.session.add(Event(format="community", title="Themen-Frühstück: Cybersecurity im Mittelstand",
                              description="Kleine Runde: Was Unternehmen bei NIS-2 jetzt wissen müssen.",
-                             starts_at=now + timedelta(days=12), location="Frankfurt Westend", capacity=12,
+                             starts_at=now + timedelta(days=12), location="Musterstadt, Innenstadt", capacity=12,
                              status="pending", source="member", created_by_id=by("Ivan", "Kovalenko").id))
     db.session.commit()
 
 
-AVATAR_COLORS = [(254, 71, 22), (231, 179, 91), (94, 129, 172), (129, 161, 193), (163, 190, 140), (180, 142, 173),
+AVATAR_COLORS = [(20, 184, 166), (231, 179, 91), (94, 129, 172), (129, 161, 193), (163, 190, 140), (180, 142, 173),
                  (208, 135, 112), (143, 188, 187), (191, 97, 106), (112, 128, 144)]
 
 
@@ -601,11 +596,11 @@ def _club_name() -> str:
 
 
 def ensure_default_club() -> Club:
-    """Standardklub (Main Power) anlegen, falls es noch keinen gibt — hält bestehende Installationen lauffähig."""
-    slug = current_app.config.get("DEFAULT_CLUB_SLUG", "mainpower")
+    """Standardklub anlegen, falls es noch keinen gibt — hält bestehende Installationen lauffähig."""
+    slug = current_app.config.get("DEFAULT_CLUB_SLUG", "klub")
     club = Club.query.execution_options(all_clubs=True).filter_by(slug=slug).first()
     if club is None:
-        club = Club(slug=slug, name=current_app.config.get("DEFAULT_CLUB_NAME", "Main Power"),
+        club = Club(slug=slug, name=current_app.config.get("DEFAULT_CLUB_NAME", "Klub"),
                     domains=current_app.config.get("DEFAULT_CLUB_DOMAINS", ""))
         db.session.add(club)
         db.session.commit()
@@ -622,14 +617,14 @@ def _seed_club(demo: bool, preset: str) -> None:
         _seed_demo_avatars()
 
 
-def seed(demo: bool = True, club: Club | None = None, preset: str = "mainpower") -> None:
+def seed(demo: bool = True, club: Club | None = None, preset: str = "neutral") -> None:
     db.create_all()
     from .services.plans import ensure_defaults
     ensure_defaults()  # plattformweite Tarife und Zusatzpakete
     club = club or ensure_default_club()
     with use_club(club):
         _seed_club(demo=False, preset=preset)
-        if club.slug == current_app.config.get("DEFAULT_CLUB_SLUG", "mainpower"):
+        if club.slug == current_app.config.get("DEFAULT_CLUB_SLUG", "klub"):
             _seed_admin()
         if demo:
             _seed_club(demo=True, preset=preset)

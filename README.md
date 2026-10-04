@@ -1,6 +1,6 @@
-# Main Power — ai.main-power.org (MVP)
+# Klub-Plattform (SaaS für Business-Klubs)
 
-Платформа сообщества Main Power (Франкфурт): регистрация, профиль из 4 вопросов Hub, семантический Need/Offer-матчинг, ассистентка Aiko (публичная и персональная), ивенты (синхронизация с main-power.org, запись, создание участниками, Stripe за фиче-флагом), обмен контактами только по opt-in, закрытый чат через Telegram, каталог услуг (чат-боты и кибербезопасность от Andrii-IT) и суперадминка для заказчика.
+Нейтральная SaaS-платформа для клубов и сообществ: каждый клуб настраивает шаблон под себя (имя, описание, Impressum, логотип, фото на лендинге, цвета, форматы встреч), а функционал для участников у всех одинаковый. Регистрация, анкета, семантический Need/Offer-матчинг, ассистентка Aiko (имя настраивается), ивенты (импорт из внешнего календаря по желанию, запись, создание участниками, Stripe), обмен контактами только по opt-in, закрытый чат через Telegram, каталог услуг и суперадминка клуба. Оператор платформы управляет клубами, тарифами и лимитами в консоли `/plattform`.
 
 UI полностью на немецком. Стек: Flask 3, SQLAlchemy, PostgreSQL (локально SQLite), Anthropic API, серверные шаблоны без JS-фреймворка.
 
@@ -10,7 +10,7 @@ UI полностью на немецком. Стек: Flask 3, SQLAlchemy, Post
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # для локали: FLASK_ENV=development, COOKIE_SECURE=0, DATABASE_URL закомментировать
-flask init-db && flask seed   # события тянутся с main-power.org/api/events, + 12 демо-участников
+flask init-db && flask seed   # нейтральный клуб «Klub», примеры мероприятий, 12 демо-участников
 flask run                     # http://localhost:5000
 pytest -q                     # 6 smoke-тестов, работают офлайн
 ```
@@ -19,8 +19,8 @@ pytest -q                     # 6 smoke-тестов, работают офла�
 
 | Вход | Логин | Пароль |
 |---|---|---|
-| Суперадмин | admin@main-power.local | admin-passwort-bitte-aendern |
-| Демо-участник | julia.wagner@demo.main-power.local (и ещё 11) | demo-passwort-123 |
+| Суперадмин | admin@klub.local | admin-passwort-bitte-aendern |
+| Демо-участник | julia.wagner@demo.klub.local (и ещё 11) | demo-passwort-123 |
 
 Альтернатива: `docker compose up --build`, затем `docker compose exec app flask init-db && docker compose exec app flask seed` → http://localhost:8000
 
@@ -34,7 +34,7 @@ pytest -q                     # 6 smoke-тестов, работают офла�
   3. Заполнить `TELEGRAM_*` в `.env`.
   4. Прод: `flask telegram-set-webhook` (нужен HTTPS `BASE_URL`). Локально: `flask telegram-poll`.
   - Логика: привязка аккаунта через deep-link → персональная одноразовая инвайт-ссылка (1 человек, 24 ч) → бот выкидывает из группы всех, кто не привязан к активному аккаунту, и тех, кого заблокировали/удалили. В личке бота отвечает Aiko с контекстом профиля.
-- **Stripe** (`STRIPE_ENABLED=1`): Checkout для платных ивентов (Hub 25 €). Webhook: `https://ai.main-power.org/webhooks/stripe`, событие `checkout.session.completed`. Когда флаг выключен, платная запись получает статус `reserved` (оплата на месте).
+- **Stripe** (`STRIPE_ENABLED=1`): Checkout для платных ивентов и подписок. Webhook: `https://<BASE_URL>/webhooks/stripe`, событие `checkout.session.completed`. Когда флаг выключен, платная запись получает статус `reserved` (оплата на месте).
 - **SMTP** — письма: приветствие, сброс пароля, запрос контакта, ответ на запрос, заявка на услугу (уходит на `provider_email` услуги).
 
 ## Деплой на Hetzner (как у остальных проектов)
@@ -47,7 +47,7 @@ cp .env.example .env && nano .env
 set -a; . ./.env; set +a
 .venv/bin/flask init-db && .venv/bin/flask seed --no-demo
 sudo cp deploy/mainpower.service /etc/systemd/system/ && sudo systemctl enable --now mainpower
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/ai.main-power.org   # + certbot
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/klub.example.org   # + certbot
 crontab deploy/crontab.txt   # синхронизация событий раз в час
 ```
 
@@ -55,7 +55,7 @@ crontab deploy/crontab.txt   # синхронизация событий раз 
 
 ## Чеклист перед go-live
 
-1. `flask remove-demo`, сменить пароль суперадмина (или создать заказчику аккаунт: `flask create-admin hallo@main-power.org`).
+1. `flask remove-demo`, сменить пароль суперадмина (или создать клубу аккаунт: `flask create-admin admin@example.org`).
 2. `SECRET_KEY`, `COOKIE_SECURE=1`, HTTPS.
 3. Datenschutzhinweise (`/datenschutz`) — это черновик, помечен «rechtlich prüfen». Отдать юристу / DSB заказчика: хостер, Anthropic, Voyage/OpenAI, Stripe, Telegram, SMTP.
 4. AVV (Auftragsverarbeitungsverträge) с Anthropic, Voyage/OpenAI, Stripe, хостером. Для Telegram AVV нет, поэтому чат опционален и включается только активным действием участника.
@@ -68,17 +68,17 @@ crontab deploy/crontab.txt   # синхронизация событий раз 
 ```
 app/
   models.py            модель данных (User, Profile, Consent, Event, Registration, Match, IntroRequest, …)
-  seed.py              FAQ и тексты с main-power.org, услуги, демо-данные
+  seed.py              нейтральные FAQ и тексты, услуги, демо-данные
   services/
     matching.py        эмбеддинги + взаимный скоринг + LLM-обоснования (кэш в matches)
     aiko.py            системные промпты, публичный и персональный режим, фолбэк без ключа
     telegram.py        бот, привязка, инвайты, «страж» группы, polling
     payments.py        Stripe Checkout + webhook
-    events_sync.py     импорт из main-power.org/api/events (вырезает Meet-ссылки и PIN)
+    events_sync.py     импорт мероприятий из JSON-адреса клуба (вырезает Meet-ссылки и PIN)
     gdpr.py            экспорт (ст. 15/20) и удаление (ст. 17)
   blueprints/          public, auth, member (/app), admin (/admin), webhooks
   templates/           Jinja, немецкий UI
-  static/              css/app.css (дизайн-система), js/app.js, img/ (с main-power.org)
+  static/              css/app.css (дизайн-система), js/app.js, img/neutral/ (лицензионно свободные картинки)
 tests/test_smoke.py    сквозные тесты основных сценариев
 ```
 
@@ -95,7 +95,7 @@ tests/test_smoke.py    сквозные тесты основных сценар
 ```bash
 flask init-db
 ```
-Этот шаг идемпотентно переводит старую базу с одним клубом в клуб `mainpower`. Проверено на копии прод-БД.
+Этот шаг идемпотентно переводит старую базу с одним клубом в клуб по умолчанию (`DEFAULT_CLUB_SLUG`, обычно `klub`; у существующей установки оставить прежний slug).
 
 ```bash
 flask create-club berlin "Founders Berlin" --admin-email chefin@example.de --admin-password '…' --domains klub.example.de

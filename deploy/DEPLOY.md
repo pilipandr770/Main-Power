@@ -1,4 +1,4 @@
-# Деплой Main Power (Docker)
+# Деплой Klub-Plattform (Docker)
 
 ## Локально
 ```
@@ -8,14 +8,14 @@ docker compose up --build        # http://localhost:8000, Postgres + демо-д
 
 ## Hostinger VPS (рекомендуется)
 1. VPS с Ubuntu 22.04/24.04 и Docker (в Hostinger есть шаблон «Ubuntu + Docker»).
-2. DNS: A-запись `ai.main-power.org` → IP VPS (в Cloudflare можно оставить «серое облако» или включить прокси).
+2. DNS: A-запись домена платформы (`klub.example.org`) → IP VPS (в Cloudflare можно оставить «серое облако» или включить прокси).
 3. На сервере:
 ```
 git clone <repo> /srv/mainpower && cd /srv/mainpower
 cp .env.example .env      # заполнить: SECRET_KEY, POSTGRES_PASSWORD, DOMAIN, ADMIN_EMAIL/PASSWORD, ANTHROPIC_API_KEY
 docker compose -f docker-compose.prod.yml up -d --build
 ```
-   Caddy сам получает сертификат Let's Encrypt (порты 80/443 открыты). Сервис `sync` раз в час тянет события с main-power.org.
+   Caddy сам получает сертификат Let's Encrypt (порты 80/443 открыты). Сервис `sync` раз в час тянет события из календаря-источника каждого клуба (если задан).
 4. Первый запуск с `SEED=1` создаёт контент и суперадмина. Потом можно поставить `SEED=0`.
 5. Бэкап БД: `docker compose -f docker-compose.prod.yml exec db pg_dump -U mainpower mainpower > backup.sql`
 6. Обновление: `git pull && docker compose -f docker-compose.prod.yml up -d --build`
@@ -35,7 +35,7 @@ Cloudflare не запускает Flask/Docker-приложения на обы
   админских «Zusätzliche Anweisungen».
 
 ## Aktueller Stand: mainpower.andrii-it.de (Hostinger-VPS srv1425385)
-- Auf dem VPS läuft bereits Traefik (host-network, Ports 80/443). Main Power nutzt deshalb `docker-compose.traefik.yml`:
+- Auf dem VPS läuft bereits Traefik (host-network, Ports 80/443). Die Plattform nutzt deshalb `docker-compose.traefik.yml`:
   App nur auf `127.0.0.1:8010`, Route per Datei `/opt/traefik-dynamic/mainpower.yml` (Vorlage `deploy/traefik-mainpower.yml`), Zertifikat `letsencrypt`.
 - Code: `/srv/mainpower` (git pull, dann `docker compose -f docker-compose.traefik.yml up -d --build`). Secrets: `/srv/mainpower/.env` (chmod 600).
 - DNS: A `mainpower` → 187.124.6.120, Cloudflare-Proxy an, `PROXY_HOPS=2`.
@@ -48,11 +48,11 @@ Cloudflare не запускает Flask/Docker-приложения на обы
   so eingerichtet). Ein dritter Dienst `laws-worker` hält die Daten per Zeitplan aktuell (täglich RSS-Check, wöchentlich voller
   Refresh) — bewusst NICHT dauerhaft gestartet, um unnötigen Traffic/Kosten zu vermeiden; bei Bedarf manuell:
   `cd /opt/advokat/laws_pipeline && docker compose up -d laws-worker`.
-- Main Power (`app`-Service) hängt zusätzlich am externen Netzwerk `laws_net` (siehe `docker-compose.traefik.yml`) und ruft
+- Die Plattform (`app`-Service) hängt zusätzlich am externen Netzwerk `laws_net` (siehe `docker-compose.traefik.yml`) und ruft
   intern `http://laws-api:8000` auf (`LAWS_API_URL` in `.env`). **Reihenfolge bei Neuaufsetzen:** zuerst
   `laws_pipeline` hochfahren (legt das Netzwerk `laws_net` an), erst danach `docker compose -f docker-compose.traefik.yml up -d`
-  für Main Power — sonst schlägt der Start wegen des fehlenden externen Netzwerks fehl.
-- Main Power zitiert die Gesetzestexte unverändert (keine KI-Erfindung) und lässt Aiko nur erläutern, was der Text bedeutet —
+  für die Plattform — sonst schlägt der Start wegen des fehlenden externen Netzwerks fehl.
+- Die Plattform zitiert die Gesetzestexte unverändert (keine KI-Erfindung) und lässt Aiko nur erläutern, was der Text bedeutet —
   nie eine Handlungsempfehlung oder Rechtsberatung (siehe `app/services/laws.py`). Bekannte Einschränkung der Datenbasis:
   vereinzelt Duplikate und thematisch daneben liegende Treffer bei generischen Suchbegriffen; Aiko markiert das im Bericht
   ehrlich als „nicht einschlägig“, statt zu raten.

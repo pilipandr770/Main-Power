@@ -24,8 +24,8 @@
     if (!graph || !graph.nodes || !graph.nodes.length) graph = demoGraph();
     var ctx = canvas.getContext("2d");
     var css = getComputedStyle(document.documentElement);
-    var ember = (css.getPropertyValue("--ember") || "#fe4716").trim();
-    var bone = (css.getPropertyValue("--bone") || "#f4eee9").trim();
+    var ember = (css.getPropertyValue("--ember") || "#14b8a6").trim();
+    var bone = (css.getPropertyValue("--bone") || "#eef2f6").trim();
     var ash = (css.getPropertyValue("--ash") || "#aaa19b").trim();
     var w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
     var rnd = seeded(7), pts = [];

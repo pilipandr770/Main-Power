@@ -7,11 +7,11 @@ from app.models import ClubQuestion, KnowledgeItem, Notification, PairInsight, S
 from app.tenancy import default_club, use_club
 from tests.test_smoke import app, client, login, register  # noqa: F401  (Fixtures)
 
-DEMO = "demo.main-power.local"
+DEMO = "demo.klub.local"
 
 
 def admin_login(client):
-    return login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+    return login(client, os.environ.get("ADMIN_EMAIL", "admin@klub.local"),
                  os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
 
 

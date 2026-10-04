@@ -46,7 +46,7 @@ def register(client, email="neu@example.com", matching=True):
 
 
 def test_public_pages(client):
-    for url in ["/", "/termine", "/formate/hub", "/formate/laufen", "/datenschutz", "/ki-hinweis", "/healthz",
+    for url in ["/", "/termine", "/formate/fruehstueck", "/formate/walk", "/datenschutz", "/ki-hinweis", "/healthz",
                 "/login", "/registrieren", "/passwort-vergessen"]:
         r = client.get(url)
         assert r.status_code == 200, url
@@ -55,9 +55,9 @@ def test_public_pages(client):
 
 
 def test_public_aiko_fallback(client):
-    r = client.post("/api/aiko", json={"history": [{"role": "user", "content": "Was kostet der Hub?"}]})
+    r = client.post("/api/aiko", json={"history": [{"role": "user", "content": "Was kostet die Teilnahme?"}]})
     assert r.status_code == 200
-    assert "25 €" in r.get_json()["reply"]
+    assert "kostenlos" in r.get_json()["reply"]
 
 
 def test_member_protected(client):
@@ -75,7 +75,7 @@ def test_full_member_flow(client, app):
         "q_focus": "Onlineshop für nachhaltige Mode", "q_challenge": "Steuerliche Fragen zum EU-Versand",
         "q_can_help": "Shopify, Performance-Marketing, Produktfotografie organisieren",
         "q_looking_for": "Steuerberatung für Umsatzsteuer im EU-Ausland", "expertise": "E-Commerce, Shopify",
-        "linkedin_url": "javascript:alert(1)", "website_url": "nina-shop.de", "formats": ["hub", "laufen"],
+        "linkedin_url": "javascript:alert(1)", "website_url": "nina-shop.de", "formats": ["fruehstueck", "walk"],
     }, follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
@@ -100,7 +100,7 @@ def test_full_member_flow(client, app):
     with app.app_context():
         julia = User.query.filter(User.email.like("julia.%")).first()
         julia_id = julia.id
-        hub = Event.query.filter_by(format="hub").first()
+        hub = Event.query.filter_by(format="fruehstueck").first()
         hub_id = hub.id
     assert client.get(f"/app/mitglieder/{julia_id}").status_code == 200
     r = client.post(f"/app/kontakt/{julia_id}", data={"message": "Hallo Julia!"}, follow_redirects=True)
@@ -130,7 +130,7 @@ def test_full_member_flow(client, app):
 
     # Julia nimmt an
     client.post("/logout")
-    login(client, "julia.wagner@demo.main-power.local", "demo-passwort-123")
+    login(client, "julia.wagner@demo.klub.local", "demo-passwort-123")
     with app.app_context():
         ir = IntroRequest.query.filter_by(to_user_id=julia_id, status="pending").first()
         ir_id = ir.id
@@ -151,10 +151,10 @@ def test_full_member_flow(client, app):
 def test_admin(client, app):
     register(client, "mitglied@example.com")
     client.post("/logout")
-    assert "gesperrt" not in login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+    assert "gesperrt" not in login(client, os.environ.get("ADMIN_EMAIL", "admin@klub.local"),
                                     os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern")).get_data(as_text=True)
     with app.app_context():
-        hub = Event.query.filter_by(format="hub").first()
+        hub = Event.query.filter_by(format="fruehstueck").first()
         member = User.query.filter_by(email="mitglied@example.com").first()
         reg = Registration.query.filter_by(event_id=hub.id).first()
         ids = dict(hub=hub.id, member=member.id, reg=reg.id)
@@ -170,17 +170,17 @@ def test_admin(client, app):
     r = client.get(f"/admin/termine/{ids['hub']}/matching")
     assert "Beste Gesprächspartner" in r.get_data(as_text=True)
 
-    r = client.post("/admin/termine/neu", data={"title": "Hub Spezial", "format": "hub", "date": "2030-01-10",
+    r = client.post("/admin/termine/neu", data={"title": "Frühstück Spezial", "format": "fruehstueck", "date": "2030-01-10",
                                                "time": "08:30", "price": "25", "status": "published"},
                     follow_redirects=True)
     assert r.status_code == 200
     with app.app_context():
-        assert Event.query.filter_by(title="Hub Spezial").first().price_cents == 2500
+        assert Event.query.filter_by(title="Frühstück Spezial").first().price_cents == 2500
 
     client.post(f"/admin/termine/{ids['hub']}/anmeldung/{ids['reg']}", data={"status": "paid"})
     client.post("/admin/wissen", data={"question": "Testfrage?", "answer": "Testantwort", "public": "1",
                                        "active": "1", "sort": "99"})
-    client.post("/admin/einstellungen", data={"announcement": "Hub am Mittwoch ausgebucht",
+    client.post("/admin/einstellungen", data={"announcement": "Frühstück am Mittwoch ausgebucht",
                                               "telegram_group_title": "MP"})
     client.post(f"/admin/mitglieder/{ids['member']}/sperren")
     with app.app_context():
@@ -201,7 +201,7 @@ def test_admin_edit_member_and_token_counter(client, app):
     from app.models import LLMUsage
     register(client, "edit@example.com")
     client.post("/logout")
-    login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+    login(client, os.environ.get("ADMIN_EMAIL", "admin@klub.local"),
           os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
     with app.app_context():
         uid = User.query.filter_by(email="edit@example.com").first().id
@@ -351,7 +351,7 @@ def test_profile_guide_coach_and_contact_assistant(client, app):
                                      "q_challenge": "Ich brauche Hilfe bei der Steuer für meine Freiberuflichkeit",
                                      "q_can_help": "Branding und Webdesign", "q_looking_for": "Steuerberater"})
     with app.app_context():
-        julia = User.query.filter_by(email="julia.wagner@demo.main-power.local").first().id
+        julia = User.query.filter_by(email="julia.wagner@demo.klub.local").first().id
     r = client.post(f"/app/api/kontakt-assistent/{julia}", json={})
     d = r.get_json()
     assert r.status_code == 200 and d["ai"] is False
@@ -392,7 +392,7 @@ def test_event_invitations_and_network_pages(client, app):
     assert "data-network" in client.get("/app/community").get_data(as_text=True)
     assert "data-network" in client.get("/").get_data(as_text=True)
     client.post("/logout")
-    login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+    login(client, os.environ.get("ADMIN_EMAIL", "admin@klub.local"),
           os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
     assert "Matching-Karte" in client.get("/admin/").get_data(as_text=True)
     with app.app_context():
@@ -440,9 +440,9 @@ def test_legal_pages_cookie_banner_and_subscriptions(client, app):
 def test_admin_impersonation_demo_mode(client, app):
     from app.models import AuditLog
     with app.app_context():
-        julia = User.query.filter_by(email="julia.wagner@demo.main-power.local").first().id
-        markus = User.query.filter_by(email="markus.albrecht@demo.main-power.local").first().id
-    login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+        julia = User.query.filter_by(email="julia.wagner@demo.klub.local").first().id
+        markus = User.query.filter_by(email="markus.albrecht@demo.klub.local").first().id
+    login(client, os.environ.get("ADMIN_EMAIL", "admin@klub.local"),
           os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
     # ohne Flag: nicht verfügbar
     app.config["ENABLE_IMPERSONATION"] = False
@@ -472,7 +472,7 @@ def test_admin_impersonation_demo_mode(client, app):
             and ("impersonate.stop", admin_id) in acts
     # normales Mitglied darf nicht wechseln
     client.post("/logout")
-    login(client, "julia.wagner@demo.main-power.local", "demo-passwort-123")
+    login(client, "julia.wagner@demo.klub.local", "demo-passwort-123")
     assert client.post(f"/app/als-nutzer/{markus}").status_code == 403
     assert client.post(f"/admin/mitglieder/{markus}/als-nutzer").status_code == 403
     app.config["ENABLE_IMPERSONATION"] = False
@@ -765,7 +765,7 @@ def test_panel_full_run_quota_and_pages(client, app, monkeypatch):
 
     # fremder Zugriff und Löschen
     client.post("/logout")
-    login(client, "julia.wagner@demo.main-power.local", "demo-passwort-123")
+    login(client, "julia.wagner@demo.klub.local", "demo-passwort-123")
     assert client.get(f"/app/markt-panel/{rid}").status_code == 404
     client.post("/logout")
     login(client, "neu@example.com", "sehr-sicheres-pw")
@@ -900,7 +900,7 @@ def test_laws_route_full_flow_and_gdpr(client, app, monkeypatch):
         assert LawQuery.query.count() == 0
 
     # fremder Zugriff
-    login(client, "julia.wagner@demo.main-power.local", "demo-passwort-123")
+    login(client, "julia.wagner@demo.klub.local", "demo-passwort-123")
     assert client.get(f"/app/gesetze/{qid}").status_code == 404
 
 

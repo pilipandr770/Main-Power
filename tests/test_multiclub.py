@@ -58,12 +58,12 @@ def login(client, email, pw, base="http://localhost"):
 def test_branding_per_domain(client):
     a = client.get("/").get_data(as_text=True)
     b = client.get("/", base_url=f"http://{B_HOST}").get_data(as_text=True)
-    assert "Main Power" in a and "Nicht mehr Kontakte" in a and "community-hero.jpg" in a
-    assert "Founders Berlin" in b and "Main Power" not in b and "img/neutral/hero-1.jpg" in b
-    assert "community-hero.jpg" not in b and "Roland" not in b  # keine fremden Fotos oder Zitate
-    assert "Business-Frühstück" in b and "Hub" not in b.split("Formate")[-1][:4000]
+    assert "Die richtigen Menschen" in a and "img/neutral/hero-1.jpg" in a and "Founders Berlin" not in a
+    assert "Founders Berlin" in b and "img/neutral/hero-1.jpg" in b
+    assert "Main Power" not in a + b and "Roland" not in a + b  # keine Reste des früheren Kunden
+    assert "Business-Frühstück" in b
     assert "#14b8a6" in client.get("/club.css", base_url=f"http://{B_HOST}").get_data(as_text=True)
-    assert "#fe4716" in client.get("/club.css").get_data(as_text=True)
+    assert "#14b8a6" in client.get("/club.css").get_data(as_text=True)
 
 
 def test_data_isolation_between_clubs(client, app):
@@ -95,15 +95,14 @@ def test_data_isolation_between_clubs(client, app):
     with app.app_context():
         clubs = {c.slug: c.id for c in Club.query.all()}
         assert KnowledgeItem.query.filter_by(club_id=clubs["berlin"]).count() > 0
-        assert all("Main Power" not in k.answer for k in KnowledgeItem.query.filter_by(club_id=clubs["berlin"]))
-        assert MeetingFormat.query.filter_by(club_id=clubs["berlin"], key="hub").count() == 0
+        assert MeetingFormat.query.filter_by(club_id=clubs["berlin"], key="fruehstueck").count() == 1
 
 
 def test_tenant_filter_on_all_query_types(app):
     """Der automatische Filter greift bei query, get, Aggregaten, Joins und Bulk-Updates."""
     from sqlalchemy import func
     with app.app_context():
-        a = Club.query.filter_by(slug="mainpower").one()
+        a = Club.query.filter_by(slug="klub").one()
         b = Club.query.filter_by(slug="berlin").one()
         b_user = User.query.filter_by(club_id=b.id).first()
         with use_club(a):
@@ -128,7 +127,7 @@ def test_platform_console(client, app):
     assert "falsch" in r.get_data(as_text=True)
     client.post("/plattform/login", data={"email": "betreiber@example.com", "password": "plattform-passwort-123"})
     page = client.get("/plattform/").get_data(as_text=True)
-    assert "Founders Berlin" in page and "Main Power" in page
+    assert "Founders Berlin" in page and "klub" in page
 
     r = client.post("/plattform/klub/neu", data={"name": "Hamburg Hub", "slug": "hamburg", "preset": "neutral",
                                                  "admin_email": "hh@example.com", "admin_password": "hamburg-passwort-1",
@@ -173,7 +172,7 @@ def test_club_admin_branding_formats_and_export(client, app):
     home = B("get", "/").get_data(as_text=True)
     assert "Gründer:innen treffen Gründer:innen" in home and "Endlich relevante Gespräche." in home
     assert "#2255aa" in B("get", "/club.css").get_data(as_text=True)
-    assert "Main Power" in client.get("/").get_data(as_text=True)  # Klub A unberührt
+    assert "Berlin Founders" not in client.get("/").get_data(as_text=True)  # Klub A unberührt
 
     from PIL import Image
     buf = io.BytesIO()
@@ -205,9 +204,10 @@ def test_club_admin_branding_formats_and_export(client, app):
     assert "Gründer:innen treffen Gründer:innen" in home and "Pitch-Abend" in home
     assert 'class="logo-img"' not in home  # hochgeladene Bilder werden nicht übernommen
 
-    # Vorlage „Main Power“ auf Berlin anwenden und zurück
-    B("post", "/admin/klub/vorlage", data={"preset": "mainpower"})
-    assert "Nicht mehr Kontakte" in B("get", "/").get_data(as_text=True)
+    # Vorlage anwenden setzt Branding auf die neutralen Standardtexte zurück
+    B("post", "/admin/klub/vorlage", data={"preset": "neutral"})
+    home = B("get", "/").get_data(as_text=True)
+    assert "Die richtigen Menschen" in home and "Gründer:innen treffen Gründer:innen" not in home
 
 
 def test_ai_prompts_use_club_name(app, monkeypatch):
@@ -233,7 +233,7 @@ def test_ai_prompts_use_club_name(app, monkeypatch):
         app.config["ANTHROPIC_API_KEY"] = "x"
         from app.services import aiko
         aiko.answer_public([{"role": "user", "content": "Hallo"}])
-        assert "Founders Berlin" in sent["system"] and "Main Power" not in sent["system"]
+        assert "Founders Berlin" in sent["system"] and "Main Power" not in sent["system"]  # Name des Klubs, nicht des Standardklubs
         assert LLMUsage.query.count() == 1 and LLMUsage.query.first().club_id == Club.query.filter_by(slug="berlin").one().id
 
 

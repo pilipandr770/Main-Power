@@ -11,7 +11,7 @@ from app.services import billing, plans
 from app.tenancy import default_club, use_club
 from tests.test_smoke import app, client, login, register  # noqa: F401  (Fixtures)
 
-DEMO = "demo.main-power.local"
+DEMO = "demo.klub.local"
 
 
 def by(first):
@@ -228,7 +228,7 @@ def test_platform_tariff_editor_and_admin_assignment(client, app):
     with app.app_context():
         assert plans.vat_rate() == 0 and plans.commission_pct() == 25
 
-    login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+    login(client, os.environ.get("ADMIN_EMAIL", "admin@klub.local"),
           os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
     with app.app_context(), use_club(default_club()):
         j = by("julia")

@@ -3,7 +3,7 @@ from datetime import timedelta
 
 
 def _db_url() -> str:
-    url = os.environ.get("DATABASE_URL", "sqlite:///mainpower.db")
+    url = os.environ.get("DATABASE_URL", "sqlite:///klub.db")
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg://", 1)
     elif url.startswith("postgresql://"):
@@ -21,12 +21,12 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
-    APP_NAME = "Main Power"
+    APP_NAME = "Klub"
     MAX_CONTENT_LENGTH = 6 * 1024 * 1024  # Foto-Upload (Limit 5 MB) + Formularrest
     UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "")  # leer = <instance>/uploads
     BASE_URL = os.environ.get("BASE_URL", "http://localhost:5000").rstrip("/")
-    MAIN_SITE_URL = os.environ.get("MAIN_SITE_URL", "https://www.main-power.org")
-    CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "hallo@main-power.org")
+    MAIN_SITE_URL = os.environ.get("MAIN_SITE_URL", "")
+    CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "kontakt@example.org")
     TIMEZONE = "Europe/Berlin"
 
     # Sessions / cookies
@@ -59,8 +59,8 @@ class Config:
     # Leer = Funktion in der Plattform ausgeblendet.
     LAWS_API_URL = os.environ.get("LAWS_API_URL", "").rstrip("/")
 
-    # Events sync from main-power.org
-    EVENTS_SYNC_URL = os.environ.get("EVENTS_SYNC_URL", "https://www.main-power.org/api/events")
+    # Events sync (optional, je Klub einstellbar)
+    EVENTS_SYNC_URL = os.environ.get("EVENTS_SYNC_URL", "")
 
     # Telegram
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -78,13 +78,13 @@ class Config:
     SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
     SMTP_USER = os.environ.get("SMTP_USER", "")
     SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-    SMTP_FROM = os.environ.get("SMTP_FROM", "Main Power <hallo@main-power.org>")
+    SMTP_FROM = os.environ.get("SMTP_FROM", "Klub <kontakt@example.org>")
     SMTP_TLS = _bool("SMTP_TLS", True)
 
     # Mehrere Klubs (SaaS). Der Klub wird pro Request über den Host bestimmt: eigene Domain (Club.domains) oder
     # <slug>.<PLATFORM_DOMAIN>. Unbekannte Hosts landen beim Standardklub, außer STRICT_HOSTS=1 (dann 404).
-    DEFAULT_CLUB_SLUG = os.environ.get("DEFAULT_CLUB_SLUG", "mainpower")
-    DEFAULT_CLUB_NAME = os.environ.get("DEFAULT_CLUB_NAME", "Main Power")
+    DEFAULT_CLUB_SLUG = os.environ.get("DEFAULT_CLUB_SLUG", "klub")
+    DEFAULT_CLUB_NAME = os.environ.get("DEFAULT_CLUB_NAME", "Klub")
     DEFAULT_CLUB_DOMAINS = os.environ.get("DEFAULT_CLUB_DOMAINS", "")
     PLATFORM_DOMAIN = os.environ.get("PLATFORM_DOMAIN", "")
     STRICT_HOSTS = _bool("STRICT_HOSTS", False)
@@ -96,7 +96,7 @@ class Config:
     ENABLE_IMPERSONATION = _bool("ENABLE_IMPERSONATION", False)
 
     # Legal
-    IMPRESSUM_URL = os.environ.get("IMPRESSUM_URL", "https://www.main-power.org/impressum")
+    IMPRESSUM_URL = os.environ.get("IMPRESSUM_URL", "")
     CONSENT_VERSION = os.environ.get("CONSENT_VERSION", "2026-09")
 
 

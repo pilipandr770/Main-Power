@@ -296,8 +296,8 @@ def _register_cli(app: Flask) -> None:
     @app.cli.command("create-admin")
     @click.argument("email")
     @click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
-    @click.option("--first-name", default="Asset")
-    @click.option("--last-name", default="Beissenov")
+    @click.option("--first-name", default="Admin")
+    @click.option("--last-name", default="")
     @click.option("--role", default="superadmin", type=click.Choice(["admin", "superadmin"]))
     @_club_option
     def create_admin(email, password, first_name, last_name, role, club_slug):

@@ -1,4 +1,4 @@
-"""Import der Termine aus der Kalender-Quelle eines Klubs (JSON wie main-power.org/api/events)."""
+"""Import der Termine aus der Kalender-Quelle eines Klubs (JSON-Liste mit Terminen)."""
 from __future__ import annotations
 
 import logging

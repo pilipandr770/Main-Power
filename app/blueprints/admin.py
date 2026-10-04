@@ -414,7 +414,7 @@ def event_edit(event_id=None):
     if not ev.starts_at:
         ev.starts_at = local_to_utc(datetime.now().replace(hour=9, minute=0, second=0, microsecond=0) + timedelta(days=7))
     if not ev.format:
-        ev.format = "hub"
+        ev.format = next(iter(FORMATS), "community")
     return render_template("admin/event_form.html", ev=ev, errors=errors, local=to_local(ev.starts_at),
                            local_end=to_local(ev.ends_at) if ev.ends_at else None)
 
@@ -795,7 +795,7 @@ def club_import():
 def formats():
     if MeetingFormat.query.count() == 0:  # ältere Installation: aus der aktuellen Liste anlegen
         from ..club_presets import apply_formats, preset_formats
-        apply_formats(preset_formats("mainpower"))
+        apply_formats(preset_formats("neutral"))
         db.session.commit()
     items = MeetingFormat.query.order_by(MeetingFormat.sort, MeetingFormat.id).all()
     return render_template("admin/formats.html", items=items)

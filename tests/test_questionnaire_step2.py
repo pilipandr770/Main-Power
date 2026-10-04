@@ -8,11 +8,11 @@ from app.models import ClubQuestion, GoalCheckin, Notification, Setting, User, u
 from app.tenancy import default_club, use_club
 from tests.test_smoke import app, client, login, register  # noqa: F401  (Fixtures)
 
-DEMO = "demo.main-power.local"
+DEMO = "demo.klub.local"
 
 
 def admin_login(client):
-    return login(client, os.environ.get("ADMIN_EMAIL", "admin@main-power.local"),
+    return login(client, os.environ.get("ADMIN_EMAIL", "admin@klub.local"),
                  os.environ.get("ADMIN_PASSWORD", "admin-passwort-bitte-aendern"))
 
 
@@ -63,8 +63,8 @@ def test_goal_checkin_reminder_and_feedback(client, app):
         uid = u.id
     runner = app.test_cli_runner()                    # wie der tägliche Cron, ohne Request-Kontext
     first = runner.invoke(args=["goal-checkins"])
-    assert first.exit_code == 0 and "mainpower:" in first.output and "0 Erinnerungen" not in first.output
-    assert "mainpower: 0 Erinnerungen" in runner.invoke(args=["goal-checkins"]).output  # nur einmal pro Zeitraum
+    assert first.exit_code == 0 and "klub:" in first.output and "0 Erinnerungen" not in first.output
+    assert "klub: 0 Erinnerungen" in runner.invoke(args=["goal-checkins"]).output  # nur einmal pro Zeitraum
     with app.app_context(), use_club(default_club()):
         assert Notification.query.filter_by(user_id=uid, kind="goal_checkin").count() == 1
     html = client.get("/app/").get_data(as_text=True)
@@ -140,7 +140,7 @@ def test_club_analytics_counts_and_keeps_private_texts_out(client, app):
         assert report["ai"] is False and report["basis"]["mitglieder"] >= 10
         # private Angaben (Schon versucht, Meilenstein, Ausschlüsse) tauchen nicht auf
         assert "Förderanträge" not in raw and "Pitch-Deck fertig" not in raw and "Network-Marketing" not in raw
-    idea_page = client.get("/admin/termine/neu?title=Investor%3Ainnen-Abend&format=hub").get_data(as_text=True)
+    idea_page = client.get("/admin/termine/neu?title=Investor%3Ainnen-Abend&format=fruehstueck").get_data(as_text=True)
     assert "Investor:innen-Abend" in idea_page
 
 

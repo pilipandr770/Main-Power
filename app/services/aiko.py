@@ -185,7 +185,7 @@ def answer_member(user: User, message: str, channel: str = "web") -> str:
     system = (_persona() + f"\nModus: Persönlicher Chat mit dem Mitglied {user.first_name}"
               f" (Kanal: {channel}). Du kennst das Profil und gibst persönliche, konkrete Empfehlungen: "
               "passende Formate und Termine, passende Mitglieder aus der Liste unten (nur Vorname + Initial, Rolle, "
-              "warum), Tipps für die Vorstellungsrunde im Hub, und — nur wenn es wirklich zum Bedarf passt — "
+              "warum), Tipps für die Vorstellungsrunde beim Treffen, und — nur wenn es wirklich zum Bedarf passt — "
               "passende Leistungen aus dem Ökosystem des Klubs.\n"
               "Hat das Mitglied ein Ziel oder einen 90-Tage-Meilenstein angegeben, richte Empfehlungen daran aus und "
               "frag bei Gelegenheit nach dem Fortschritt. Schlag nichts vor, was unter „Schon versucht“ steht.\n"

@@ -10,8 +10,8 @@
     {% for m in history %}<div class="msg {{ m.role }}"{% if m.role == 'assistant' %} data-raw="{{ m.content }}"{% endif %}>{{ m.content }}</div>{% endfor %}
   </div>
   <div class="suggest">
-    <button type="button" data-suggest="Wen sollte ich beim nächsten Hub unbedingt kennenlernen?">Wen sollte ich kennenlernen?</button>
-    <button type="button" data-suggest="Hilf mir, meine 60-Sekunden-Vorstellung für den Hub zu formulieren.">Meine Vorstellung für den Hub</button>
+    <button type="button" data-suggest="Wen sollte ich beim nächsten Treffen unbedingt kennenlernen?">Wen sollte ich kennenlernen?</button>
+    <button type="button" data-suggest="Hilf mir, meine 60-Sekunden-Vorstellung für das nächste Treffen zu formulieren.">Meine Vorstellung für das Treffen</button>
     <button type="button" data-suggest="Welche Termine passen in den nächsten Wochen zu mir?">Passende Termine</button>
     <button type="button" data-suggest="Was fehlt in meinem Profil, damit meine Matches besser werden?">Profil verbessern</button>
   </div>

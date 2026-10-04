@@ -1,12 +1,12 @@
 """Einmalige Migration einer bestehenden Ein-Klub-Datenbank auf Mandantenfähigkeit.
 
 Idempotent — läuft bei jedem `flask init-db` und macht nur, was noch fehlt:
-1. Tabelle `clubs` + Standardklub (Main Power) anlegen.
+1. Tabelle `clubs` + Standardklub anlegen.
 2. In jeder Mandanten-Tabelle `club_id` ergänzen und alle vorhandenen Zeilen dem Standardklub zuordnen.
 3. `settings` von Primärschlüssel `key` auf `id` + eindeutig (club_id, key) umbauen.
 4. Bisher global eindeutige Spalten (E-Mail, Telegram-ID, Termin-ID der Quelle, Leistungs-Slug) nur noch je Klub
    eindeutig machen (PostgreSQL). SQLite (nur lokale Entwicklung) kann Constraints nicht ändern: dort DB neu anlegen.
-5. Formate des Standardklubs aus der Main-Power-Vorlage anlegen, falls noch keine existieren.
+5. Formate des Standardklubs aus der neutralen Vorlage anlegen, falls noch keine existieren.
 """
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ def migrate_multitenant() -> list[str]:
     from .tenancy import use_club
     with use_club(club):
         if MeetingFormat.query.count() == 0:
-            apply_formats(preset_formats("mainpower"))
+            apply_formats(preset_formats("neutral"))
             db.session.commit()
-            log.append("Formate der Main-Power-Vorlage angelegt")
+            log.append("Formate der neutralen Vorlage angelegt")
     return log

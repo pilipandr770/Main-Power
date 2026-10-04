@@ -22,50 +22,47 @@ def utcnow() -> datetime:
 
 
 DEFAULT_FORMATS = {
-    "hub": {
-        "name": "Main Power Hub",
-        "short": "Hub",
+    "fruehstueck": {
+        "name": "Business-Frühstück",
+        "short": "Frühstück",
         "tagline": "Relevante Kontakte",
-        "image": "img/format-hub.png",
-        "price_cents": 2500,
-        "rhythm": "Zunächst monatlich, ab November zweimal im Monat",
-        "description": (
-            "Das Flaggschiff-Format der Community: ein kuratiertes Frühstückstreffen für ambitionierte "
-            "Unternehmer:innen und Fachleute aus Frankfurt, mit persönlicher Vorstellungsrunde und gezieltem Matching."
-        ),
-    },
-    "stammtisch": {
-        "name": "Main Power Stammtisch",
-        "short": "Stammtisch",
-        "tagline": "Ehrlicher Austausch",
-        "image": "img/format-stammtisch.png",
-        "price_cents": 0,
-        "rhythm": "Alle zwei Wochen, mittwochs",
-        "description": "Ein offener Abend rund um das Thema Energie: ehrliche Gespräche, neue Kontakte, gute Atmosphäre.",
-    },
-    "laufen": {
-        "name": "Main Power Laufen",
-        "short": "Laufen",
-        "tagline": "Bewegung & Energie",
-        "image": "img/format-laufen.png",
-        "price_cents": 0,
-        "rhythm": "Einmal im Monat, samstags um 5:45 Uhr",
-        "description": "Gemeinsam den Tag mit Bewegung und guten Gesprächen starten.",
-    },
-    "frauenkreis": {
-        "name": "Main Power Frauenkreis",
-        "short": "Frauenkreis",
-        "tagline": "Geschützter Raum",
-        "image": "img/format-frauenkreis.png",
-        "price_cents": 0,
+        "image": "img/neutral/format-fruehstueck.png",
+        "price_cents": 2000,
         "rhythm": "Einmal im Monat",
-        "description": "Ein geschützter Raum für Frauen, die sich austauschen, stärken und vernetzen wollen.",
+        "description": "Kuratiertes Frühstück mit kurzer Vorstellungsrunde und KI-gestütztem Matching vorab.",
+    },
+    "themenabend": {
+        "name": "Themenabend",
+        "short": "Themenabend",
+        "tagline": "Wissen teilen",
+        "image": "img/neutral/format-themenabend.png",
+        "price_cents": 0,
+        "rhythm": "Alle zwei Monate",
+        "description": "Ein Mitglied gibt Einblick in sein Fachgebiet, danach offene Diskussion.",
+    },
+    "walk": {
+        "name": "Walk & Talk",
+        "short": "Walk & Talk",
+        "tagline": "Bewegung und Gespräch",
+        "image": "img/neutral/format-walk.png",
+        "price_cents": 0,
+        "rhythm": "Einmal im Monat, samstags",
+        "description": "Gemeinsam gehen, zu zweit reden — die entspannteste Form des Netzwerkens.",
+    },
+    "online": {
+        "name": "Online-Runde",
+        "short": "Online",
+        "tagline": "Von überall",
+        "image": "img/neutral/format-online.png",
+        "price_cents": 0,
+        "rhythm": "Einmal im Monat, abends",
+        "description": "Kurze Videorunde mit Vorstellung und gezielten Breakout-Gesprächen.",
     },
     "community": {
         "name": "Community-Treffen",
         "short": "Community",
         "tagline": "Von Mitgliedern organisiert",
-        "image": "img/format-hub.png",
+        "image": "img/neutral/format-themenabend.png",
         "price_cents": 0,
         "rhythm": "Individuell",
         "description": "Treffen, die Mitglieder selbst initiieren — thematisch, klein, konkret.",
@@ -104,7 +101,7 @@ class Club(db.Model):
 
 
 class MeetingFormat(TenantMixin, db.Model):
-    """Veranstaltungsformat eines Klubs (bei Main Power: Hub, Stammtisch, Laufen, Frauenkreis)."""
+    """Veranstaltungsformat eines Klubs (z. B. Frühstück, Themenabend, Online-Runde)."""
     __tablename__ = "meeting_formats"
     __table_args__ = (db.UniqueConstraint("club_id", "key", name="uq_format_club_key"),)
 
@@ -295,11 +292,11 @@ class Profile(TenantMixin, db.Model):
     headline = db.Column(db.String(160), default="")   # z. B. "Steuerberaterin, Kanzlei XY"
     company = db.Column(db.String(160), default="")
     industry = db.Column(db.String(120), default="")
-    city = db.Column(db.String(120), default="Frankfurt am Main")
-    region = db.Column(db.String(60), default="rhein-main", index=True)
+    city = db.Column(db.String(120), default="")
+    region = db.Column(db.String(60), default="", index=True)
     bio = db.Column(db.Text, default="")
 
-    # Die vier Hub-Fragen
+    # Die vier Kernfragen
     q_focus = db.Column(db.Text, default="")         # Tätigkeitsbereich
     q_challenge = db.Column(db.Text, default="")     # größte berufliche Herausforderung
     q_can_help = db.Column(db.Text, default="")      # womit ich anderen helfen kann

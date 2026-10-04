@@ -2,7 +2,7 @@
 
 Nutzt intern ein separates Projekt (laws_pipeline: Qdrant + der komplette Korpus von gesetze-im-internet.de,
 semantisch durchsuchbar über eine kleine FastAPI unter LAWS_API_URL — nur im internen Docker-Netzwerk erreichbar,
-kein öffentlicher Endpunkt). Main Power ruft daraus nur GET /search auf.
+kein öffentlicher Endpunkt). Die Plattform ruft daraus nur GET /search auf.
 
 Kein Ersatz für Rechtsberatung: Der zitierte Gesetzestext kommt unverändert aus der Datenbank (kein KI-Text); die
 KI-Einordnung erklärt AUSSCHLIESSLICH, was im Text steht — nie, was jemand tun sollte oder ob er im Recht ist.

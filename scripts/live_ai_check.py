@@ -23,7 +23,7 @@ from app.tenancy import default_club, use_club  # noqa: E402
 
 app = create_app()
 app.config["SERVER_NAME"] = "live-check.local"
-DEMO = "demo.main-power.local"
+DEMO = "demo.klub.local"
 problems = []
 
 

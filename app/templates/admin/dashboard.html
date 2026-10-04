@@ -31,7 +31,7 @@
 <div class="split">
   <section class="panel">
     <h2>Wachstum der Datenbank</h2>
-    <p class="muted small">Mitglieder gesamt, letzte 8 Wochen. Ziel: 1.000+ in Frankfurt/Rhein-Main.</p>
+    <p class="muted small">Mitglieder gesamt, letzte 8 Wochen.</p>
     <div class="bars">{% for g in growth %}<div><span>{{ g.n }}</span><i class="h-{{ ((g.n / maxn * 100) // 10 * 10)|int }}"></i><span>{{ g.label }}</span></div>{% endfor %}</div>
   </section>
   <section>

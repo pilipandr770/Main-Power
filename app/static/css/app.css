@@ -1,17 +1,16 @@
-/* Main Power Plattform — Designsystem
-   Farben aus main-power.org übernommen. Schrift: Systemschrift (Helvetica/Arial) wie auf der Hauptseite —
+/* Klub-Plattform — Designsystem
+   Schrift: Systemschrift (Helvetica/Arial) —
    bewusst keine Google Fonts (DSGVO, LG München I 3 O 17493/20). */
 :root {
-  --night: #0c0a09;
-  --coal: #171310;
-  --coal-2: #201b17;
-  --line: #2e2723;
-  --ash: #aaa19b;
-  --ash-2: #8f8680;
-  --bone: #f4eee9;
-  --cream: #f0e9e2;
-  --ember: #fe4716;
-  --ember-soft: #ff9473;
+  --night: #0b0f14;
+  --coal: #141a21;
+  --line: #262e38;
+  --ash: #9ba5b1;
+  --ash-2: #7f8a97;
+  --bone: #eef2f6;
+  --cream: #e6ecf1;
+  --ember: #14b8a6;
+  --ember-soft: #5eead4;
   --ok: #7fbf8e;
   --warn: #e7b35b;
   --err: #ff7a6b;
@@ -115,7 +114,7 @@ legend { padding: 0 .5rem; font-weight: 700; }
 .empty { border: 1px dashed var(--line); border-radius: var(--radius-m); padding: 1.6rem; color: var(--ash); }
 
 /* ---------- Public site ---------- */
-.site-head { position: sticky; top: 0; z-index: 20; background: rgba(12, 10, 9, .88); backdrop-filter: blur(10px);
+.site-head { position: sticky; top: 0; z-index: 20; background: rgba(11, 15, 20, .88); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line); }
 .site-head .wrap { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 1rem; }
 .site-nav { display: flex; gap: 1.25rem; align-items: center; }
@@ -253,8 +252,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- Auth ---------- */
 .auth { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
-.auth-side { background: url("../img/community-table.jpg") center/cover; position: relative; }
-.auth-side::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,10,9,.1), rgba(12,10,9,.85)); }
+.auth-side { background: url("../img/neutral/band-1.jpg") center/cover; position: relative; }
+.auth-side::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11, 15, 20,.1), rgba(11, 15, 20,.85)); }
 .auth-side blockquote { position: absolute; left: 2.5rem; right: 2.5rem; bottom: 2.5rem; z-index: 1; margin: 0;
   font-size: var(--step-2); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
 .auth-main { display: flex; flex-direction: column; justify-content: center; padding: 2.5rem clamp(1.2rem, 6vw, 5rem); }
@@ -391,7 +390,7 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
 }
 
 /* ---------- Markt-Panel ---------- */
-.synth-note { border: 1px solid var(--ember); border-radius: var(--radius-m); padding: 1rem 1.2rem; background: rgba(254,71,22,.07); }
+.synth-note { border: 1px solid var(--ember); border-radius: var(--radius-m); padding: 1rem 1.2rem; background: rgba(20, 184, 166,.07); }
 .hbar { display: grid; grid-template-columns: minmax(7rem, 14rem) 1fr 4.2rem; gap: .7rem; align-items: center; padding: .3rem 0; font-size: .92rem; }
 .hbar .track { height: .7rem; border-radius: 99px; background: var(--coal-2); overflow: hidden; }
 .hbar .fill { display: block; height: 100%; width: 0; background: var(--ember); border-radius: 99px; }
@@ -417,7 +416,7 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
 .pill span { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: .3rem .85rem;
   font-size: .9rem; background: var(--coal); color: var(--bone); transition: border-color .15s, color .15s; }
 .pill:hover span { border-color: var(--ember); }
-.pill input:checked + span { border-color: var(--ember); color: var(--ember-soft); background: rgba(254, 71, 22, .1); }
+.pill input:checked + span { border-color: var(--ember); color: var(--ember-soft); background: rgba(20, 184, 166, .1); }
 .pill input:focus-visible + span { outline: 2px solid var(--ember); outline-offset: 2px; }
 .private-toggle { margin: -.6rem 0 1rem; font-size: .88rem; color: var(--ash); }
 .private-toggle input { margin-top: .15rem; }
@@ -439,7 +438,7 @@ input[type="file"]::file-selector-button:hover { border-color: var(--ember); col
 .checkin { border-left: 2px solid var(--line); padding: .2rem 0 .2rem 1rem; margin-bottom: 1rem; }
 .interview { max-width: 720px; }
 .interview .bubble { background: var(--coal); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1rem 1.1rem; margin-bottom: 1rem; }
-.interview .bubble.me { border-color: rgba(254, 71, 22, .35); margin-left: 12%; }
+.interview .bubble.me { border-color: rgba(20, 184, 166, .35); margin-left: 12%; }
 .proposal { display: flex; gap: .7rem; align-items: flex-start; padding: .5rem 0; border-top: 1px solid var(--line); }
 .proposal:first-child { border-top: 0; }
 @media (max-width: 640px) {

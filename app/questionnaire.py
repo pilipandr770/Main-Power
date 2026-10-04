@@ -95,7 +95,7 @@ CHOICE_FIELDS = {
     "work_values": (WORK_VALUES, True, 3),
 }
 
-# Freitextfelder zusätzlich zu den vier Hub-Fragen: Spalte -> max. Länge
+# Freitextfelder zusätzlich zu den vier Kernfragen: Spalte -> max. Länge
 TEXT_FIELDS = {
     "markets": 300, "goal_12m": 800, "milestone_90d": 400, "q_tried": 800, "not_wanted": 400,
     "asked_for": 600, "proud_of": 600, "talk_topics": 400, "unknown_fact": 400,
@@ -132,7 +132,7 @@ def clean_choice(field: str, values: list[str]) -> str:
     return ",".join(keep[:limit] if multi else keep[:1])
 
 
-# Grundfelder des Profils (Hub-Fragen und Stammdaten): Spalte -> max. Länge
+# Grundfelder des Profils (Kernfragen und Stammdaten): Spalte -> max. Länge
 BASE_TEXT_FIELDS = {
     "headline": 160, "company": 160, "industry": 120, "city": 120, "bio": 1500,
     "q_focus": 800, "q_challenge": 800, "q_can_help": 800, "q_looking_for": 800, "expertise": 500,
