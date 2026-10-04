@@ -125,7 +125,7 @@ legend { padding: 0 .5rem; font-weight: 700; }
 .hero h1 { font-size: var(--step-4); letter-spacing: -0.035em; max-width: 12ch; }
 .hero .lead { font-size: 1.2rem; color: var(--ash); max-width: 46ch; }
 .hero-photos { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
-.hero-photos img { border-radius: var(--radius-m); object-fit: cover; width: 100%; height: 100%; }
+.hero-photos img, .hero-photos canvas { border-radius: var(--radius-m); object-fit: cover; width: 100%; height: 100%; }
 .hero-photos .tall { grid-row: span 2; aspect-ratio: 3/4; }
 .hero-photos .sq { aspect-ratio: 1; }
 .section { padding: clamp(3rem, 7vw, 5rem) 0; border-top: 1px solid var(--line); }
@@ -151,8 +151,11 @@ details.faq p { margin-top: .6rem; color: var(--ash); }
 .site-foot { border-top: 1px solid var(--line); padding: 2.5rem 0 5rem; color: var(--ash); font-size: .9rem; }
 .site-foot a { color: var(--ash); }
 .photo-band { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: .8rem; }
-.photo-band img { border-radius: var(--radius-m); aspect-ratio: 4/5; object-fit: cover; width: 100%; }
-.photo-band img:first-child { aspect-ratio: auto; height: 100%; }
+.photo-band img, .photo-band canvas { border-radius: var(--radius-m); aspect-ratio: 4/5; object-fit: cover; width: 100%; }
+.photo-band img:first-child, .photo-band canvas:first-child { aspect-ratio: auto; height: 100%; }
+/* Animierte 3D-Szenen (scenes.js) statt Fotos */
+.scene { display: block; border: 1px solid var(--line); touch-action: pan-y;
+  background: radial-gradient(circle at 30% 20%, rgba(20, 184, 166, .16), transparent 62%), var(--coal); }
 
 /* ---------- Event list ---------- */
 .event { display: grid; grid-template-columns: 84px 1fr auto; gap: 1.1rem; align-items: center; padding: 1rem 0;
@@ -275,7 +278,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .event { grid-template-columns: 64px 1fr; }
   .event .actions { grid-column: 1 / -1; }
   .photo-band { grid-template-columns: 1fr 1fr; }
-  .photo-band img:first-child { grid-column: 1 / -1; aspect-ratio: 16/10; }
+  .photo-band img:first-child, .photo-band canvas:first-child { grid-column: 1 / -1; aspect-ratio: 16/10; }
   .match { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

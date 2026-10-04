@@ -58,8 +58,9 @@ def login(client, email, pw, base="http://localhost"):
 def test_branding_per_domain(client):
     a = client.get("/").get_data(as_text=True)
     b = client.get("/", base_url=f"http://{B_HOST}").get_data(as_text=True)
-    assert "Die richtigen Menschen" in a and "img/neutral/hero-1.jpg" in a and "Founders Berlin" not in a
-    assert "Founders Berlin" in b and "img/neutral/hero-1.jpg" in b
+    assert "Die richtigen Menschen" in a and "Founders Berlin" not in a
+    assert "Founders Berlin" in b
+    assert 'data-scene="sphere"' in a and 'data-scene="wave"' in b and "<img class=\"tall\"" not in a + b  # 3D statt Fotos
     assert "Main Power" not in a + b and "Roland" not in a + b  # keine Reste des früheren Kunden
     assert "Business-Frühstück" in b
     assert "#14b8a6" in client.get("/club.css", base_url=f"http://{B_HOST}").get_data(as_text=True)
@@ -242,3 +243,50 @@ def test_migration_is_idempotent(app):
     with app.app_context():
         migrate_multitenant()
         assert migrate_multitenant() == []
+
+
+def test_landing_uses_3d_scenes_until_club_uploads_photos(client):
+    home = client.get("/").get_data(as_text=True)
+    assert home.count("<canvas class=\"scene") == 6 and "js/scenes.js" in home
+    assert client.get("/static/js/scenes.js").status_code == 200
+
+
+def test_impressum_page_placeholder_and_external_link(client, app):
+    page = client.get("/impressum").get_data(as_text=True)
+    assert "Musterklub" in page and "Platzhalter" in page
+    assert 'href="/impressum"' in client.get("/").get_data(as_text=True)
+    with app.app_context(), use_club(Club.query.filter_by(slug="klub").one()):
+        from app.services import club as club_settings
+        club_settings.save({"impressum_url": "https://klub.example/impressum"})
+        db.session.commit()
+    r = client.get("/impressum")
+    assert r.status_code == 302 and r.headers["Location"] == "https://klub.example/impressum"
+
+
+def test_legacy_branding_is_neutralised_idempotently(app):
+    from app.migrations_neutral import neutralize_legacy_branding
+    from app.models import Event, Setting, utcnow
+    with app.app_context():
+        club = Club.query.filter_by(slug="klub").one()
+        with use_club(club):
+            club.name = "Main Power"
+            Setting.set("club.hero_title", "Nicht mehr Kontakte. Relevantere Kontakte. Main Power")
+            for f in MeetingFormat.query.all():
+                f.active = False
+            db.session.add(MeetingFormat(key="hub", name="Main Power Hub", image="img/format-hub.png", rhythm="x",
+                                         description="x", tagline="x", short="Hub"))
+            db.session.add(Event(title="Main Power Hub", format="hub", source="sync", external_id="main-power-hub-1",
+                                 starts_at=utcnow(), status="published"))
+            db.session.add(KnowledgeItem(question="Q", answer="Schreib uns an hallo@main-power.org", public=True))
+            db.session.commit()
+        first = neutralize_legacy_branding()
+        assert first and neutralize_legacy_branding() == []
+        club = Club.query.filter_by(slug="klub").one()
+        assert club.name == "Klub"
+        with use_club(club):
+            assert not Event.query.filter_by(source="sync").count()
+            assert MeetingFormat.query.filter_by(key="hub").count() == 0
+            assert MeetingFormat.query.filter_by(key="fruehstueck", active=True).count() == 1
+            assert not any("main-power" in k.answer for k in KnowledgeItem.query.all())
+            from app.services import club as club_settings
+            assert "Main Power" not in club_settings.settings()["hero_title"]

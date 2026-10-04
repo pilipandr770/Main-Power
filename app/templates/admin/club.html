@@ -20,8 +20,9 @@
     {{ field("operator") }}
     <div class="grid grid-2">{{ field("contact_email") }}{{ field("impressum_url") }}</div>
     <div class="grid grid-2">{{ field("main_site_url") }}{{ field("privacy_main_url") }}</div>
+    {{ field("impressum_text") }}
     {{ field("instagram_url") }}
-    {% if not c.impressum_url %}<p class="flash error small">Ohne Impressum-Link darf die Website nicht öffentlich betrieben werden (§ 5 DDG).</p>{% endif %}
+    {% if not c.impressum_url and c.impressum_text == fields.impressum_text[1] %}<p class="flash error small">Das Impressum ist noch der Platzhalter. Vor dem öffentlichen Betrieb eigenen Text oder Link eintragen (§ 5 DDG).</p>{% endif %}
   </fieldset>
   <fieldset><legend>Startseite</legend>
     {{ field("hero_title") }}{{ field("hero_lead") }}{{ field("meta_description") }}

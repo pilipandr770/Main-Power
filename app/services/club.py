@@ -16,6 +16,12 @@ from ..extensions import db
 
 PREFIX = "club."
 
+# Platzhalter-Impressum: nur zur Ansicht in der Demo — jeder Klub trägt hier sein eigenes Impressum ein (§ 5 DDG).
+IMPRESSUM_PLACEHOLDER = (
+    "Angaben gemäß § 5 DDG\n\nMusterklub e. V.\nMusterstraße 1\n12345 Musterstadt\n\n"
+    "Vertreten durch: Vorname Nachname\nKontakt: kontakt@example.org\nVereinsregister: Amtsgericht Musterstadt, VR 00000\n\n"
+    "Hinweis: Dies ist ein Platzhalter. Der Klub ersetzt ihn in den Klub-Einstellungen durch sein eigenes Impressum.")
+
 # Einfache Textfelder: key -> (Label im Admin, Standardwert, max. Länge, mehrzeilig)
 TEXT_FIELDS: dict[str, tuple[str, str, int, bool]] = {
     "name": ("Name (kurz)", "Klub", 60, False),
@@ -27,7 +33,8 @@ TEXT_FIELDS: dict[str, tuple[str, str, int, bool]] = {
                  "Betreiber des Klubs — bitte in den Klub-Einstellungen eintragen", 300, False),
     "contact_email": ("Kontakt-E-Mail", "kontakt@example.org", 120, False),
     "main_site_url": ("Hauptwebsite des Klubs (optional)", "", 200, False),
-    "impressum_url": ("Impressum-Link", "", 200, False),
+    "impressum_url": ("Impressum-Link (leer = eigener Impressum-Text unten)", "", 200, False),
+    "impressum_text": ("Impressum-Text (wird unter /impressum angezeigt)", IMPRESSUM_PLACEHOLDER, 3000, True),
     "privacy_main_url": ("Datenschutzerklärung der Hauptwebsite (optional)", "", 200, False),
     "instagram_url": ("Instagram (optional)", "", 200, False),
     "accent": ("Akzentfarbe (Hex)", "#14b8a6", 7, False),
@@ -56,12 +63,9 @@ TEXT_FIELDS: dict[str, tuple[str, str, int, bool]] = {
 }
 
 # Bilder: Liste aus {"src": "img/…" | "upload:<datei>", "alt": "…"}
-DEFAULT_HERO = [
-    {"src": "img/neutral/hero-1.jpg", "alt": "Abstraktes Netz aus Verbindungen"},
-    {"src": "img/neutral/hero-2.jpg", "alt": ""},
-    {"src": "img/neutral/hero-3.jpg", "alt": ""},
-]
-DEFAULT_BAND = [{"src": f"img/neutral/band-{i}.jpg", "alt": ""} for i in (1, 2, 3)]
+# Leer = die Startseite zeigt animierte 3D-Szenen (static/js/scenes.js); eigene Fotos ersetzen sie je Slot.
+DEFAULT_HERO: list[dict] = []
+DEFAULT_BAND: list[dict] = []
 DEFAULT_TESTIMONIALS: list[dict] = []  # keine erfundenen Stimmen — echte Zitate trägt der Klub selbst ein
 JSON_FIELDS = {"hero_images": DEFAULT_HERO, "band_images": DEFAULT_BAND, "testimonials": DEFAULT_TESTIMONIALS}
 OTHER_FIELDS = {"logo": ""}  # "upload:<datei>" oder leer (= Standard-Logo)

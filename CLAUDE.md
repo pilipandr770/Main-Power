@@ -4,7 +4,7 @@ Kontext für Claude Code. Neutrale Mehrklub-Plattform („Klub“) von Andrii-IT
 Kommunikation mit dem Entwickler: Russisch. UI-Texte, Kommentare im Code und Commit-Messages: Deutsch.
 
 ## Befehle
-- `flask init-db && flask seed` — lokale DB mit Demo-Daten (SQLite `instance/klub.db`)
+- `flask init-db && flask seed` — lokale DB mit Demo-Daten (SQLite `instance/mainpower.db` (Dateiname bleibt aus Kompatibilität))
 - `flask run` — Dev-Server; `pytest -q` — Smoke-Tests (offline)
 - `flask sync-events`, `flask reembed`, `flask remove-demo`, `flask create-admin <email>`
 - `flask telegram-poll` (lokal) / `flask telegram-set-webhook` (Prod)
@@ -63,6 +63,11 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
   `.execution_options(all_clubs=True)`. Hintergrund-Threads/CLI: `with use_club(club): ...`.
 - Branding/Texte/Rechtliches je Klub: `services/club.py` (`club.<feld>` in Templates, Settings `club.*`), Formate in
   `meeting_formats` (`FORMATS` ist ein DB-Register). Vorlage `club_presets.py` (neutral = Standard), Export/Import JSON.
+- Startseite ohne Fotos: Sind `hero_images`/`band_images` leer (Standard), zeigt sie animierte 3D-Szenen (`static/js/scenes.js`,
+  `<canvas data-scene=…>`); hochgeladene Fotos ersetzen sie. Impressum: `impressum_url` oder eigener Text `impressum_text`
+  unter `/impressum` (Platzhalter, bis der Klub seinen eintraegt).
+- Ältere Installationen: `flask init-db` ruft `migrations_neutral.neutralize_legacy_branding()` (idempotent, nur unveränderte
+  Standardinhalte); Slug und DB-Dateiname bleiben, `tenancy.default_club()` fällt auf den ältesten Klub zurück.
 - Admin: „Klub & Branding“, „Formate“ (nur Superadmin). Betreiber-Konsole `/plattform` (eigene Env-Anmeldung).
 - `flask init-db` migriert eine Einzelklub-DB idempotent (`migrations_mt.py`). `flask create-club`, `flask list-clubs`,
   CLI-Befehle mit `--club <slug>`.

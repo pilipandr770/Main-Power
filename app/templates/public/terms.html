@@ -6,7 +6,7 @@
   <p class="lead">Für die Mitgliederplattform von {{ club.full_name }} · Stand {{ cfg.CONSENT_VERSION }}</p>
 
   <h2>1. Wer wir sind, was das ist</h2>
-  <p>{{ club.operator }} betreibt diese Plattform, um Unternehmer:innen, Expert:innen und Freelancer zu vernetzen, Termine zu organisieren und passende Kontakte vorzuschlagen. Anbieter und Kontakt siehe <a href="{{ club.impressum_url }}">Impressum</a>.</p>
+  <p>{{ club.operator }} betreibt diese Plattform, um Unternehmer:innen, Expert:innen und Freelancer zu vernetzen, Termine zu organisieren und passende Kontakte vorzuschlagen. Anbieter und Kontakt siehe <a href="{{ club.impressum_url or url_for('public.impressum') }}">Impressum</a>.</p>
 
   <h2>2. Konto und Mitgliedschaft</h2>
   <p>Die Registrierung ist ab 18 Jahren möglich. Der Basis-Tarif ist kostenlos. Du gibst wahrheitsgemäße Angaben an und hältst deine Zugangsdaten geheim. Ein Konto ist persönlich und nicht übertragbar. Einzelne Termine können kostenpflichtig sein; der Preis steht vor der Anmeldung beim Termin.</p>

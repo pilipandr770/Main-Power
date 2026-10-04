@@ -6,7 +6,7 @@
   <h1>Datenschutzhinweise der Plattform</h1>
   {% if club.privacy_main_url %}<p class="lead">Ergänzend zur <a href="{{ club.privacy_main_url }}">Datenschutzerklärung der Website von {{ club.name }}</a>.</p>{% endif %}
   <h2>Verantwortlich</h2>
-  <p>{{ club.operator }} · <a href="mailto:{{ club.contact_email }}">{{ club.contact_email }}</a>{% if club.impressum_url %} · Anschrift siehe <a href="{{ club.impressum_url }}">Impressum</a>{% endif %}.</p>
+  <p>{{ club.operator }} · <a href="mailto:{{ club.contact_email }}">{{ club.contact_email }}</a> · Anschrift siehe <a href="{{ club.impressum_url or url_for('public.impressum') }}">Impressum</a>.</p>
   <h2>Welche Daten wir verarbeiten</h2>
   <p>Kontodaten (Name, E-Mail, optional Telefon), Profilangaben, die du selbst einträgst (Tätigkeit, Herausforderung, Angebot, Suche, Expertise, Links zu deinen Profilen, optional ein Profilfoto), Anmeldungen zu Terminen, Kontaktanfragen, Nachrichten an {{ club.assistant_name }} sowie ein Protokoll deiner Einwilligungen. Wir erheben keine Daten aus sozialen Netzwerken; Links zu deinen Profilen speichern wir nur; sie sind für angenommene Kontakte sichtbar und — wenn du es einstellst — für alle Mitglieder mit Zugriff auf dein Profil. Ein Profilfoto ist freiwillig, wird verkleinert und von Metadaten (EXIF/GPS) befreit und nur angemeldeten Mitgliedern angezeigt; du kannst es jederzeit löschen.</p>
   <h2>Zwecke und Rechtsgrundlagen</h2>

@@ -17,7 +17,13 @@
       </div>
     </div>
     <div class="hero-photos">
-      {% for im in club.hero_images[:3] %}<img class="{{ 'tall' if loop.first else 'sq' }}" src="{{ im.src|media }}" alt="{{ im.alt }}">{% endfor %}
+      {% if club.hero_images %}
+        {% for im in club.hero_images[:3] %}<img class="{{ 'tall' if loop.first else 'sq' }}" src="{{ im.src|media }}" alt="{{ im.alt }}">{% endfor %}
+      {% else %}
+        <canvas class="scene tall" data-scene="sphere" role="img" aria-label="Animierte 3D-Darstellung: Kugel aus verbundenen Punkten"></canvas>
+        <canvas class="scene sq" data-scene="rings" data-phase="1" role="img" aria-label="Animierte 3D-Darstellung: kreisende Ringe"></canvas>
+        <canvas class="scene sq" data-scene="helix" data-phase="2" role="img" aria-label="Animierte 3D-Darstellung: Doppelhelix"></canvas>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -76,7 +82,13 @@
 <section class="section">
   <div class="wrap">
     <div class="photo-band">
-      {% for im in club.band_images[:3] %}<img src="{{ im.src|media }}" alt="{{ im.alt }}">{% endfor %}
+      {% if club.band_images %}
+        {% for im in club.band_images[:3] %}<img src="{{ im.src|media }}" alt="{{ im.alt }}">{% endfor %}
+      {% else %}
+        <canvas class="scene" data-scene="wave" role="img" aria-label="Animierte 3D-Darstellung: Wellenfläche"></canvas>
+        <canvas class="scene" data-scene="orbit" data-phase="1" role="img" aria-label="Animierte 3D-Darstellung: Knoten kreisen um ein gemeinsames Zentrum"></canvas>
+        <canvas class="scene" data-scene="lattice" data-phase="2" role="img" aria-label="Animierte 3D-Darstellung: atmendes Würfelgitter"></canvas>
+      {% endif %}
     </div>
     <div class="grid grid-2 mt-l">
       {% for t in club.testimonials %}<blockquote class="quote">{{ t.text }}<cite>{{ t.name }}</cite></blockquote>{% endfor %}
@@ -106,4 +118,4 @@
 </section>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/network.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/network.js') }}" defer></script><script src="{{ url_for('static', filename='js/scenes.js') }}" defer></script>{% endblock %}

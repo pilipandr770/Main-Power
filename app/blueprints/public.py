@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from flask import Blueprint, Response, abort, jsonify, render_template, request, send_from_directory
+from flask import Blueprint, Response, abort, jsonify, redirect, render_template, request, send_from_directory
 
 from ..extensions import csrf, limiter
 from ..models import FORMATS, Event, KnowledgeItem, utcnow
@@ -37,6 +37,15 @@ def format_page(key):
 def events():
     fmt = request.args.get("format")
     return render_template("public/events.html", events=upcoming(fmt=fmt if fmt in FORMATS else None), active=fmt)
+
+
+@bp.route("/impressum")
+def impressum():
+    from ..services import club as club_settings
+    c = club_settings.settings()
+    if c["impressum_url"]:
+        return redirect(c["impressum_url"])
+    return render_template("public/impressum.html")
 
 
 @bp.route("/datenschutz")

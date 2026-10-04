@@ -3,7 +3,7 @@ from datetime import timedelta
 
 
 def _db_url() -> str:
-    url = os.environ.get("DATABASE_URL", "sqlite:///klub.db")
+    url = os.environ.get("DATABASE_URL", "sqlite:///mainpower.db")
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg://", 1)
     elif url.startswith("postgresql://"):

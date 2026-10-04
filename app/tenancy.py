@@ -78,10 +78,16 @@ def use_club(club):
 
 
 def default_club():
+    """Standardklub: der mit DEFAULT_CLUB_SLUG, sonst der älteste (bestehende Installationen behalten ihren alten Slug)."""
     from .models import Club
     slug = current_app.config.get("DEFAULT_CLUB_SLUG", "klub")
     return (Club.query.execution_options(all_clubs=True).filter_by(slug=slug).first()
             or Club.query.execution_options(all_clubs=True).order_by(Club.id).first())
+
+
+def default_slug() -> str:
+    club = default_club()
+    return club.slug if club else current_app.config.get("DEFAULT_CLUB_SLUG", "klub")
 
 
 def club_for_host(host: str):

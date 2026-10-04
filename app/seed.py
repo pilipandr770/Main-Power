@@ -397,7 +397,7 @@ def _seed_events() -> None:
             log.info("Termine importiert: %s", res)
         except Exception as exc:
             log.warning("Termin-Sync nicht möglich (%s) — lege Beispieltermine an", exc)
-    if Event.query.filter(Event.starts_at >= utcnow()).count() == 0:
+    if Event.query.filter(Event.starts_at >= utcnow(), Event.status == "published").count() == 0:
         from .models import FORMATS
         base = utcnow().replace(hour=7, minute=0, second=0, microsecond=0)
         city = club_settings.settings().get("city") or ""
@@ -445,7 +445,7 @@ def _seed_demo_members() -> None:
         u.profile = Profile(headline=headline, industry=industry, q_focus=focus, q_challenge=challenge,
                             q_can_help=can_help, q_looking_for=looking, expertise=expertise,
                             preferred_formats=_preferred_formats(), allow_matching=True, visible_in_directory=True,
-                            bio=f"{first} ist Teil der {_club_name()} (Demo-Profil).")
+                            bio=f"{first} ist Teil von {_club_name()} (Demo-Profil).")
         db.session.add(u)
         for kind in ("privacy", "values", "matching", "directory"):
             db.session.add(Consent(user=u, kind=kind, granted=True, version="demo", source="seed"))
@@ -514,7 +514,7 @@ def _seed_demo_scenarios() -> None:
                             q_can_help=can_help, q_looking_for=looking, expertise=expertise,
                             preferred_formats=_preferred_formats(), allow_matching=matching_on,
                             visible_in_directory=matching_on and kind != "gesperrt",
-                            bio=f"{first} ist Teil der {_club_name()} (Demo-Profil)." if headline else "")
+                            bio=f"{first} ist Teil von {_club_name()} (Demo-Profil)." if headline else "")
         if kind == "gesperrt":
             u.status = "blocked"
         if kind == "moderator":
@@ -597,9 +597,10 @@ def _club_name() -> str:
 
 def ensure_default_club() -> Club:
     """Standardklub anlegen, falls es noch keinen gibt — hält bestehende Installationen lauffähig."""
-    slug = current_app.config.get("DEFAULT_CLUB_SLUG", "klub")
-    club = Club.query.execution_options(all_clubs=True).filter_by(slug=slug).first()
+    from .tenancy import default_club
+    club = default_club()  # vorhandener Klub (auch mit altem Slug) hat Vorrang vor dem Anlegen eines neuen
     if club is None:
+        slug = current_app.config.get("DEFAULT_CLUB_SLUG", "klub")
         club = Club(slug=slug, name=current_app.config.get("DEFAULT_CLUB_NAME", "Klub"),
                     domains=current_app.config.get("DEFAULT_CLUB_DOMAINS", ""))
         db.session.add(club)
@@ -624,7 +625,8 @@ def seed(demo: bool = True, club: Club | None = None, preset: str = "neutral") -
     club = club or ensure_default_club()
     with use_club(club):
         _seed_club(demo=False, preset=preset)
-        if club.slug == current_app.config.get("DEFAULT_CLUB_SLUG", "klub"):
+        from .tenancy import default_slug
+        if club.slug == default_slug():
             _seed_admin()
         if demo:
             _seed_club(demo=True, preset=preset)

@@ -252,6 +252,9 @@ def _register_cli(app: Flask) -> None:
         n = refresh_default_faq()
         if n:
             click.echo(f"FAQ aktualisiert: {n} Standardantworten")
+        from .migrations_neutral import neutralize_legacy_branding
+        for line in neutralize_legacy_branding():
+            click.echo(line)
         click.echo("Datenbank initialisiert.")
 
     @app.cli.command("list-clubs")
