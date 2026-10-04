@@ -290,3 +290,20 @@ def test_legacy_branding_is_neutralised_idempotently(app):
             assert not any("main-power" in k.answer for k in KnowledgeItem.query.all())
             from app.services import club as club_settings
             assert "Main Power" not in club_settings.settings()["hero_title"]
+
+
+def test_legacy_sync_events_removed_even_when_formats_already_neutral(app):
+    """Wie auf einer Einzelklub-Installation: Formate kamen schon neutral aus der Mandanten-Migration, Termine sind alt."""
+    from app.migrations_neutral import neutralize_legacy_branding
+    from app.models import Event, utcnow
+    with app.app_context():
+        club = Club.query.filter_by(slug="klub").one()
+        with use_club(club):
+            for title, fmt in (("Main Power Laufen", "laufen"), ("Event1", "frauenkreis")):
+                db.session.add(Event(title=title, format=fmt, source="sync", external_id=title.lower(),
+                                     starts_at=utcnow(), status="published"))
+            db.session.commit()
+        assert neutralize_legacy_branding()
+        with use_club(Club.query.filter_by(slug="klub").one()):
+            assert Event.query.filter_by(source="sync").count() == 0
+            assert Event.query.filter_by(status="published").count() >= 1  # Beispieltermine der neutralen Formate

@@ -73,12 +73,14 @@ def _neutralize_club(club, out: list[str]) -> None:
     # 3. Formate, Termine
     formats = MeetingFormat.query.all()
     legacy = [f for f in formats if f.image in LEGACY_IMAGES or (f.key in LEGACY_FORMAT_KEYS and _has_marker(f.name))]
-    if legacy:
+    sync_events = Event.query.filter_by(source="sync").all()
+    legacy_events = [e for e in sync_events if e.format in LEGACY_FORMAT_KEYS or _has_marker(e.title) or _has_marker(e.external_id)]
+    if legacy or legacy_events:
         url = club_settings.settings().get("events_sync_url") or ""
         source_gone = not url or _has_marker(url)  # Kalenderquelle des früheren Kunden: nichts mehr nachzuladen
         n = 0
-        for ev in Event.query.filter_by(source="sync").all():
-            if source_gone or _has_marker(ev.external_id) or _has_marker(ev.title):
+        for ev in sync_events:
+            if source_gone or ev in legacy_events:
                 db.session.delete(ev)
                 n += 1
         if n:
@@ -89,12 +91,14 @@ def _neutralize_club(club, out: list[str]) -> None:
             keys = [LEGACY_FORMAT_KEYS.get(k, k) for k in p.preferred_formats.split(",") if k]
             p.preferred_formats = ",".join(dict.fromkeys(keys))
         db.session.flush()
-        apply_formats(preset_formats("neutral"))
-        for f in legacy:
-            if f.key in LEGACY_FORMAT_KEYS:
-                db.session.delete(f)
-        invalidate_formats()
-        note("Formate auf die neutrale Vorlage gesetzt")
+        if legacy:  # nur unveränderte Altformate ersetzen; bereits neutrale/eigene Formate bleiben
+            apply_formats(preset_formats("neutral"))
+            for f in legacy:
+                if f.key in LEGACY_FORMAT_KEYS:
+                    db.session.delete(f)
+            invalidate_formats()
+            note("Formate auf die neutrale Vorlage gesetzt")
+        db.session.flush()
         from .seed import _seed_events
         _seed_events()
 
