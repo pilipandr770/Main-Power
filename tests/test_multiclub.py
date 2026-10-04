@@ -307,3 +307,11 @@ def test_legacy_sync_events_removed_even_when_formats_already_neutral(app):
         with use_club(Club.query.filter_by(slug="klub").one()):
             assert Event.query.filter_by(source="sync").count() == 0
             assert Event.query.filter_by(status="published").count() >= 1  # Beispieltermine der neutralen Formate
+
+
+def test_site_banner_only_when_configured(app, client):
+    assert "site-banner" not in client.get("/").get_data(as_text=True)
+    app.config["SITE_BANNER"] = "Projekt in Entwicklung: Testdaten"
+    page = client.get("/").get_data(as_text=True)
+    assert 'class="site-banner"' in page and "Projekt in Entwicklung: Testdaten" in page
+    assert 'class="site-banner"' in client.get("/login").get_data(as_text=True)

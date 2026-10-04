@@ -63,6 +63,7 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
   `.execution_options(all_clubs=True)`. Hintergrund-Threads/CLI: `with use_club(club): ...`.
 - Branding/Texte/Rechtliches je Klub: `services/club.py` (`club.<feld>` in Templates, Settings `club.*`), Formate in
   `meeting_formats` (`FORMATS` ist ein DB-Register). Vorlage `club_presets.py` (neutral = Standard), Export/Import JSON.
+- `SITE_BANNER` (.env): Hinweisbalken über allen Seiten (1 = Standardtext „Projekt in Entwicklung … Testdaten“, sonst eigener Text).
 - Startseite ohne Fotos: Sind `hero_images`/`band_images` leer (Standard), zeigt sie animierte 3D-Szenen (`static/js/scenes.js`,
   `<canvas data-scene=…>`); hochgeladene Fotos ersetzen sie. Impressum: `impressum_url` oder eigener Text `impressum_text`
   unter `/impressum` (Platzhalter, bis der Klub seinen eintraegt).

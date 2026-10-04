@@ -12,6 +12,7 @@
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
+{% if cfg.SITE_BANNER %}<div class="site-banner" role="note">{{ cfg.SITE_BANNER }}</div>{% endif %}
 {% block body %}{% endblock %}
 {% include "partials/_cookie_banner.html" %}
 <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>

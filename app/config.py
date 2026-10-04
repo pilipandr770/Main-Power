@@ -92,6 +92,12 @@ class Config:
     PLATFORM_ADMIN_EMAIL = os.environ.get("PLATFORM_ADMIN_EMAIL", "").strip().lower()
     PLATFORM_ADMIN_PASSWORD = os.environ.get("PLATFORM_ADMIN_PASSWORD", "")
 
+    # Hinweisbalken über allen Seiten (z. B. während Entwicklung/Test). SITE_BANNER=1 = Standardtext, sonst eigener Text.
+    SITE_BANNER = (os.environ.get("SITE_BANNER", "").strip() if os.environ.get("SITE_BANNER", "").strip().lower()
+                   not in {"1", "true", "yes", "on"} else
+                   "Projekt in Entwicklung: Alle Konten, Profile und Termine sind Testdaten. "
+                   "Bitte keine echten personenbezogenen Daten eingeben.")
+
     # Demo-Modus: Admins dürfen zwischen Mitgliedskonten wechseln. In Produktion AUS lassen (ENABLE_IMPERSONATION nicht setzen).
     ENABLE_IMPERSONATION = _bool("ENABLE_IMPERSONATION", False)
 
