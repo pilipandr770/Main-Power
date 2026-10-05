@@ -73,6 +73,7 @@ def search(query: str, category: str = "", k: int = 6, expand: bool = True) -> l
     k = max(1, min(MAX_HITS, k))
     queries = [query] + (expand_query(query) if expand else [])
     data: list = []
+    fused: dict[tuple, float] = {}  # Reciprocal Rank Fusion: Vorschriften, die bei mehreren Formulierungen vorn liegen, steigen
     try:
         for q in queries:
             params = {"q": q, "k": min(16, k * 2)}
@@ -84,6 +85,13 @@ def search(query: str, category: str = "", k: int = 6, expand: bool = True) -> l
             if not isinstance(part, list):
                 raise ValueError("keine Liste")
             data += part
+            order: list[tuple] = []  # je Formulierung zählt nur der beste Rang einer Vorschrift
+            for h in part:
+                key = (h.get("slug"), h.get("enbez")) if isinstance(h, dict) and h.get("text") else None
+                if key and key not in order:
+                    order.append(key)
+            for rank, key in enumerate(order):
+                fused[key] = fused.get(key, 0.0) + 1.0 / (60 + rank)
     except requests.RequestException as exc:
         log.warning("laws-api nicht erreichbar: %s", exc)
         raise LawsUnavailable("Die Gesetzes-Suche ist gerade nicht erreichbar. Bitte versuch es in ein paar Minuten "
@@ -102,7 +110,10 @@ def search(query: str, category: str = "", k: int = 6, expand: bool = True) -> l
         if cur is None or (full and not cur_full) or (full == cur_full and float(h.get("score", 0)) >
                                                            float(cur.get("score", 0))):
             best[key] = h
-    ranked = sorted(best.values(), key=lambda h: -float(h.get("score", 0)))[:k]
+    # Cosinus-Werte liegen bei Alltagsfragen eng beieinander (0,87–0,88) und sind zwischen Formulierungen kaum
+    # vergleichbar; deshalb zählt zuerst die fusionierte Rangfolge, danach der Einzelwert.
+    ranked = sorted(best.values(), key=lambda h: (-fused.get((h.get("slug"), h.get("enbez")), 0.0),
+                                                  -float(h.get("score", 0))))[:k]
     hits = []
     for i, h in enumerate(ranked):
         # laws-api v2 liefert je § den vollständigen Text (full_text); ältere Versionen nur das gefundene Stück (part)

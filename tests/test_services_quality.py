@@ -64,17 +64,43 @@ def test_laws_dedupe_prefers_full_text_and_excerpt_keeps_context(app, monkeypatc
 
     class R:
         def raise_for_status(self): pass
-        def json(self): return [part, full, middle]
+        def json(self): return [part, middle, full]  # wie die API: nach Wert sortiert
     monkeypatch.setattr(laws.requests, "get", lambda *a, **k: R())
     app.config["LAWS_API_URL"] = "http://laws.test"
     with app.app_context():
         hits = laws.search("Aufbewahrung Rechnungen", expand=False)
-    assert [h["law_abbreviation"] for h in hits] == ["EStG", "AO"] and hits[1]["text"].endswith("voll")
+    assert [h["law_abbreviation"] for h in hits] == ["AO", "EStG"] and hits[0]["text"].endswith("voll")
 
     long = ("(1) Absatz eins mit Nummer 4 Buchungsbelege. " * 30 + "(5) Die folgenden Betriebsausgaben dürfen den Gewinn "
             "nicht mindern: " + "x " * 700 + "6b. Aufwendungen für ein häusliches Arbeitszimmer. " + "y " * 800)
     ex = laws.excerpt(long, "Kann ich ein häusliches Arbeitszimmer absetzen?")
     assert ex.startswith("(1) Absatz eins") and "dürfen den Gewinn nicht mindern" in ex and "Arbeitszimmer" in ex
+
+
+def test_laws_rank_fusion_lifts_norms_found_by_several_formulations(app, monkeypatch):
+    """Alltagsfrage: Sondervorschriften liegen knapp vorn; HGB § 257 / AO § 147 kommen bei allen Formulierungen vor."""
+    def hit(slug, enbez, score):
+        return {"slug": slug, "enbez": enbez, "law_abbreviation": slug.upper(), "text": "Text " + slug, "score": score, "part": None}
+    answers = {
+        "Frage": [hit("gwg", "§ 8", .884), hit("verst", "§ 8", .878), hit("gewo", "§ 14", .877), hit("immv", "§ 14", .876),
+                  hit("darl", "§ 12", .876), hit("transp", "§ 4", .875), hit("ao", "§ 147", .874), hit("hgb", "§ 257", .874)],
+        "A": [hit("hgb", "§ 257", .849), hit("pbv", "§ 6", .843), hit("khbv", "§ 6", .843), hit("ao", "§ 147", .843),
+              hit("gwg", "§ 8", .841)],
+        "B": [hit("gewo", "§ 14", .901), hit("gwg", "§ 8", .889), hit("stbg", "§ 66", .888), hit("hgb", "§ 257", .886),
+              hit("ao", "§ 147", .884)],
+    }
+
+    class R:
+        def __init__(self, q): self.q = q
+        def raise_for_status(self): pass
+        def json(self): return answers[self.q]
+    monkeypatch.setattr(laws.requests, "get", lambda url, params=None, **k: R(params["q"]))
+    monkeypatch.setattr(laws, "expand_query", lambda q: ["A", "B"])
+    app.config["LAWS_API_URL"] = "http://laws.test"
+    with app.app_context():
+        hits = laws.search("Frage", k=6)
+    top3 = [h["law_abbreviation"] for h in hits[:3]]
+    assert {"HGB", "AO"} <= set(top3), top3
 
 
 def test_laws_middle_parts_are_quoted_but_not_explained(app, monkeypatch):
