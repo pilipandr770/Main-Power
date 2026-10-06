@@ -134,3 +134,15 @@ def _neutralize_club(club, out: list[str]) -> None:
                     val = val.replace(old, new)
             if val != (getattr(p, col) or ""):
                 setattr(p, col, val)
+
+
+def grandfather_verified_emails() -> int:
+    """Einmalig: Konten, die vor der E-Mail-Bestätigung existierten, gelten als bestätigt (neue Konten müssen bestätigen)."""
+    from .models import PlatformSetting, User, utcnow
+    if PlatformSetting.get("migration.email_verified_backfill"):
+        return 0
+    n = (User.query.execution_options(all_clubs=True).filter(User.email_verified_at.is_(None))
+         .update({"email_verified_at": utcnow()}, synchronize_session=False))
+    PlatformSetting.set("migration.email_verified_backfill", "1")
+    db.session.commit()
+    return n

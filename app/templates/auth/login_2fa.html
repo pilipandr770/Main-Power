@@ -1,0 +1,14 @@
+{% extends "auth/_layout.html" %}
+{% from "partials/_macros.html" import input with context %}
+{% block title %}Bestätigungscode — {{ club.name }}{% endblock %}
+{% block content %}
+<h1>Zweiter Faktor</h1>
+<p class="muted">Gib den 6-stelligen Code aus deiner Authenticator-App ein. Ohne Zugriff auf die App funktioniert auch ein Wiederherstellungscode.</p>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if error %}<div class="flash error mb-m">{{ error }}</div>{% endif %}
+  {{ input("code", "Code", "", required=True, autocomplete="one-time-code", placeholder="123456") }}
+  <button class="btn" type="submit">Bestätigen</button>
+  <p class="mt-m muted"><a href="{{ url_for('auth.login') }}">Zurück zur Anmeldung</a></p>
+</form>
+{% endblock %}

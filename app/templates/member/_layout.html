@@ -34,6 +34,7 @@
       <a href="{{ url_for('member.goal_page') }}" class="{{ 'on' if ep == 'member.goal_page' }}">Mein Ziel{% if goal_due %}<span class="badge">1</span>{% endif %}</a>
       <a href="{{ url_for('member.plan_page') }}" class="{{ 'on' if ep == 'member.plan_page' }}">Mein Tarif</a>
       <a href="{{ url_for('member.privacy') }}" class="{{ 'on' if ep == 'member.privacy' }}">Privatsphäre</a>
+      <a href="{{ url_for('member.security') }}" class="{{ 'on' if ep == 'member.security' }}">Sicherheit</a>
       {% if current_user.is_admin %}<a href="{{ url_for('admin.dashboard') }}">Adminbereich</a>{% endif %}
     </nav>
     <div class="me">
@@ -44,6 +45,10 @@
     </div>
   </aside>
   <main class="main" id="inhalt">
+    {% if cfg.SMTP_HOST and current_user.is_authenticated and not current_user.email_verified_at %}
+    <div class="flash info small row between"><span>Bitte bestätige deine E-Mail-Adresse ({{ current_user.email }}) — so kannst du dein Passwort selbst zurücksetzen.</span>
+      <form method="post" action="{{ url_for('auth.resend_verification') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Link senden</button></form></div>
+    {% endif %}
     {{ flashes() }}
     {% block content %}{% endblock %}
   </main>

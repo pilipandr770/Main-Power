@@ -40,6 +40,7 @@ TEXT_FIELDS: dict[str, tuple[str, str, int, bool]] = {
     "accent": ("Akzentfarbe (Hex)", "#14b8a6", 7, False),
     "assistant_name": ("Name der KI-Assistenz", "Aiko", 30, False),
     "registration": ("Registrierung", "open", 10, False),
+    "admin_2fa": ("2FA für die Klubleitung verpflichtend", "0", 1, False),
     "hero_title": ("Startseite: Überschrift", "Die richtigen Menschen. Zur richtigen Zeit.", 120, False),
     "hero_lead": ("Startseite: Einleitung",
                   "Unser Klub bringt Unternehmer:innen, Selbstständige und Fachleute zusammen. Du erzählst, wo du stehst und "

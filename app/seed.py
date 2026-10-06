@@ -633,6 +633,10 @@ def seed(demo: bool = True, club: Club | None = None, preset: str = "neutral") -
         admin = User.query.filter_by(role="superadmin").first()
         if admin and admin.profile and not admin.profile.embed_need:
             refresh_embeddings(admin.profile)
+        # Startdaten (Admin, Demo-Mitglieder) sind keine echten Anmeldungen: E-Mail gilt als bestätigt
+        User.query.filter(User.email_verified_at.is_(None)).update({"email_verified_at": utcnow()},
+                                                                    synchronize_session=False)
+        db.session.commit()
 
 
 def create_club(slug: str, name: str, admin_email: str, admin_password: str, admin_first: str = "Admin",
@@ -652,6 +656,7 @@ def create_club(slug: str, name: str, admin_email: str, admin_password: str, adm
         admin = User(email=admin_email.lower(), first_name=admin_first or "Admin", last_name=admin_last,
                      role="superadmin")
         admin.set_password(admin_password)
+        admin.email_verified_at = utcnow()  # die Plattform-Konsole hat die Adresse selbst eingetragen
         admin.profile = Profile(headline=f"Organisation, {name}", company=name, industry="Community & Netzwerk")
         db.session.add(admin)
         db.session.commit()

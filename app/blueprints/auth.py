@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+import time
 
 from flask import (Blueprint, current_app, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
@@ -10,10 +12,26 @@ from ..services import club as club_settings
 from ..extensions import db, limiter
 from ..models import Consent, Profile, User, utcnow
 from ..services.audit import audit
+from ..services import totp
 from ..services.mailer import send_mail
 
 bp = Blueprint("auth", __name__)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+PRE2FA_TTL = 300  # so lange gilt der Zwischenschritt zwischen Passwort und Code
+VERIFY_TTL = 7 * 24 * 3600
+
+
+def _verify_serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="email-verify")
+
+
+def send_verification(user: User) -> bool:
+    """Bestätigungslink an die E-Mail-Adresse schicken (gilt nur für genau diese Adresse)."""
+    token = _verify_serializer().dumps({"uid": user.id, "e": user.email})
+    return send_mail(user.email, f"Bitte bestätige deine E-Mail-Adresse — {club_settings.settings()['name']}", "verify",
+                     user=user, link=url_for("auth.verify_email", token=token, _external=True))
 
 
 def _serializer() -> URLSafeTimedSerializer:
@@ -85,11 +103,15 @@ def register():
             if invite:
                 invite.uses += 1
                 audit("invite.used", f"invite:{invite.id}", email)
+                if invite.email and invite.email == email:  # Einladung ging an diese Adresse: Postfach ist nachgewiesen
+                    user.email_verified_at = utcnow()
             if pending:
                 audit("user.registered", f"user:{user.id}", "wartet auf Freigabe", actor_id=None)
                 db.session.commit()
                 name = club_settings.settings()["name"]
                 send_mail(user.email, f"Deine Anmeldung bei {name}", "reg_received", user=user)
+                if not user.email_verified_at:
+                    send_verification(user)
                 for admin in User.query.filter(User.role.in_(("admin", "superadmin")), User.status == "active").all():
                     send_mail(admin.email, "Neue Anmeldung wartet auf Freigabe", "reg_pending", user=user, admin=admin,
                               link=url_for("admin.user_detail", user_id=user.id, _external=True))
@@ -101,6 +123,8 @@ def register():
             login_user(user)
             send_mail(user.email, f"Willkommen bei {club_settings.settings()['name']}", "welcome", user=user,
                       link=url_for("member.profile", _external=True))
+            if not user.email_verified_at:
+                send_verification(user)
             flash("Willkommen in der Community! Erzähl uns kurz von dir — daraus entstehen deine Matches.", "success")
             return redirect(url_for("member.profile", welcome=1))
     return render_template("auth/register.html", errors=errors, form=form, mode=mode, invite=invite)
@@ -122,14 +146,96 @@ def login():
         elif user.status != "active":
             error = f"Dieses Konto ist gesperrt. Schreib uns an {club_settings.settings()['contact_email']}."
         else:
-            login_user(user, remember=bool(request.form.get("remember")))
-            user.last_login_at = utcnow()
-            db.session.commit()
             nxt = _safe_next(request.args.get("next"))
-            if nxt:
-                return redirect(nxt)
-            return redirect(url_for("admin.dashboard" if user.is_admin else "member.dashboard"))
+            if user.has_2fa:  # Passwort stimmt, aber angemeldet ist man erst nach dem Code
+                session["pre2fa"] = {"uid": user.id, "at": time.time(), "tries": 0, "next": nxt,
+                                     "remember": bool(request.form.get("remember"))}
+                return redirect(url_for("auth.login_2fa"))
+            return _finish_login(user, bool(request.form.get("remember")), nxt)
     return render_template("auth/login.html", error=error)
+
+
+def _finish_login(user: User, remember: bool, nxt: str | None):
+    login_user(user, remember=remember)
+    user.last_login_at = utcnow()
+    db.session.commit()
+    if nxt:
+        return redirect(nxt)
+    return redirect(url_for("admin.dashboard" if user.is_admin else "member.dashboard"))
+
+
+@bp.route("/anmelden/2fa", methods=["GET", "POST"])
+@limiter.limit("10 per minute; 40 per hour", methods=["POST"])
+def login_2fa():
+    pre = session.get("pre2fa")
+    if not pre or time.time() - pre.get("at", 0) > PRE2FA_TTL:
+        session.pop("pre2fa", None)
+        flash("Bitte melde dich erneut an.", "info")
+        return redirect(url_for("auth.login"))
+    user = db.session.get(User, pre["uid"])
+    if not user or user.status != "active" or not user.has_2fa:
+        session.pop("pre2fa", None)
+        return redirect(url_for("auth.login"))
+    error = None
+    if request.method == "POST":
+        code = request.form.get("code", "")
+        secret = totp.unseal(user.totp_secret_enc)
+        step = totp.verify(secret, code, user.totp_last_step) if secret else None
+        left = None if step else totp.use_recovery_code(user.recovery_hashes, code)
+        if step or left is not None:
+            if step:
+                user.totp_last_step = step
+            else:
+                user.recovery_codes = json.dumps(left)
+                audit("auth.recovery_code_used", f"user:{user.id}", f"{len(left)} übrig", actor_id=user.id)
+                flash(f"Wiederherstellungscode verwendet. Es bleiben {len(left)} Codes. Richte bei Gelegenheit "
+                      "dein Gerät neu ein.", "info")
+            session.pop("pre2fa", None)
+            return _finish_login(user, pre.get("remember", False), pre.get("next"))
+        pre["tries"] = pre.get("tries", 0) + 1
+        session["pre2fa"] = pre
+        if pre["tries"] >= 5:
+            session.pop("pre2fa", None)
+            flash("Zu viele falsche Codes. Bitte melde dich neu an.", "error")
+            return redirect(url_for("auth.login"))
+        error = "Der Code stimmt nicht. Prüfe die Uhrzeit deines Geräts oder nutze einen Wiederherstellungscode."
+    return render_template("auth/login_2fa.html", error=error)
+
+
+# --------------------------------------------------------------------------- E-Mail bestätigen
+@bp.route("/e-mail-bestaetigen/<token>")
+def verify_email(token):
+    try:
+        data = _verify_serializer().loads(token, max_age=VERIFY_TTL)
+    except (SignatureExpired, BadSignature):
+        flash("Der Bestätigungslink ist abgelaufen oder ungültig. Du kannst nach der Anmeldung einen neuen anfordern.",
+              "error")
+        return redirect(url_for("auth.login"))
+    user = db.session.get(User, data.get("uid"))
+    if not user or user.email != data.get("e"):
+        flash("Dieser Link gehört zu einer anderen E-Mail-Adresse.", "error")
+        return redirect(url_for("auth.login"))
+    if not user.email_verified_at:
+        user.email_verified_at = utcnow()
+        audit("auth.email_verified", f"user:{user.id}", actor_id=user.id)
+        db.session.commit()
+    flash("Danke, deine E-Mail-Adresse ist bestätigt.", "success")
+    return redirect(url_for("member.dashboard" if current_user.is_authenticated else "auth.login"))
+
+
+@bp.route("/e-mail-bestaetigen", methods=["POST"])
+@login_required
+@limiter.limit("3 per hour")
+def resend_verification():
+    if current_user.email_verified_at:
+        flash("Deine E-Mail-Adresse ist schon bestätigt.", "info")
+    elif not current_app.config.get("SMTP_HOST"):
+        flash("Der E-Mail-Versand ist auf dieser Installation nicht eingerichtet.", "error")
+    else:
+        send_verification(current_user)
+        flash("Wir haben dir einen neuen Bestätigungslink geschickt.", "success")
+    return redirect(request.referrer if request.referrer and request.referrer.startswith(request.host_url)
+                    else url_for("member.dashboard"))
 
 
 @bp.route("/logout", methods=["POST"])
@@ -174,7 +280,11 @@ def reset(token):
             error = "Das Passwort braucht mindestens 10 Zeichen."
         else:
             user.set_password(pw)
+            if not user.email_verified_at:  # der Link kam per E-Mail: Postfach ist damit nachgewiesen
+                user.email_verified_at = utcnow()
+            audit("auth.password_reset", f"user:{user.id}", actor_id=user.id)
             db.session.commit()
+            send_mail(user.email, "Dein Passwort wurde geändert", "password_changed", user=user)
             flash("Passwort geändert. Du kannst dich jetzt anmelden.", "success")
             return redirect(url_for("auth.login"))
     return render_template("auth/reset.html", error=error)

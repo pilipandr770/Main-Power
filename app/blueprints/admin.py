@@ -28,6 +28,11 @@ bp = Blueprint("admin", __name__)
 @login_required
 @admin_required
 def _guard():
+    """Verlangt der Klub 2FA für die Klubleitung, ist der Admin-Bereich bis zur Einrichtung gesperrt."""
+    if (club_settings.settings()["admin_2fa"] == "1" and not current_user.has_2fa
+            and not session.get("impersonator_id")):
+        flash("Bitte richte zuerst die Zwei-Faktor-Anmeldung ein. Die Klubleitung verlangt sie für Admin-Konten.", "error")
+        return redirect(url_for("member.security", einrichten=1))
     return None
 
 
@@ -195,6 +200,7 @@ def user_edit(user_id):
             if email != u.email:
                 audit("user.email", f"user:{u.id}", f"{u.email} -> {email}")
                 u.end_sessions()
+                u.email_verified_at = None  # neue Adresse ist noch nicht nachgewiesen
             u.email, u.phone = email, f.get("phone", "").strip()[:40]
             for field, limit in MEMBER_TEXT_FIELDS.items():
                 setattr(p, field, f.get(field, "").strip()[:limit])
@@ -279,6 +285,14 @@ def user_action(user_id, action):
             telegram.kick(u.telegram_user_id)
         audit("user.block", f"user:{u.id}")
         flash(f"{u.full_name} ist gesperrt.", "info")
+    elif action == "2fa-zuruecksetzen":
+        if not u.has_2fa:
+            abort(400)
+        u.clear_2fa()
+        u.end_sessions()
+        audit("user.2fa_reset", f"user:{u.id}")
+        flash(f"Die Zwei-Faktor-Anmeldung von {u.full_name} ist zurückgesetzt. Die Person kann sich mit dem Passwort "
+              "anmelden und 2FA neu einrichten.", "success")
     elif action == "freigeben":
         if u.status != "pending":
             abort(400)
@@ -698,6 +712,7 @@ def club_page():
         values = {k: f.get(k, "") for k in club_settings.TEXT_FIELDS}
         if values.get("registration") not in club_settings.REG_MODES:
             values["registration"] = "open"
+        values["admin_2fa"] = "1" if f.get("admin_2fa") else "0"
         if not club_settings.HEX.match(values.get("accent", "")):
             values["accent"] = club_settings.settings()["accent"]
         testimonials = []

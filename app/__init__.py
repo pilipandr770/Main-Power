@@ -252,7 +252,10 @@ def _register_cli(app: Flask) -> None:
         n = refresh_default_faq()
         if n:
             click.echo(f"FAQ aktualisiert: {n} Standardantworten")
-        from .migrations_neutral import neutralize_legacy_branding
+        from .migrations_neutral import grandfather_verified_emails, neutralize_legacy_branding
+        n_verified = grandfather_verified_emails()
+        if n_verified:
+            click.echo(f"{n_verified} bestehende Konten als E-Mail-bestätigt übernommen")
         for line in neutralize_legacy_branding():
             click.echo(line)
         click.echo("Datenbank initialisiert.")

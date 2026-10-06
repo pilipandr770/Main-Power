@@ -212,6 +212,12 @@ class User(UserMixin, TenantMixin, db.Model):
     last_login_at = db.Column(db.DateTime)
     # Teil der Session-ID: Erhöhen beendet alle bestehenden Sitzungen und Remember-Cookies (Passwort, Sperre, E-Mail)
     session_gen = db.Column(db.Integer, default=0, nullable=False)
+    # E-Mail-Bestätigung und Zwei-Faktor-Anmeldung (TOTP); das Geheimnis liegt verschlüsselt (services/totp.py)
+    email_verified_at = db.Column(db.DateTime)
+    totp_secret_enc = db.Column(db.Text)
+    totp_enabled_at = db.Column(db.DateTime)
+    totp_last_step = db.Column(db.Integer, default=0, nullable=False)
+    recovery_codes = db.Column(db.Text, default="")  # JSON-Liste von Hashes
 
     telegram_user_id = db.Column(db.BigInteger, nullable=True, index=True)
     telegram_username = db.Column(db.String(80))
@@ -236,6 +242,21 @@ class User(UserMixin, TenantMixin, db.Model):
     def set_password(self, raw: str) -> None:
         self.password_hash = generate_password_hash(raw)
         self.end_sessions()
+
+    @property
+    def has_2fa(self) -> bool:
+        return bool(self.totp_enabled_at and self.totp_secret_enc)
+
+    @property
+    def recovery_hashes(self) -> list[str]:
+        import json
+        try:
+            return list(json.loads(self.recovery_codes or "[]"))
+        except ValueError:
+            return []
+
+    def clear_2fa(self) -> None:
+        self.totp_secret_enc, self.totp_enabled_at, self.totp_last_step, self.recovery_codes = None, None, 0, ""
 
     def end_sessions(self) -> None:
         """Alle Anmeldungen dieses Kontos ungültig machen (auch auf anderen Geräten)."""

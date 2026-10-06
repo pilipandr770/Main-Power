@@ -1,0 +1,60 @@
+{% extends "member/_layout.html" %}
+{% from "partials/_macros.html" import input with context %}
+{% block page_title %}Sicherheit{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Sicherheit</h1><p class="muted mb-0">Schütze dein Konto mit einem zweiten Faktor und halte deine E-Mail-Adresse aktuell.</p></div></div>
+<div class="split">
+<section>
+  {% if codes %}
+  <div class="panel mb-l">
+    <h2>Deine Wiederherstellungscodes</h2>
+    <p class="muted">Jeder Code funktioniert genau einmal, falls du dein Gerät verlierst. Speichere sie jetzt, z. B. im Passwortmanager. Sie werden nicht noch einmal angezeigt.</p>
+    <pre class="pre codes">{% for c in codes %}{{ c }}
+{% endfor %}</pre>
+  </div>
+  {% endif %}
+
+  <div class="panel mb-l">
+    <h2>Zwei-Faktor-Anmeldung {% if current_user.has_2fa %}<span class="tag ok">aktiv</span>{% else %}<span class="tag">aus</span>{% endif %}</h2>
+    {% if required and not current_user.has_2fa %}<p class="flash error small">Die Klubleitung verlangt 2FA für Admin-Konten. Bitte richte sie jetzt ein, vorher ist der Admin-Bereich gesperrt.</p>{% endif %}
+    {% if current_user.has_2fa %}
+      <p class="muted">Bei der Anmeldung brauchst du zusätzlich einen Code aus deiner Authenticator-App. Übrige Wiederherstellungscodes: <b>{{ remaining }}</b>.</p>
+      <form method="post" class="maxw mb-m">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="regen">
+        {{ input("password", "Passwort", "", type="password", required=True, autocomplete="current-password", hint="Zur Bestätigung.") }}
+        <button class="btn btn-ghost btn-sm">Neue Wiederherstellungscodes erzeugen</button>
+      </form>
+      {% if not required %}
+      <form method="post" class="maxw" data-confirm="Zwei-Faktor-Anmeldung wirklich ausschalten?">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="disable">
+        {{ input("password", "Passwort", "", type="password", required=True, autocomplete="current-password") }}
+        <button class="btn btn-ghost btn-sm">Ausschalten</button>
+      </form>
+      {% endif %}
+    {% elif qr %}
+      <p class="muted">1. Öffne eine Authenticator-App (z. B. Google Authenticator, Microsoft Authenticator, 1Password, Aegis) und scanne den QR-Code. 2. Gib den angezeigten 6-stelligen Code ein.</p>
+      <img class="qr" src="{{ qr }}" alt="QR-Code zum Einrichten der Authenticator-App" width="220" height="220">
+      <p class="small muted">Kein Scan möglich? Gib diesen Schlüssel manuell ein: <code>{{ secret_text }}</code></p>
+      <form method="post" class="maxw">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="enable">
+        {{ input("code", "Code aus der App", "", required=True, autocomplete="one-time-code", placeholder="123456") }}
+        <button class="btn">Aktivieren</button>
+      </form>
+    {% else %}
+      <p class="muted">Mit einer Authenticator-App wird jede Anmeldung doppelt gesichert: Passwort und Code vom Handy.</p>
+      <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="start"><button class="btn">Einrichten</button></form>
+    {% endif %}
+  </div>
+</section>
+<aside class="stack">
+  <div class="panel">
+    <h3>E-Mail-Adresse</h3>
+    <p>{{ current_user.email }} {% if current_user.email_verified_at %}<span class="tag ok">bestätigt</span>{% else %}<span class="tag warn">nicht bestätigt</span>{% endif %}</p>
+    {% if not current_user.email_verified_at and smtp %}
+    <form method="post" action="{{ url_for('auth.resend_verification') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Bestätigungslink senden</button></form>
+    {% endif %}
+    <p class="small muted mt-s mb-0">Mit einer bestätigten Adresse kannst du dein Passwort jederzeit selbst zurücksetzen.</p>
+  </div>
+</aside>
+</div>
+{% endblock %}

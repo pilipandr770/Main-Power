@@ -17,6 +17,7 @@
     {{ field("assistant_name") }}
     <div class="field"><label for="f-registration">{{ fields.registration[0] }}<span class="hint">Wer sich bei {{ c.name }} registrieren darf. Einladungen erstellst du unter „Einladungen“.</span></label>
       <select id="f-registration" name="registration">{% for k, label in reg_modes.items() %}<option value="{{ k }}"{% if k == c.registration %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <label class="check"><input type="checkbox" name="admin_2fa" value="1"{% if c.admin_2fa == '1' %} checked{% endif %}><span><b>{{ fields.admin_2fa[0] }}</b><br><span class="muted small">Admin-Konten müssen 2FA einrichten, bevor sie den Admin-Bereich nutzen. Empfohlen.</span></span></label>
   </fieldset>
   <fieldset><legend>Kontakt und Rechtliches</legend>
     {{ field("operator") }}

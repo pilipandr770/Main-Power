@@ -51,6 +51,7 @@
       {% else %}
       <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='entsperren') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">Entsperren</button></form>
       {% endif %}
+      {% if u.has_2fa %}<form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='2fa-zuruecksetzen') }}" class="mt-s" data-confirm="2FA dieses Kontos zurücksetzen? Nur nach Rücksprache mit der Person."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">2FA zurücksetzen</button></form>{% endif %}
       <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='export') }}" class="mt-s"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Datenauskunft (JSON)</button></form>
       {% if current_user.is_superadmin %}
       <form method="post" action="{{ url_for('admin.user_action', user_id=u.id, action='rolle') }}" class="row mt-m"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -1116,6 +1116,8 @@ def change_password():
         db.session.commit()
         remember = bool(request.cookies.get(current_app.config.get("REMEMBER_COOKIE_NAME", "remember_token")))
         login_user(current_user._get_current_object(), remember=remember)  # dieses Gerät bleibt angemeldet
+        from ..services.mailer import send_mail
+        send_mail(current_user.email, "Dein Passwort wurde geändert", "password_changed", user=current_user)
         flash("Passwort geändert. Andere Geräte sind abgemeldet.", "success")
     return redirect(url_for("member.privacy"))
 
@@ -1137,3 +1139,70 @@ def delete_account():
     delete_user(user)
     flash("Dein Konto und alle zugehörigen Daten wurden gelöscht.", "info")
     return redirect(url_for("public.index"))
+
+
+# --------------------------------------------------------------------------- Sicherheit: Zwei-Faktor-Anmeldung
+@bp.route("/sicherheit", methods=["GET", "POST"])
+@limiter.limit("20 per hour", methods=["POST"])
+def security():
+    """2FA per Authenticator-App einrichten, Wiederherstellungscodes erneuern, 2FA ausschalten."""
+    import json
+    from ..services import totp
+    from ..services import club as club_settings
+    u = current_user
+    required = u.is_admin and club_settings.settings()["admin_2fa"] == "1"
+    codes: list[str] = []
+    setup = None
+    if request.method == "POST":
+        action = request.form.get("action")
+        pw_ok = u.check_password(request.form.get("password", ""))
+        if action == "enable":
+            secret = session.get("totp_setup")
+            step = totp.verify(secret, request.form.get("code", "")) if secret else None
+            if not step:
+                flash("Der Code stimmt nicht. Prüfe die Uhrzeit deines Geräts und versuche es noch einmal.", "error")
+                setup = secret
+            else:
+                codes, hashes = totp.new_recovery_codes()
+                u.totp_secret_enc, u.totp_enabled_at, u.totp_last_step = totp.seal(secret), utcnow(), step
+                u.recovery_codes = json.dumps(hashes)
+                session.pop("totp_setup", None)
+                audit("auth.2fa_enabled", f"user:{u.id}")
+                u.end_sessions()  # andere Geräte müssen sich neu anmelden; dieses bleibt angemeldet
+                db.session.commit()
+                login_user(u._get_current_object(), remember=bool(request.cookies.get("remember_token")))
+                flash("Zwei-Faktor-Anmeldung ist aktiv. Speichere jetzt deine Wiederherstellungscodes.", "success")
+        elif action == "regen" and u.has_2fa:
+            if not pw_ok:
+                flash("Das Passwort stimmt nicht.", "error")
+            else:
+                codes, hashes = totp.new_recovery_codes()
+                u.recovery_codes = json.dumps(hashes)
+                audit("auth.2fa_recovery_renewed", f"user:{u.id}")
+                db.session.commit()
+                flash("Neue Wiederherstellungscodes erzeugt. Die alten gelten nicht mehr.", "success")
+        elif action == "disable" and u.has_2fa:
+            if required:
+                flash("Die Klubleitung verlangt 2FA für Admin-Konten. Du kannst sie nicht ausschalten.", "error")
+            elif not pw_ok:
+                flash("Das Passwort stimmt nicht.", "error")
+            else:
+                u.clear_2fa()
+                audit("auth.2fa_disabled", f"user:{u.id}")
+                u.end_sessions()
+                db.session.commit()
+                login_user(u._get_current_object(), remember=bool(request.cookies.get("remember_token")))
+                flash("Zwei-Faktor-Anmeldung ist ausgeschaltet.", "info")
+                return redirect(url_for("member.security"))
+        elif action == "start" and not u.has_2fa:
+            return redirect(url_for("member.security", einrichten=1))
+    if request.args.get("einrichten") and not u.has_2fa and not codes:
+        setup = session.get("totp_setup") or totp.new_secret()
+        session["totp_setup"] = setup
+    qr = secret_text = None
+    if setup and not u.has_2fa:
+        issuer = club_settings.settings()["name"]
+        qr = totp.qr_data_uri(totp.provisioning_uri(issuer, u.email, setup))
+        secret_text = " ".join(setup[i:i + 4] for i in range(0, len(setup), 4))
+    return render_template("member/security.html", codes=codes, qr=qr, secret_text=secret_text, required=required,
+                           remaining=len(u.recovery_hashes), smtp=bool(current_app.config.get("SMTP_HOST")))
