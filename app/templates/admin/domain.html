@@ -1,0 +1,50 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input with context %}
+{% block page_title %}Adresse & Domain{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Adresse &amp; Domain</h1><p class="muted mb-0">Unter welchen Adressen dein Klub erreichbar ist. Deine eigene Domain bestätigst du per DNS-Eintrag.</p></div></div>
+<div class="split">
+<section class="stack">
+  <div class="panel">
+    <h2>Deine Adressen</h2>
+    {% if platform_url %}<p><b>{{ slug_host }}</b> <span class="tag ok">Plattform-Adresse</span><br><span class="small muted">Gehört zu deinem Klub und bleibt immer erreichbar.</span></p>{% endif %}
+    {% for d in active %}
+    <div class="row between mb-s"><span><b>{{ d }}</b> <span class="tag ok">eigene Domain</span></span>
+      <form method="post" action="{{ url_for('admin.domain_remove') }}" data-confirm="{{ d }} entfernen? Mitglieder erreichen den Klub dann nur noch über die Plattform-Adresse."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="domain" value="{{ d }}"><button class="linkbtn small">Entfernen</button></form></div>
+    {% endfor %}
+    {% if not platform_url and not active %}<p class="muted mb-0">Dein Klub hat noch keine erreichbare Adresse. Füge unten eine eigene Domain hinzu oder bitte die Plattform-Betreiber um eine Adresse.</p>{% endif %}
+  </div>
+
+  {% for c in claims %}
+  <div class="panel">
+    <h3>{{ c.domain }} <span class="tag warn">wartet auf DNS</span></h3>
+    <p class="small muted">Lege beim Anbieter deiner Domain (dort, wo du {{ c.domain }} gekauft hast) diese Einträge an:</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Zweck</th><th>Typ</th><th>Name</th><th>Wert</th></tr></thead>
+      <tbody>
+        <tr><td>1. Besitznachweis</td><td>TXT</td><td><code>{{ txt_name(c) }}</code></td><td><code>{{ txt_value(c) }}</code></td></tr>
+        <tr><td>2. Weiterleitung<br><span class="small muted">für eine Subdomain wie netzwerk.meinverein.de</span></td><td>CNAME</td><td><code>{{ c.domain }}</code></td><td><code>{{ target or '(Betreiber fragen)' }}</code></td></tr>
+        <tr><td>2. Weiterleitung<br><span class="small muted">für die Hauptdomain meinverein.de</span></td><td>A</td><td><code>{{ c.domain }}</code></td><td><code>{{ ip or '(Betreiber fragen)' }}</code></td></tr>
+      </tbody></table></div>
+    <p class="small muted">Bei Weiterleitung wählst du je nach Domain entweder den CNAME oder den A-Eintrag. Die Namen kürzen manche Anbieter ab (nur <code>{{ txt_name(c).replace('.' ~ c.domain, '') }}</code> statt des vollen Namens). DNS-Änderungen brauchen von wenigen Minuten bis zu einer Stunde.</p>
+    {% if c.note %}<p class="flash info small">{{ c.note }}</p>{% endif %}
+    <div class="row">
+      <form method="post" action="{{ url_for('admin.domain_check', cid=c.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm">Jetzt prüfen</button></form>
+      <form method="post" action="{{ url_for('admin.domain_claim_delete', cid=c.id) }}" data-confirm="Vormerkung löschen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn small">Löschen</button></form>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+<aside class="stack">
+  <div class="panel">
+    <h3>Eigene Domain hinzufügen</h3>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {{ input("domain", "Domain", "", placeholder="netzwerk.meinverein.de", hint="Höchstens " ~ max_domains ~ " Domains. Ohne https:// eintragen.") }}
+      <button class="btn btn-sm">Hinzufügen</button>
+    </form>
+    <p class="small muted mt-s mb-0">Nach der Bestätigung richten wir automatisch das HTTPS-Zertifikat ein. Links in E-Mails zeigen dann auf deine Domain.</p>
+  </div>
+</aside>
+</div>
+{% endblock %}

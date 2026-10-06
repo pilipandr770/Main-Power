@@ -27,6 +27,7 @@
       <a href="{{ url_for('admin.audit_log') }}" class="{{ 'on' if ep == 'admin.audit_log' }}">Protokoll</a>
       <a href="{{ url_for('admin.settings') }}" class="{{ 'on' if ep == 'admin.settings' }}">Einstellungen</a>
       <a href="{{ url_for('admin.club_page') }}" class="{{ 'on' if ep.startswith('admin.club') }}">Klub &amp; Branding</a>
+      <a href="{{ url_for('admin.domain') }}" class="{{ 'on' if ep.startswith('admin.domain') }}">Adresse &amp; Domain</a>
       <a href="{{ url_for('admin.formats') }}" class="{{ 'on' if ep.startswith('admin.format') }}">Formate</a>
       <a href="{{ url_for('admin.questions') }}" class="{{ 'on' if ep.startswith('admin.question') }}">Eigene Fragen</a>
       {% endif %}

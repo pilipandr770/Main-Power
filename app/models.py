@@ -950,6 +950,21 @@ class Setting(TenantMixin, db.Model):
             row.value = value
 
 
+class ClubDomainClaim(db.Model):
+    """Eigene Domain, die ein Klub hinzufügen will. Aktiv wird sie erst, wenn der TXT-Eintrag den Besitz beweist
+    (dann landet sie in Club.domains). Nicht klubbezogen, damit die Betreiber-Konsole alle Ansprüche sieht."""
+    __tablename__ = "club_domain_claims"
+    __table_args__ = (db.UniqueConstraint("club_id", "domain", name="uq_domain_claim"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    club_id = db.Column(db.Integer, db.ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    domain = db.Column(db.String(255), nullable=False, index=True)
+    token = db.Column(db.String(40), nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    checked_at = db.Column(db.DateTime)
+    note = db.Column(db.String(200), default="")      # Ergebnis der letzten Prüfung
+
+
 class ClubRequest(db.Model):
     """Anfrage eines künftigen Klubs über die Plattform-Startseite (nicht klubbezogen; Betreiber-Konsole bearbeitet sie)."""
     __tablename__ = "club_requests"

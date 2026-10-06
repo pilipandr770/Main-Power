@@ -93,6 +93,11 @@ class Config:
     PLATFORM_NAME = os.environ.get("PLATFORM_NAME", "Klub-Plattform")
     PLATFORM_OPERATOR = os.environ.get("PLATFORM_OPERATOR", "Andrii-IT")
     PLATFORM_HOME_HOSTS = os.environ.get("PLATFORM_HOME_HOSTS", "")
+    # Eigene Domains der Klubs: Ziel, auf das Klubs per CNAME/A-Eintrag zeigen müssen (Hostname und/oder IP des Servers)
+    PLATFORM_DNS_TARGET = os.environ.get("PLATFORM_DNS_TARGET", "")
+    PLATFORM_SERVER_IP = os.environ.get("PLATFORM_SERVER_IP", "")
+    # Weitere Namen, die kein Klub als Subdomain bekommen darf (kommagetrennt), z. B. Subdomains anderer Projekte
+    PLATFORM_RESERVED_SLUGS = os.environ.get("PLATFORM_RESERVED_SLUGS", "")
     PLATFORM_DEMO_URL = os.environ.get("PLATFORM_DEMO_URL", "")  # Adresse eines Demo-Klubs für den Button auf der Startseite
     # Plattform-Konsole (/plattform): eigene Anmeldung, unabhängig von den Klub-Konten. Leer = Konsole gesperrt.
     PLATFORM_ADMIN_EMAIL = os.environ.get("PLATFORM_ADMIN_EMAIL", "").strip().lower()

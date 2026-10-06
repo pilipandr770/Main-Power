@@ -24,7 +24,14 @@ bp = Blueprint("platform", __name__)
 SESSION_KEY = "platform_admin"
 SESSION_TTL = 4 * 3600
 SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$")
-RESERVED = {"www", "admin", "app", "api", "plattform", "platform", "static", "mail"}
+RESERVED = {"www", "admin", "app", "api", "plattform", "platform", "static", "mail", "klubs", "ftp", "smtp", "imap", "pop",
+            "ns1", "ns2", "dev", "test", "staging", "cdn", "status", "shop", "autodiscover", "webmail", "blog", "docs",
+            "support", "login", "auth", "assets"}
+
+
+def reserved_slugs() -> set[str]:
+    extra = {s.strip().lower() for s in (current_app.config.get("PLATFORM_RESERVED_SLUGS") or "").split(",") if s.strip()}
+    return RESERVED | extra
 
 
 def _enabled() -> bool:
@@ -143,7 +150,7 @@ def _validate(form, club: Club | None) -> dict:
     errors = {}
     slug = form.get("slug", "").strip().lower()
     if club is None:
-        if not SLUG.match(slug) or slug in RESERVED:
+        if not SLUG.match(slug) or slug in reserved_slugs():
             errors["slug"] = "3–40 Zeichen: Kleinbuchstaben, Ziffern, Bindestrich (nicht am Anfang/Ende)."
         elif Club.query.filter_by(slug=slug).first():
             errors["slug"] = "Dieser Slug ist vergeben."

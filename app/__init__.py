@@ -49,6 +49,9 @@ def create_app(config_object=Config) -> Flask:
             tenancy.set_club(tenancy.default_club())
             return None
         club = tenancy.resolve_request_club(request.host)
+        if club is None and request.path == "/healthz":
+            tenancy.set_club(None)  # Gesundheitsprüfung des Containers kommt mit Host „localhost“
+            return None
         if club is None:
             abort(404)
         tenancy.set_club(club)
@@ -384,6 +387,20 @@ def _register_cli(app: Flask) -> None:
         for c in clubs:
             with use_club(c):
                 click.echo(f"{c.slug}: {send_event_reminders()} Terminerinnerungen")
+
+    @app.cli.command("list-hosts")
+    def list_hosts_cmd():
+        """Eigene Domains aktiver Klubs, eine je Zeile (für deploy/sync-traefik-hosts.sh)."""
+        from .services import domains
+        for host in domains.active_hosts():
+            click.echo(host)
+
+    @app.cli.command("check-domains")
+    def check_domains_cmd():
+        """Offene Domain-Nachweise der Klubs prüfen (stündlich) und alte Ansprüche löschen."""
+        from .services import domains
+        ok, gone = domains.check_pending()
+        click.echo(f"Domains: {ok} bestätigt, {gone} verfallen")
 
     @app.cli.command("telegram-set-webhook")
     def tg_webhook():

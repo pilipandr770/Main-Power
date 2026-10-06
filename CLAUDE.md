@@ -81,6 +81,12 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
   Anfrageformular (`ClubRequest`, Honeypot, Rate-Limit). Hosts aus `PLATFORM_HOME_HOSTS` und die `PLATFORM_DOMAIN` selbst zeigen sie
   unter `/` und liefern sonst keine Klub-Inhalte (404). Betreiber-Konsole: „Anfragen“ → „Klub anlegen“ (vorbelegt); ohne
   Startpasswort bekommt die Klubleitung einen 7 Tage gültigen Einrichtungslink (`auth.password_token(setup=True)`).
+- Subdomains und eigene Domains: Jeder Klub ist unter `<slug>.<PLATFORM_DOMAIN>` erreichbar (Wildcard-DNS, Wildcard-Router per
+  Cloudflare-DNS-Challenge). Eigene Domains fügt die Klubleitung unter Admin → „Adresse & Domain“ hinzu (`ClubDomainClaim`,
+  `services/domains.py`): TXT-Eintrag `_klub-verify.<domain>` beweist den Besitz, erst dann steht die Domain in `Club.domains`
+  (stündlich `flask check-domains`, Knopf „Jetzt prüfen“). `deploy/sync-traefik-hosts.sh` (Cron, jede Minute) schreibt aus
+  `flask list-hosts` die Traefik-Datei `/opt/traefik-dynamic/mainpower-clubs.yml` (Router je Domain, Zertifikat per HTTP-Challenge).
+  Produktion: `STRICT_HOSTS=1` (unbekannte Hosts 404, `/healthz` immer erreichbar), reservierte Slugs `PLATFORM_RESERVED_SLUGS`.
 - Adresse eines Klubs: `services/club.base_url(club)` (Schema/Port aus `BASE_URL`; eigene Domain, sonst `<slug>.<PLATFORM_DOMAIN>`).
 - Admin der Klubleitung (Superadmin): „Klub & Branding“ (Auftritt, Registrierung, 2FA-Pflicht), „KI-Assistent“ (Name, Persönlichkeit,
   Fakten, Anweisungen, öffentlicher Chat an/aus, Probefrage), „Zahlungen“ (Einnahmen), „Tarif“, „Formate“, „Wissen“.

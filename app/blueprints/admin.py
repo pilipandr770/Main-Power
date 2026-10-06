@@ -1164,3 +1164,78 @@ def payments():
     return render_template("admin/payments.html", ev_total=ev_total, ev_month=ev_month, event_rows=rows, reserved=reserved,
                            priced=priced, pays=pays, by_kind={k: int(v) for k, v in by_kind.items()},
                            stripe_on=billing_svc.enabled(), kinds=Payment.KINDS)
+
+
+# --------------------------------------------------------------------------- Adresse und eigene Domain
+from ..models import ClubDomainClaim  # noqa: E402
+from ..services import domains as domain_service  # noqa: E402
+
+
+@bp.route("/domain", methods=["GET", "POST"])
+@limiter.limit("30 per hour", methods=["POST"])
+@superadmin_required
+def domain():
+    """Adresse des Klubs: Plattform-Adresse (fest) und eigene Domains hinzufügen, per DNS bestätigen, entfernen."""
+    club = current_club()
+    if request.method == "POST":
+        try:
+            claim = domain_service.add_claim(club, request.form.get("domain", ""))
+            audit("domain.claim", details=claim.domain)
+            db.session.commit()
+            flash(f"{claim.domain} ist vorgemerkt. Lege jetzt die beiden DNS-Einträge an und klicke auf „Jetzt prüfen“.",
+                  "success")
+        except domain_service.DomainError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("admin.domain"))
+    cfg = current_app.config
+    base = (cfg.get("PLATFORM_DOMAIN") or "").strip(".")
+    claims = ClubDomainClaim.query.filter_by(club_id=club.id).order_by(ClubDomainClaim.created_at).all()
+    return render_template("admin/domain.html", club_obj=club, platform_url=club_settings.base_url(club) if base else "",
+                           slug_host=f"{club.slug}.{base}" if base else "", active=club.domain_list, claims=claims,
+                           txt_name=domain_service.txt_name, txt_value=domain_service.txt_value,
+                           target=cfg.get("PLATFORM_DNS_TARGET", ""), ip=cfg.get("PLATFORM_SERVER_IP", ""),
+                           max_domains=domain_service.MAX_DOMAINS)
+
+
+@bp.route("/domain/<int:cid>/pruefen", methods=["POST"])
+@limiter.limit("30 per hour")
+@superadmin_required
+def domain_check(cid):
+    claim = db.session.get(ClubDomainClaim, cid)
+    if claim is None or claim.club_id != current_club().id:
+        abort(404)
+    name = claim.domain
+    if domain_service.check_claim(claim):
+        audit("domain.verified", details=name)
+        db.session.commit()
+        flash(f"{name} ist bestätigt und aktiv. Das Zertifikat wird eingerichtet; das dauert bis zu zwei Minuten.", "success")
+    else:
+        db.session.commit()
+        flash(claim.note or "Noch nicht bestätigt.", "info")
+    return redirect(url_for("admin.domain"))
+
+
+@bp.route("/domain/<int:cid>/loeschen", methods=["POST"])
+@superadmin_required
+def domain_claim_delete(cid):
+    claim = db.session.get(ClubDomainClaim, cid)
+    if claim is None or claim.club_id != current_club().id:
+        abort(404)
+    db.session.delete(claim)
+    db.session.commit()
+    flash("Vormerkung gelöscht.", "info")
+    return redirect(url_for("admin.domain"))
+
+
+@bp.route("/domain/entfernen", methods=["POST"])
+@superadmin_required
+def domain_remove():
+    club = current_club()
+    name = request.form.get("domain", "").strip().lower()
+    if name not in club.domain_list:
+        abort(404)
+    club.domains = ",".join(d for d in club.domain_list if d != name)
+    audit("domain.remove", details=name)
+    db.session.commit()
+    flash(f"{name} ist entfernt. Die Plattform-Adresse bleibt erreichbar.", "info")
+    return redirect(url_for("admin.domain"))
