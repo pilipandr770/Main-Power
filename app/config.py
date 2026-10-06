@@ -98,6 +98,8 @@ class Config:
     PLATFORM_SERVER_IP = os.environ.get("PLATFORM_SERVER_IP", "")
     # Weitere Namen, die kein Klub als Subdomain bekommen darf (kommagetrennt), z. B. Subdomains anderer Projekte
     PLATFORM_RESERVED_SLUGS = os.environ.get("PLATFORM_RESERVED_SLUGS", "")
+    # Hosts mit handgeschriebener Traefik-Route (z. B. der Demo-Klub): das Hilfsskript erzeugt dafür keinen zweiten Router
+    PLATFORM_STATIC_HOSTS = os.environ.get("PLATFORM_STATIC_HOSTS", "")
     PLATFORM_DEMO_URL = os.environ.get("PLATFORM_DEMO_URL", "")  # Adresse eines Demo-Klubs für den Button auf der Startseite
     # Plattform-Konsole (/plattform): eigene Anmeldung, unabhängig von den Klub-Konten. Leer = Konsole gesperrt.
     PLATFORM_ADMIN_EMAIL = os.environ.get("PLATFORM_ADMIN_EMAIL", "").strip().lower()

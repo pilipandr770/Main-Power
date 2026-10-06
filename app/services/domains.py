@@ -191,7 +191,8 @@ def check_pending() -> tuple[int, int]:
 
 def active_hosts() -> list[str]:
     """Alle eigenen Domains aktiver Klubs (für das Server-Skript, das die Zertifikate anfordert)."""
+    static = {h.strip().lower() for h in (current_app.config.get("PLATFORM_STATIC_HOSTS") or "").split(",") if h.strip()}
     out: list[str] = []
     for c in Club.query.execution_options(all_clubs=True).filter_by(status="active").all():
-        out += [d for d in c.domain_list if not _is_platform_name(d)]
+        out += [d for d in c.domain_list if not _is_platform_name(d) and d not in static]
     return sorted(set(out))

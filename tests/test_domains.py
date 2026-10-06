@@ -130,6 +130,8 @@ def test_cli_lists_active_hosts_of_active_clubs_only(app):
         db.session.commit()
         assert runner.invoke(args=["list-hosts"]).output.split() == ["klub-a.example.de"]
         assert "0 bestätigt" in runner.invoke(args=["check-domains"]).output
+        app.config["PLATFORM_STATIC_HOSTS"] = "klub-a.example.de"                          # handgeschriebene Route: nicht doppeln
+        assert runner.invoke(args=["list-hosts"]).output.split() == []
 
 
 def test_healthz_works_for_unknown_host_in_strict_mode(client, app):
