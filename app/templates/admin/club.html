@@ -15,6 +15,8 @@
     <div class="grid grid-2">{{ field("subtitle") }}{{ field("tagline") }}</div>
     <div class="grid grid-2">{{ field("city") }}{{ input("accent", fields.accent[0], c.accent, type="color") }}</div>
     {{ field("assistant_name") }}
+    <div class="field"><label for="f-registration">{{ fields.registration[0] }}<span class="hint">Wer sich bei {{ c.name }} registrieren darf. Einladungen erstellst du unter „Einladungen“.</span></label>
+      <select id="f-registration" name="registration">{% for k, label in reg_modes.items() %}<option value="{{ k }}"{% if k == c.registration %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
   </fieldset>
   <fieldset><legend>Kontakt und Rechtliches</legend>
     {{ field("operator") }}

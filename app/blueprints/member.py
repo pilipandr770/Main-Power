@@ -1084,6 +1084,7 @@ def privacy():
         p.visible_in_directory = changes["directory"]
         p.event_invites = bool(f.get("event_invites"))
         p.goal_reminders = bool(f.get("goal_reminders"))
+        p.event_reminders = bool(f.get("event_reminders"))
         if not p.allow_matching:
             Match.query.filter((Match.user_id == current_user.id) |
                                (Match.other_id == current_user.id)).delete(synchronize_session="fetch")

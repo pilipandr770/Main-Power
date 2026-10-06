@@ -3,9 +3,9 @@ Hallo {{ user.first_name }},
 willkommen bei {{ club.full_name }}!
 
 Dein nächster Schritt: Beschreib in deinem Profil, was du machst, wen du suchst und womit du helfen kannst — im Formular oder im Gespräch mit {{ club.assistant_name }}. Daraus entstehen deine persönlichen Matches.
-{{ config.BASE_URL }}/app/profil
+{{ link }}
 
-Fragen? Schreib uns an {{ config.CONTACT_EMAIL }} oder frag {{ club.assistant_name }} direkt auf der Plattform.
+Fragen? Schreib uns an {{ club.contact_email }} oder frag {{ club.assistant_name }} direkt auf der Plattform.
 
 {{ club.tagline }}
 Dein Team von {{ club.name }}

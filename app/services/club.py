@@ -39,6 +39,7 @@ TEXT_FIELDS: dict[str, tuple[str, str, int, bool]] = {
     "instagram_url": ("Instagram (optional)", "", 200, False),
     "accent": ("Akzentfarbe (Hex)", "#14b8a6", 7, False),
     "assistant_name": ("Name der KI-Assistenz", "Aiko", 30, False),
+    "registration": ("Registrierung", "open", 10, False),
     "hero_title": ("Startseite: Überschrift", "Die richtigen Menschen. Zur richtigen Zeit.", 120, False),
     "hero_lead": ("Startseite: Einleitung",
                   "Unser Klub bringt Unternehmer:innen, Selbstständige und Fachleute zusammen. Du erzählst, wo du stehst und "
@@ -71,6 +72,12 @@ JSON_FIELDS = {"hero_images": DEFAULT_HERO, "band_images": DEFAULT_BAND, "testim
 OTHER_FIELDS = {"logo": ""}  # "upload:<datei>" oder leer (= Standard-Logo)
 
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+# Wer darf sich registrieren? Standard: jede Person (open). approval = Konto wartet auf Freigabe durch die Klubleitung,
+# invite = nur mit Einladungslink. Eine gültige Einladung überspringt die Freigabe.
+REG_MODES = {"open": "Offen: jede Person kann sich registrieren",
+             "approval": "Mit Freigabe: neue Konten prüft die Klubleitung",
+             "invite": "Nur mit Einladung: Registrierung nur über einen Einladungslink"}
 
 
 class ClubView(dict):
@@ -132,6 +139,18 @@ def settings() -> ClubView:
     if has_app_context():
         g.club_settings = view
     return view
+
+
+def base_url(club=None) -> str:
+    """Öffentliche Adresse eines Klubs (auch ohne Request, z. B. Cron): eigene Domain, sonst <slug>.<PLATFORM_DOMAIN>."""
+    from ..tenancy import current_club, default_slug
+    club = club or current_club()
+    cfg = current_app.config
+    if club and club.domain_list:
+        return f"https://{club.domain_list[0]}"
+    if club and cfg.get("PLATFORM_DOMAIN") and club.slug != default_slug():
+        return f"https://{club.slug}.{cfg['PLATFORM_DOMAIN']}"
+    return cfg["BASE_URL"].rstrip("/")
 
 
 def invalidate() -> None:

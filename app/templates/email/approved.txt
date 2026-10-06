@@ -1,0 +1,7 @@
+Hallo {{ user.first_name }},
+
+dein Konto bei {{ club.full_name }} ist freigeschaltet. Du kannst dich jetzt anmelden:
+{{ link }}
+
+{{ club.tagline }}
+Dein Team von {{ club.name }}

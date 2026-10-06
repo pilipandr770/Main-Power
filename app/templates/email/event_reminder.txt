@@ -1,0 +1,20 @@
+Hallo {{ user.first_name }},
+
+kurze Erinnerung an deinen Termin bei {{ club.name }}:
+
+{{ ev.title }}
+{{ ev|event_date }}{% if ev.location %}
+Ort: {{ ev.location }}{% endif %}{% if ev.online_url %}
+Online-Zugang: {{ ev.online_url }}{% endif %}
+
+Details und Abmeldung: {{ link }}
+Zum Kalender: {{ ics }}
+{% if people %}
+Diese Menschen passen zu dir und kommen auch:
+{% for p in people %}- {{ p }}
+{% endfor %}Sprich sie gern an — {{ club.assistant_name }} hilft dir unter „Meine Matches“ mit einem Gesprächseinstieg.
+{% endif %}
+Du kannst diese Erinnerungen unter „Privatsphäre“ abbestellen.
+
+{{ club.tagline }}
+Dein Team von {{ club.name }}

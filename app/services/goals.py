@@ -144,13 +144,8 @@ def _goal_link() -> str:
     from ..tenancy import current_club
     if has_request_context():
         return url_for("member.goal_page", _external=True)
-    club, cfg = current_club(), current_app.config
-    base = cfg["BASE_URL"]
-    if club and club.domain_list:
-        base = f"https://{club.domain_list[0]}"
-    elif club and cfg.get("PLATFORM_DOMAIN") and club.slug != cfg.get("DEFAULT_CLUB_SLUG"):
-        base = f"https://{club.slug}.{cfg['PLATFORM_DOMAIN']}"
-    return base.rstrip("/") + "/app/ziel"
+    from . import club as club_settings
+    return club_settings.base_url(current_club()) + "/app/ziel"
 
 
 def send_reminders(limit: int = 500) -> int:

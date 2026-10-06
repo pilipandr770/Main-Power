@@ -16,6 +16,7 @@ from ..models import (CONSENT_KINDS, FORMATS, ROLES, SOCIALS, AuditLog, ChatMess
                       KnowledgeItem, LLMUsage, Notification, Profile, Registration, Service, ServiceInquiry, Setting, User, utcnow)
 from ..services import insights, matching, media, telegram
 from ..services.audit import audit
+from ..services.mailer import send_mail
 from ..services.events_sync import sync_events
 from ..services.gdpr import delete_user, export_user
 from ..utils import admin_required, clean_social, csv_safe, fmt_dt, fmt_event_date, local_to_utc, superadmin_required, to_local
@@ -42,6 +43,7 @@ def dashboard():
         "directory": Profile.query.filter_by(visible_in_directory=True).count(),
         "events": Event.query.filter(Event.status == "published", Event.starts_at >= now).count(),
         "pending_events": Event.query.filter_by(status="pending").count(),
+        "pending_users": User.query.filter_by(status="pending").count(),
         "registrations": Registration.query.filter(Registration.status.in_(["registered", "paid", "reserved"])).count(),
         "intros": IntroRequest.query.count(),
         "intros_accepted": IntroRequest.query.filter_by(status="accepted").count(),
@@ -58,7 +60,10 @@ def dashboard():
     upcoming_events = (Event.query.filter(Event.status == "published", Event.starts_at >= now - timedelta(hours=6))
                        .order_by(Event.starts_at).limit(5).all())
     recent_users = User.query.order_by(User.created_at.desc()).limit(6).all()
+    from ..services import onboarding
+    todo = onboarding.steps() if current_user.is_superadmin else []
     return render_template("admin/dashboard.html", s=stats, growth=growth, maxn=maxn,
+                           onboarding=None if all(t["done"] for t in todo) else todo,
                            upcoming_events=upcoming_events, recent_users=recent_users, usage=_llm_usage(now),
                            graph=_match_graph())
 
@@ -123,7 +128,7 @@ def users():
         query = query.filter(func.lower(User.email).like(like) | func.lower(User.first_name).like(like) |
                              func.lower(User.last_name).like(like) | func.lower(Profile.headline).like(like) |
                              func.lower(Profile.industry).like(like))
-    if status in ("active", "blocked"):
+    if status in ("active", "blocked", "pending"):
         query = query.filter(User.status == status)
     users_ = query.order_by(User.created_at.desc()).limit(500).all()
     return render_template("admin/users.html", users=users_, q=q, status=status)
@@ -274,6 +279,24 @@ def user_action(user_id, action):
             telegram.kick(u.telegram_user_id)
         audit("user.block", f"user:{u.id}")
         flash(f"{u.full_name} ist gesperrt.", "info")
+    elif action == "freigeben":
+        if u.status != "pending":
+            abort(400)
+        u.status = "active"
+        audit("user.approve", f"user:{u.id}")
+        db.session.commit()
+        send_mail(u.email, f"Dein Konto bei {club_settings.settings()['name']} ist freigeschaltet", "approved", user=u,
+                  link=url_for("auth.login", _external=True))
+        flash(f"{u.full_name} ist freigeschaltet und wurde per E-Mail informiert.", "success")
+        return redirect(url_for("admin.users", status="pending"))
+    elif action == "ablehnen":
+        if u.status != "pending":
+            abort(400)
+        audit("user.reject", f"user:{u.id}", u.email)
+        db.session.commit()
+        delete_user(u)
+        flash("Anmeldung abgelehnt, die Daten wurden gelöscht.", "info")
+        return redirect(url_for("admin.users", status="pending"))
     elif action == "entsperren":
         u.status = "active"
         audit("user.unblock", f"user:{u.id}")
@@ -673,6 +696,8 @@ def club_page():
     if request.method == "POST":
         f = request.form
         values = {k: f.get(k, "") for k in club_settings.TEXT_FIELDS}
+        if values.get("registration") not in club_settings.REG_MODES:
+            values["registration"] = "open"
         if not club_settings.HEX.match(values.get("accent", "")):
             values["accent"] = club_settings.settings()["accent"]
         testimonials = []
@@ -698,6 +723,7 @@ def club_page():
         return redirect(url_for("admin.club_page"))
     c = club_settings.settings()
     return render_template("admin/club.html", c=c, fields=club_settings.TEXT_FIELDS, presets=PRESETS,
+                           reg_modes=club_settings.REG_MODES,
                            slots=IMAGE_SLOTS, slot_value=lambda s: _slot_get(c, s),
                            testimonials="\n".join(f"{t['name']} | {t['text']}" for t in c.testimonials))
 
@@ -1009,3 +1035,55 @@ def billing_portal():
     except billing_service.BillingError as exc:
         flash(str(exc), "error")
         return redirect(url_for("admin.billing"))
+
+
+# --------------------------------------------------------------------------- Einladungen
+from ..models import Invite  # noqa: E402
+from ..services import invites as invite_service  # noqa: E402
+
+
+@bp.route("/einladungen", methods=["GET", "POST"])
+@limiter.limit("30 per hour", methods=["POST"])
+def invites():
+    """Einladungslinks erzeugen: je E-Mail-Adresse (persönlich, wird verschickt) oder als Gemeinschaftslink."""
+    if request.method == "POST":
+        f = request.form
+        note = f.get("note", "").strip()
+        try:
+            days = int(f.get("days") or 30)
+            uses = int(f.get("max_uses") or 1)
+        except ValueError:
+            days, uses = 30, 1
+        good, bad = invite_service.parse_emails(f.get("emails", ""))
+        if bad:
+            flash("Keine gültige E-Mail-Adresse: " + ", ".join(bad[:5]) + ". Bitte korrigieren.", "error")
+        elif len(good) > invite_service.MAX_BULK:
+            flash(f"Bitte höchstens {invite_service.MAX_BULK} Adressen auf einmal.", "error")
+        elif good:
+            name = club_settings.settings()["name"]
+            made = [invite_service.create(e, note, days, 1, current_user.id) for e in good]
+            audit("invite.create", details=f"{len(made)} persönliche Einladungen")
+            db.session.commit()
+            for inv in made:
+                send_mail(inv.email, f"Einladung zu {name}", "invite", invite=inv, link=invite_service.link(inv),
+                          inviter=current_user, note=inv.note)
+            flash(f"{len(made)} Einladung(en) erstellt und per E-Mail verschickt.", "success")
+        else:
+            inv = invite_service.create("", note, days, uses, current_user.id)
+            audit("invite.create", details=f"Gemeinschaftslink für {inv.max_uses} Personen")
+            db.session.commit()
+            flash("Einladungslink erstellt. Du findest ihn unten in der Liste.", "success")
+        return redirect(url_for("admin.invites"))
+    rows = Invite.query.order_by(Invite.created_at.desc()).limit(200).all()
+    return render_template("admin/invites.html", rows=rows, link=invite_service.link,
+                           mode=club_settings.settings()["registration"], reg_modes=club_settings.REG_MODES)
+
+
+@bp.route("/einladungen/<int:iid>/loeschen", methods=["POST"])
+def invite_delete(iid):
+    inv = db.session.get(Invite, iid) or abort(404)
+    audit("invite.delete", f"invite:{inv.id}", inv.email)
+    db.session.delete(inv)
+    db.session.commit()
+    flash("Einladung widerrufen.", "info")
+    return redirect(url_for("admin.invites"))

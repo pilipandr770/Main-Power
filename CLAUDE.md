@@ -69,6 +69,14 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
   unter `/impressum` (Platzhalter, bis der Klub seinen eintraegt).
 - Ältere Installationen: `flask init-db` ruft `migrations_neutral.neutralize_legacy_branding()` (idempotent, nur unveränderte
   Standardinhalte); Slug und DB-Dateiname bleiben, `tenancy.default_club()` fällt auf den ältesten Klub zurück.
+- Registrierung je Klub (`club.registration`): `open` | `approval` (Konto `status=pending` bis Freigabe in Admin → Mitglieder) |
+  `invite` (nur mit Link). Einladungen (`Invite`, Admin → Einladungen): persönlich je E-Mail oder Gemeinschaftslink mit
+  `max_uses`; eine gültige Einladung überspringt die Freigabe. Token gelten nur im eigenen Klub.
+- Links in Hintergrundjobs/Mails ohne Request: `services/club.base_url()` (Klub-Domain), nie `config.BASE_URL` direkt.
+- Hintergrundjobs (Compose-Dienst `sync`, stündlich): `flask sync-events`, `flask goal-checkins`, `flask event-reminders`
+  (Erinnerung am Vortag mit Vorbereitung; je Person/Termin einmal über `Notification`, abbestellbar unter Privatsphäre).
+- Startcheckliste für die Klubleitung: `services/onboarding.py` (Dashboard, nur Superadmin, verschwindet wenn alles erledigt).
+- Mobile: Grids immer `minmax(0, 1fr)` und `min-width: 0` an Grid-Kindern, sonst sprengen Tabellen/lange Wörter das Layout.
 - Admin: „Klub & Branding“, „Formate“ (nur Superadmin). Betreiber-Konsole `/plattform` (eigene Env-Anmeldung).
 - `flask init-db` migriert eine Einzelklub-DB idempotent (`migrations_mt.py`). `flask create-club`, `flask list-clubs`,
   CLI-Befehle mit `--club <slug>`.
@@ -110,7 +118,7 @@ Ohne SMTP_HOST wird der Link „Passwort vergessen“ im Login ausgeblendet.
 - [ ] Erstattungen bei Abmeldung bezahlter Termine (derzeit manuell).
 - [ ] Flask-Migrate initialisieren (`flask db init && flask db migrate -m init`) sobald das Schema stabil ist.
 - [ ] E-Mail-Verifizierung bei Registrierung (Token-Infrastruktur wie bei Passwort-Reset vorhanden).
-- [ ] Erinnerungs-Mails/Telegram-Nachrichten vor Terminen + „Wen du beim Hub treffen solltest“-Briefing an Teilnehmende.
+- [x] Terminerinnerung am Vortag mit Briefing „Wen du treffen solltest“ (`flask event-reminders`).
 - [ ] Datenschutzhinweise juristisch finalisieren; DSFA (Art. 35) für das Matching prüfen.
 - [ ] Parsing öffentlicher Profile: bewusst NICHT umgesetzt (ToS, Art. 14 DSGVO). Falls gewünscht, nur mit ausdrücklicher Einwilligung und offiziellen APIs.
 - [x] Rate-Limit-Storage auf Redis bei mehreren Workern (docker-compose.traefik.yml).

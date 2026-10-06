@@ -4,8 +4,12 @@
 {% block content %}
 <h1>Mitglied werden</h1>
 <p class="muted">Kostenlos. Danach beschreibst du in wenigen Minuten, wen du suchst und womit du hilfst – im Formular oder im Gespräch mit {{ club.assistant_name }}.</p>
+{% if invite %}<p class="flash success small">Du wurdest eingeladen{% if invite.note %}: „{{ invite.note }}“{% endif %}. Mit dieser Einladung wird dein Konto sofort freigeschaltet.</p>
+{% elif mode == 'approval' %}<p class="flash info small">Neue Konten prüft die Klubleitung kurz. Du bekommst eine E-Mail, sobald dein Konto freigeschaltet ist.</p>{% endif %}
 <form method="post" novalidate>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if mode == 'invite' and not invite %}{{ input("einladung", "Einladungscode", form.get("einladung"), errors=errors, required=True, hint="Die Registrierung ist nur mit Einladung möglich. Den Code findest du im Einladungslink.") }}
+  {% elif invite or form.get("einladung") %}<input type="hidden" name="einladung" value="{{ form.get('einladung') }}">{% endif %}
   <div class="grid grid-2">
     {{ input("first_name", "Vorname", form.get("first_name"), errors=errors, required=True, autocomplete="given-name") }}
     {{ input("last_name", "Nachname", form.get("last_name"), errors=errors, autocomplete="family-name") }}

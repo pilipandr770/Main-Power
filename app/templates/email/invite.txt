@@ -1,0 +1,13 @@
+Hallo,
+
+{{ inviter.first_name }} lädt dich zu {{ club.full_name }} ein.
+{% if note %}
+„{{ note }}“
+{% endif %}
+{{ club.hero_lead }}
+
+Hier kannst du dich registrieren (der Link ist persönlich und nur für diese E-Mail-Adresse gültig):
+{{ link }}
+
+{{ club.tagline }}
+Dein Team von {{ club.name }}

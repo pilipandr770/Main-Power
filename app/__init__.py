@@ -364,6 +364,17 @@ def _register_cli(app: Flask) -> None:
             with use_club(c):
                 click.echo(f"{c.slug}: {send_reminders()} Erinnerungen")
 
+    @app.cli.command("event-reminders")
+    @_club_option
+    def event_reminders_cmd(club_slug):
+        """Erinnerungen an Termine des nächsten Tages verschicken (stündlich). Ohne --club: alle aktiven Klubs."""
+        from .models import Club
+        from .services.reminders import send_event_reminders
+        clubs = [_club_by_slug(club_slug)] if club_slug else             Club.query.execution_options(all_clubs=True).filter_by(status="active").all()
+        for c in clubs:
+            with use_club(c):
+                click.echo(f"{c.slug}: {send_event_reminders()} Terminerinnerungen")
+
     @app.cli.command("telegram-set-webhook")
     def tg_webhook():
         from .services import telegram

@@ -9,6 +9,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from ..services import club as club_settings
 from ..extensions import db, limiter
 from ..models import Consent, Profile, User, utcnow
+from ..services.audit import audit
 from ..services.mailer import send_mail
 
 bp = Blueprint("auth", __name__)
@@ -30,12 +31,21 @@ def record_consent(user: User, kind: str, granted: bool, source: str = "web") ->
                            version=current_app.config["CONSENT_VERSION"], source=source))
 
 
+@bp.route("/einladung/<token>")
+def invite_link(token):
+    return redirect(url_for("auth.register", einladung=token))
+
+
 @bp.route("/registrieren", methods=["GET", "POST"])
 @limiter.limit("10 per hour", methods=["POST"])
 def register():
     if current_user.is_authenticated:
         return redirect(url_for("member.dashboard"))
-    form = request.form
+    from ..services import invites
+    mode = club_settings.settings()["registration"]
+    token = (request.form.get("einladung") or request.args.get("einladung") or "").strip()
+    invite = invites.find(token)
+    form = request.form if request.method == "POST" else {"email": invite.email if invite else "", "einladung": token}
     errors: dict[str, str] = {}
     if request.method == "POST":
         email = form.get("email", "").strip().lower()
@@ -44,6 +54,11 @@ def register():
         pw = form.get("password", "")
         if not first:
             errors["first_name"] = "Bitte gib deinen Vornamen an."
+        if mode == "invite" and not invite:
+            errors["einladung"] = ("Diese Einladung ist ungültig oder abgelaufen." if token else
+                                   "Die Registrierung ist nur mit Einladung möglich. Bitte gib deinen Einladungscode ein.")
+        elif invite and invite.email and invite.email != email:
+            errors["email"] = "Diese Einladung gilt für eine andere E-Mail-Adresse."
         if not EMAIL_RE.match(email):
             errors["email"] = "Bitte gib eine gültige E-Mail-Adresse an."
         elif User.query.filter_by(email=email).first():
@@ -55,8 +70,9 @@ def register():
         if not form.get("consent_values"):
             errors["consent_values"] = "Bitte bestätige die Werte der Community."
         if not errors:
+            pending = mode == "approval" and not invite  # eine gültige Einladung überspringt die Freigabe
             user = User(email=email, first_name=first[:80], last_name=last[:80],
-                        phone=form.get("phone", "").strip()[:40])
+                        phone=form.get("phone", "").strip()[:40], status="pending" if pending else "active")
             user.set_password(pw)
             matching = bool(form.get("consent_matching"))
             user.profile = Profile(allow_matching=matching, visible_in_directory=bool(form.get("consent_directory")))
@@ -66,13 +82,28 @@ def register():
             record_consent(user, "matching", matching)
             record_consent(user, "directory", bool(form.get("consent_directory")))
             record_consent(user, "newsletter", bool(form.get("consent_newsletter")))
+            if invite:
+                invite.uses += 1
+                audit("invite.used", f"invite:{invite.id}", email)
+            if pending:
+                audit("user.registered", f"user:{user.id}", "wartet auf Freigabe", actor_id=None)
+                db.session.commit()
+                name = club_settings.settings()["name"]
+                send_mail(user.email, f"Deine Anmeldung bei {name}", "reg_received", user=user)
+                for admin in User.query.filter(User.role.in_(("admin", "superadmin")), User.status == "active").all():
+                    send_mail(admin.email, "Neue Anmeldung wartet auf Freigabe", "reg_pending", user=user, admin=admin,
+                              link=url_for("admin.user_detail", user_id=user.id, _external=True))
+                flash("Danke! Wir prüfen deine Anmeldung und melden uns per E-Mail, sobald dein Konto freigeschaltet ist.",
+                      "info")
+                return redirect(url_for("auth.login"))
             user.last_login_at = utcnow()
             db.session.commit()
             login_user(user)
-            send_mail(user.email, f"Willkommen bei {club_settings.settings()['name']}", "welcome", user=user)
+            send_mail(user.email, f"Willkommen bei {club_settings.settings()['name']}", "welcome", user=user,
+                      link=url_for("member.profile", _external=True))
             flash("Willkommen in der Community! Erzähl uns kurz von dir — daraus entstehen deine Matches.", "success")
             return redirect(url_for("member.profile", welcome=1))
-    return render_template("auth/register.html", errors=errors, form=form)
+    return render_template("auth/register.html", errors=errors, form=form, mode=mode, invite=invite)
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -86,6 +117,8 @@ def login():
         user = User.query.filter_by(email=email).first()
         if not user or not user.check_password(request.form.get("password", "")):
             error = "E-Mail oder Passwort stimmen nicht."
+        elif user.status == "pending":
+            error = "Dein Konto wartet noch auf die Freigabe durch den Klub. Du bekommst eine E-Mail, sobald es soweit ist."
         elif user.status != "active":
             error = f"Dieses Konto ist gesperrt. Schreib uns an {club_settings.settings()['contact_email']}."
         else:

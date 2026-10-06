@@ -332,6 +332,7 @@ class Profile(TenantMixin, db.Model):
     custom_answers = db.Column(db.JSON)                    # Antworten auf klubeigene Fragen {key: Text | [Optionen]}
     milestone_set_at = db.Column(db.DateTime)              # Start des aktuellen 90-Tage-Zeitraums
     goal_reminders = db.Column(db.Boolean, default=True, nullable=False)  # Check-in-Erinnerung per E-Mail/Telegram
+    event_reminders = db.Column(db.Boolean, default=True, nullable=False)  # Erinnerung am Vortag eines angemeldeten Termins
 
     linkedin_url = db.Column(db.String(300), default="")
     xing_url = db.Column(db.String(300), default="")
@@ -926,6 +927,26 @@ class Setting(TenantMixin, db.Model):
             db.session.add(row)
         else:
             row.value = value
+
+
+class Invite(TenantMixin, db.Model):
+    """Einladung in den Klub (Link mit Token). Pflicht im Modus „nur mit Einladung“, im Modus „mit Freigabe“ überspringt
+    sie die Prüfung. Mit E-Mail-Adresse persönlich (gilt nur dafür), ohne Adresse ein Gemeinschaftslink mit max_uses."""
+    __tablename__ = "invites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(48), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(255), default="")
+    note = db.Column(db.String(200), default="")
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime)
+    max_uses = db.Column(db.Integer, default=1, nullable=False)
+    uses = db.Column(db.Integer, default=0, nullable=False)
+
+    @property
+    def valid(self) -> bool:
+        return self.uses < self.max_uses and (self.expires_at is None or self.expires_at > utcnow())
 
 
 class AuditLog(TenantMixin, db.Model):

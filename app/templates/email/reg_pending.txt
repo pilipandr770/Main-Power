@@ -1,0 +1,4 @@
+Hallo {{ admin.first_name }},
+
+{{ user.full_name }} ({{ user.email }}) hat sich bei {{ club.full_name }} angemeldet und wartet auf Freigabe:
+{{ link }}

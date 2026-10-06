@@ -1,0 +1,8 @@
+Hallo {{ user.first_name }},
+
+danke für deine Anmeldung bei {{ club.full_name }}. Wir prüfen sie kurz und schalten dein Konto frei — du bekommst dann eine E-Mail.
+
+Fragen? Schreib uns an {{ club.contact_email }}.
+
+{{ club.tagline }}
+Dein Team von {{ club.name }}

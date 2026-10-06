@@ -3,8 +3,16 @@
 {% block page_title %}Übersicht{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Übersicht</h1><div class="row"><span class="tag {{ 'ok' if ai_on else 'warn' }}">KI {{ 'aktiv' if ai_on else 'Demo-Modus' }}</span><span class="tag {{ 'ok' if stripe_on else '' }}">Stripe {{ 'aktiv' if stripe_on else 'aus' }}</span></div></div>
+{% if onboarding %}
+<section class="panel mb-l">
+  <h2>Erste Schritte für {{ club.name }}</h2>
+  <p class="muted small">{{ onboarding|selectattr('done')|list|length }} von {{ onboarding|length }} erledigt. Diese Liste verschwindet, sobald alles fertig ist.</p>
+  <ol class="checklist">{% for t in onboarding %}<li class="{{ 'done' if t.done }}"><a href="{{ t.url }}"><b>{{ t.label }}</b></a><span class="small muted"> — {{ t.hint }}</span></li>{% endfor %}</ol>
+</section>
+{% endif %}
 <div class="kpis mb-l">
   <div class="kpi"><b>{{ s.members }}</b><span>aktive Mitglieder (+{{ s.new_week }} diese Woche)</span></div>
+  {% if s.pending_users %}<a class="kpi" href="{{ url_for('admin.users', status='pending') }}"><b>{{ s.pending_users }}</b><span>Anmeldungen warten auf Freigabe</span></a>{% endif %}
   <div class="kpi"><b>{{ s.matchable }}</b><span>Profile im Matching</span></div>
   <div class="kpi"><b>{{ s.events }}</b><span>kommende Termine{% if s.pending_events %}, {{ s.pending_events }} zur Freigabe{% endif %}</span></div>
   <div class="kpi"><b>{{ s.registrations }}</b><span>aktive Anmeldungen</span></div>

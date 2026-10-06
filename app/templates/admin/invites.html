@@ -1,0 +1,38 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea with context %}
+{% block page_title %}Einladungen{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Einladungen</h1></div>
+<p class="muted maxw">Registrierung bei {{ club.name }}: <b>{{ reg_modes[mode] }}</b>.
+  {% if current_user.is_superadmin %}Den Modus änderst du unter <a href="{{ url_for('admin.club_page') }}">Klub &amp; Branding</a>.{% endif %}
+  Wer mit einer Einladung kommt, wird sofort freigeschaltet.</p>
+
+<section class="panel mb-l">
+  <h2>Neue Einladung</h2>
+  <form method="post" class="maxw">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ textarea("emails", "E-Mail-Adressen", "", rows=4, hint="Eine pro Zeile oder mit Komma getrennt, höchstens 100. Jede Person bekommt einen persönlichen Link per E-Mail. Leer lassen für einen Gemeinschaftslink.") }}
+    {{ input("note", "Persönliche Notiz (optional)", "", hint="Erscheint in der E-Mail und auf der Registrierungsseite, z. B. „Willkommen aus dem Vorstand“.") }}
+    <div class="grid grid-2">
+      {{ input("days", "Gültig für (Tage)", "30", type="number") }}
+      {{ input("max_uses", "Gemeinschaftslink: Plätze", "1", type="number", hint="Nur ohne E-Mail-Adressen: wie viele Personen den Link nutzen dürfen.") }}
+    </div>
+    <button class="btn">Einladung erstellen</button>
+  </form>
+</section>
+
+<h2>Erstellte Einladungen</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Für</th><th>Link</th><th class="num">Genutzt</th><th>Gültig bis</th><th></th></tr></thead>
+<tbody>
+{% for i in rows %}
+<tr>
+  <td>{% if i.email %}{{ i.email }}{% else %}<span class="muted">Gemeinschaftslink</span>{% endif %}{% if i.note %}<br><span class="small muted">{{ i.note }}</span>{% endif %}</td>
+  <td><input class="small" readonly value="{{ link(i) }}" aria-label="Einladungslink" size="28"></td>
+  <td class="num">{{ i.uses }}/{{ i.max_uses }}{% if i.uses >= i.max_uses %} <span class="tag ok">eingelöst</span>{% elif not i.valid %} <span class="tag warn">abgelaufen</span>{% endif %}</td>
+  <td class="nowrap">{{ i.expires_at|dt if i.expires_at else 'unbegrenzt' }}</td>
+  <td><form method="post" action="{{ url_for('admin.invite_delete', iid=i.id) }}" data-confirm="Einladung widerrufen? Der Link funktioniert dann nicht mehr."><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn small">Widerrufen</button></form></td>
+</tr>
+{% else %}<tr><td colspan="5" class="muted">Noch keine Einladungen.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

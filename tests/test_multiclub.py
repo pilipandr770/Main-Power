@@ -315,3 +315,168 @@ def test_site_banner_only_when_configured(app, client):
     page = client.get("/").get_data(as_text=True)
     assert 'class="site-banner"' in page and "Projekt in Entwicklung: Testdaten" in page
     assert 'class="site-banner"' in client.get("/login").get_data(as_text=True)
+
+
+# --------------------------------------------------------------------------- Registrierungsmodi und Einladungen
+def _set_mode(app, mode, slug="klub"):
+    from app.services import club as club_settings
+    with app.app_context(), use_club(Club.query.filter_by(slug=slug).one()):
+        club_settings.save({"registration": mode})
+        db.session.commit()
+
+
+def _reg_data(email, **extra):
+    return {"first_name": "Nina", "last_name": "Neu", "email": email, "password": "sehr-sicheres-pw",
+            "consent_privacy": "1", "consent_values": "1", **extra}
+
+
+def test_registration_approval_flow(client, app):
+    _set_mode(app, "approval")
+    page = client.get("/registrieren").get_data(as_text=True)
+    assert "prüft die Klubleitung" in page
+    r = client.post("/registrieren", data=_reg_data("neu@example.com"), follow_redirects=True)
+    assert "prüfen deine Anmeldung" in r.get_data(as_text=True) and client.get("/app/").status_code == 302
+    with app.app_context():
+        u = User.query.filter_by(email="neu@example.com").one()
+        assert u.status == "pending"
+        uid = u.id
+    r = login(client, "neu@example.com", "sehr-sicheres-pw")
+    assert "wartet noch auf die Freigabe" in r.get_data(as_text=True)
+    # Klubleitung schaltet frei
+    client.post("/logout")
+    login(client, "admin@test.local", "AdminPass12345")
+    assert "wartet auf Freigabe" in client.get("/admin/mitglieder?status=pending").get_data(as_text=True)
+    assert "1" in client.get("/admin/").get_data(as_text=True)
+    client.post(f"/admin/mitglieder/{uid}/freigeben")
+    client.post("/logout")
+    assert "Willkommen" in login(client, "neu@example.com", "sehr-sicheres-pw").get_data(as_text=True) or \
+        client.get("/app/").status_code == 200
+    # Ablehnen löscht die Daten
+    client.post("/logout")
+    client.post("/registrieren", data=_reg_data("abgelehnt@example.com"), follow_redirects=True)
+    with app.app_context():
+        rid = User.query.filter_by(email="abgelehnt@example.com").one().id
+    login(client, "admin@test.local", "AdminPass12345")
+    client.post(f"/admin/mitglieder/{rid}/ablehnen")
+    with app.app_context():
+        assert User.query.filter_by(email="abgelehnt@example.com").count() == 0
+
+
+def test_invite_only_registration_and_invite_bypasses_approval(client, app):
+    from app.models import Invite
+    _set_mode(app, "invite")
+    r = client.post("/registrieren", data=_reg_data("ohne@example.com"), follow_redirects=True)
+    assert "nur mit Einladung" in r.get_data(as_text=True)
+    login(client, "admin@test.local", "AdminPass12345")
+    # persönliche Einladung per E-Mail, danach ein Gemeinschaftslink mit zwei Plätzen
+    r = client.post("/admin/einladungen", data={"emails": "gast@example.com, kaputt", "note": "Willkommen"}, follow_redirects=True)
+    assert "Keine gültige E-Mail-Adresse" in r.get_data(as_text=True)
+    client.post("/admin/einladungen", data={"emails": "gast@example.com", "note": "Willkommen aus dem Vorstand"})
+    client.post("/admin/einladungen", data={"emails": "", "max_uses": "2", "days": "7"})
+    with app.app_context():
+        personal = Invite.query.filter_by(email="gast@example.com").one().token
+        shared = Invite.query.filter_by(email="").one().token
+    client.post("/logout")
+    # persönliche Einladung gilt nur für die eigene Adresse
+    page = client.get(f"/registrieren?einladung={personal}").get_data(as_text=True)
+    assert "gast@example.com" in page and "Willkommen aus dem Vorstand" in page
+    r = client.post("/registrieren", data=_reg_data("anderer@example.com", einladung=personal))
+    assert "andere E-Mail-Adresse" in r.get_data(as_text=True)
+    r = client.post("/registrieren", data=_reg_data("gast@example.com", einladung=personal), follow_redirects=True)
+    assert client.get("/app/").status_code == 200  # sofort aktiv
+    client.post("/logout")
+    r = client.post("/registrieren", data=_reg_data("zweiter@example.com", einladung=personal))
+    assert "ungültig oder abgelaufen" in r.get_data(as_text=True)  # einmal nutzbar
+    # Gemeinschaftslink: zwei Plätze
+    for n in (1, 2):
+        client.post("/registrieren", data=_reg_data(f"team{n}@example.com", einladung=shared))
+        client.post("/logout")
+    r = client.post("/registrieren", data=_reg_data("team3@example.com", einladung=shared))
+    assert "ungültig oder abgelaufen" in r.get_data(as_text=True)
+    with app.app_context():
+        assert User.query.filter(User.email.like("team%@example.com")).count() == 2
+        # Einladung im Modus „Freigabe“ überspringt die Prüfung
+    _set_mode(app, "approval")
+    login(client, "admin@test.local", "AdminPass12345")
+    client.post("/admin/einladungen", data={"emails": "", "max_uses": "1"})
+    with app.app_context():
+        tok = Invite.query.filter_by(email="", uses=0).first().token
+    client.post("/logout")
+    client.post("/registrieren", data=_reg_data("vip@example.com", einladung=tok))
+    with app.app_context():
+        assert User.query.filter_by(email="vip@example.com").one().status == "active"
+
+
+def test_invites_are_club_local_and_revocable(client, app):
+    from app.models import Invite
+    login(client, "admin@test.local", "AdminPass12345")
+    client.post("/admin/einladungen", data={"emails": "", "max_uses": "5"})
+    with app.app_context():
+        inv = Invite.query.execution_options(all_clubs=True).one()
+        tok, iid = inv.token, inv.id
+    client.post("/logout")
+    _set_mode(app, "invite", slug="berlin")
+    # Token aus Klub A gilt in Klub B nicht
+    r = client.post("/registrieren", base_url=f"http://{B_HOST}", data=_reg_data("b@example.com", einladung=tok))
+    assert "ungültig oder abgelaufen" in r.get_data(as_text=True)
+    _set_mode(app, "invite")
+    login(client, "admin@test.local", "AdminPass12345")
+    client.post(f"/admin/einladungen/{iid}/loeschen")
+    client.post("/logout")
+    r = client.post("/registrieren", data=_reg_data("c@example.com", einladung=tok))
+    assert "ungültig oder abgelaufen" in r.get_data(as_text=True)
+
+
+def test_welcome_mail_uses_club_address(client, app, monkeypatch):
+    sent = []
+    import app.blueprints.auth as auth
+    monkeypatch.setattr(auth, "send_mail", lambda to, subject, template, **ctx: sent.append((template, ctx)) or True)
+    register(client, "hallo-b@example.com", base=f"http://{B_HOST}")
+    link = next(ctx["link"] for t, ctx in sent if t == "welcome")
+    assert link.startswith(f"http://{B_HOST}/") and link.endswith("/app/profil")
+
+
+def test_admin_onboarding_checklist_tracks_progress(client, app):
+    login(client, "admin@test.local", "AdminPass12345")
+    page = client.get("/admin/").get_data(as_text=True)
+    assert "Erste Schritte für" in page and "0 von 6 erledigt" in page
+    client.post("/admin/klub", data={"name": "Mein Klub", "full_name": "Mein Klub e. V.", "accent": "#112233",
+                                     "operator": "Mein Klub e. V., Musterweg 1", "contact_email": "info@mein.example",
+                                     "impressum_text": "Impressum Mein Klub e. V.", "registration": "approval"})
+    client.post("/admin/einladungen", data={"emails": "", "max_uses": "3"})
+    page = client.get("/admin/").get_data(as_text=True)
+    assert "5 von 6 erledigt" in page                      # nur der erste eigene Termin fehlt noch
+    client.post("/admin/termine/neu", data={"title": "Eröffnung", "format": "community", "date": "2030-02-01",
+                                            "time": "18:00", "status": "published"})
+    assert "Erste Schritte für" not in client.get("/admin/").get_data(as_text=True)   # alles erledigt
+
+
+def test_event_reminders_once_per_registration(app, monkeypatch):
+    from datetime import timedelta
+    from app.models import Event, Notification, Profile, Registration, utcnow
+    from app.services import reminders
+    sent = []
+    monkeypatch.setattr(reminders, "send_mail", lambda to, subject, template, **ctx: sent.append((to, subject, ctx)) or True)
+    with app.app_context(), use_club(Club.query.filter_by(slug="klub").one()):
+        from app.seed import _seed_demo_members
+        _seed_demo_members()
+        users = User.query.filter(User.email.like("%@demo.klub.local")).limit(4).all()
+        soon = Event(title="Morgen-Treffen", format="community", source="admin", status="published",
+                     starts_at=utcnow() + timedelta(hours=20))
+        later = Event(title="Nächste Woche", format="community", source="admin", status="published",
+                      starts_at=utcnow() + timedelta(days=6))
+        db.session.add_all([soon, later])
+        db.session.flush()
+        for u in users:
+            for e in (soon, later):
+                db.session.add(Registration(event_id=e.id, user_id=u.id, status="registered"))
+        users[3].profile.event_reminders = False        # abbestellt: Marke ja, Mail nein
+        db.session.commit()
+        assert reminders.send_event_reminders() == 4
+        assert len(sent) == 3 and all(s[2]["ev"].title == "Morgen-Treffen" for s in sent)
+        assert all(s[2]["link"].startswith("http") and s[2]["link"].endswith(f"/app/termine/{soon.id}") for s in sent)
+        assert reminders.send_event_reminders() == 0 and len(sent) == 3   # keine Doppelmail
+        assert Notification.query.filter_by(kind="event_reminder").count() == 4
+        # Vorbereitung: höchstens drei andere Angemeldete, nie die Person selbst
+        for to, _subject, ctx in sent:
+            assert len(ctx["people"]) <= 3 and not any(p.startswith(ctx["user"].first_name + " ") for p in ctx["people"])
