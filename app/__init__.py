@@ -41,6 +41,13 @@ def create_app(config_object=Config) -> Flask:
         if request.path.startswith("/plattform"):
             tenancy.set_club(None)  # Plattform-Konsole arbeitet klubübergreifend (eigene Anmeldung)
             return None
+        if tenancy.is_platform_host(request.host):
+            # Hauptdomain der Plattform: nur Startseite für Betreiber, rechtliche Seiten und Anfrage — keine Klub-Inhalte
+            allowed = ("/", "/fuer-klubs", "/impressum", "/datenschutz", "/cookies", "/healthz", "/club.css", "/robots.txt")
+            if not (request.path in allowed or request.path.startswith("/fuer-klubs")):
+                abort(404)
+            tenancy.set_club(tenancy.default_club())
+            return None
         club = tenancy.resolve_request_club(request.host)
         if club is None:
             abort(404)

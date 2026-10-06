@@ -85,6 +85,16 @@ def default_club():
             or Club.query.execution_options(all_clubs=True).order_by(Club.id).first())
 
 
+def is_platform_host(host: str) -> bool:
+    """Zeigt dieser Host die Plattform-Startseite für Klub-Betreiber (statt eines Klubs)?"""
+    cfg = current_app.config
+    host = (host or "").split(":")[0].lower().strip(".")
+    hosts = {h.strip().lower() for h in (cfg.get("PLATFORM_HOME_HOSTS") or "").replace(";", ",").split(",") if h.strip()}
+    if cfg.get("PLATFORM_DOMAIN"):
+        hosts.add(cfg["PLATFORM_DOMAIN"].lower().strip("."))
+    return bool(host) and host in hosts
+
+
 def default_slug() -> str:
     club = default_club()
     return club.slug if club else current_app.config.get("DEFAULT_CLUB_SLUG", "klub")

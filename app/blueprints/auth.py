@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from datetime import datetime, timezone
 
 from flask import (Blueprint, current_app, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
@@ -36,6 +37,14 @@ def send_verification(user: User) -> bool:
 
 def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="pw-reset")
+
+
+SETUP_TTL = 7 * 24 * 3600
+
+
+def password_token(user: User, setup: bool = False) -> str:
+    """Token für „Passwort festlegen“. Reset: 1 Stunde gültig; Einrichtung (neue Klubleitung): 7 Tage."""
+    return _serializer().dumps({"uid": user.id, "h": user.password_hash[-12:], "k": "setup" if setup else "reset"})
 
 
 def _safe_next(target: str | None) -> str | None:
@@ -265,7 +274,9 @@ def forgot():
 @bp.route("/passwort-neu/<token>", methods=["GET", "POST"])
 def reset(token):
     try:
-        data = _serializer().loads(token, max_age=3600)
+        data, issued = _serializer().loads(token, max_age=SETUP_TTL, return_timestamp=True)
+        if data.get("k") != "setup" and (datetime.now(timezone.utc) - issued).total_seconds() > 3600:
+            raise SignatureExpired("Reset-Link nach einer Stunde abgelaufen")
     except (SignatureExpired, BadSignature):
         flash("Der Link ist abgelaufen oder ungültig. Fordere einen neuen an.", "error")
         return redirect(url_for("auth.forgot"))

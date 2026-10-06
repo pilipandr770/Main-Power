@@ -17,6 +17,9 @@ def steps() -> list[dict]:
     return [
         {"label": "Name und Auftritt festlegen", "hint": "Name, Slogan, Farbe, Logo und Texte der Startseite.",
          "done": c["name"] != d["name"] or bool(c["logo"]), "url": club_page},
+        {"label": "KI-Assistent anpassen", "hint": "Name, Persönlichkeit und Wissen deines Chatbots.",
+         "done": c["about"] != d["about"] or c["assistant_name"] != d["assistant_name"] or bool(c["assistant_facts"]),
+         "url": url_for("admin.assistant")},
         {"label": "Impressum eintragen", "hint": "Pflicht für den öffentlichen Betrieb (§ 5 DDG).",
          "done": bool(c["impressum_url"]) or c["impressum_text"] != d["impressum_text"], "url": club_page},
         {"label": "Betreiber und Kontakt angeben", "hint": "Erscheint in Datenschutz und Nutzungsbedingungen.",

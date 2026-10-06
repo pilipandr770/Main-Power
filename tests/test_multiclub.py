@@ -439,13 +439,15 @@ def test_welcome_mail_uses_club_address(client, app, monkeypatch):
 def test_admin_onboarding_checklist_tracks_progress(client, app):
     login(client, "admin@test.local", "AdminPass12345")
     page = client.get("/admin/").get_data(as_text=True)
-    assert "Erste Schritte für" in page and "0 von 6 erledigt" in page
+    assert "Erste Schritte für" in page and "0 von 7 erledigt" in page
     client.post("/admin/klub", data={"name": "Mein Klub", "full_name": "Mein Klub e. V.", "accent": "#112233",
                                      "operator": "Mein Klub e. V., Musterweg 1", "contact_email": "info@mein.example",
                                      "impressum_text": "Impressum Mein Klub e. V.", "registration": "approval"})
     client.post("/admin/einladungen", data={"emails": "", "max_uses": "3"})
+    client.post("/admin/assistent", data={"assistant_name": "Mira", "about": "Wir sind ein Klub.", "assistant_facts": "",
+                                          "aiko_extra_instructions": ""})
     page = client.get("/admin/").get_data(as_text=True)
-    assert "5 von 6 erledigt" in page                      # nur der erste eigene Termin fehlt noch
+    assert "6 von 7 erledigt" in page                      # nur der erste eigene Termin fehlt noch
     client.post("/admin/termine/neu", data={"title": "Eröffnung", "format": "community", "date": "2030-02-01",
                                             "time": "18:00", "status": "published"})
     assert "Erste Schritte für" not in client.get("/admin/").get_data(as_text=True)   # alles erledigt

@@ -77,7 +77,15 @@ Bis ~20k Profile reicht In-Memory. Danach: `pgvector` (`CREATE EXTENSION vector`
   (Erinnerung am Vortag mit Vorbereitung; je Person/Termin einmal über `Notification`, abbestellbar unter Privatsphäre).
 - Startcheckliste für die Klubleitung: `services/onboarding.py` (Dashboard, nur Superadmin, verschwindet wenn alles erledigt).
 - Mobile: Grids immer `minmax(0, 1fr)` und `min-width: 0` an Grid-Kindern, sonst sprengen Tabellen/lange Wörter das Layout.
-- Admin: „Klub & Branding“, „Formate“ (nur Superadmin). Betreiber-Konsole `/plattform` (eigene Env-Anmeldung).
+- Plattform-Startseite für Klub-Betreiber (`/fuer-klubs`, Vorlage `public/platform_home.html`): Funktionen, Tarife aus der DB,
+  Anfrageformular (`ClubRequest`, Honeypot, Rate-Limit). Hosts aus `PLATFORM_HOME_HOSTS` und die `PLATFORM_DOMAIN` selbst zeigen sie
+  unter `/` und liefern sonst keine Klub-Inhalte (404). Betreiber-Konsole: „Anfragen“ → „Klub anlegen“ (vorbelegt); ohne
+  Startpasswort bekommt die Klubleitung einen 7 Tage gültigen Einrichtungslink (`auth.password_token(setup=True)`).
+- Adresse eines Klubs: `services/club.base_url(club)` (Schema/Port aus `BASE_URL`; eigene Domain, sonst `<slug>.<PLATFORM_DOMAIN>`).
+- Admin der Klubleitung (Superadmin): „Klub & Branding“ (Auftritt, Registrierung, 2FA-Pflicht), „KI-Assistent“ (Name, Persönlichkeit,
+  Fakten, Anweisungen, öffentlicher Chat an/aus, Probefrage), „Zahlungen“ (Einnahmen), „Tarif“, „Formate“, „Wissen“.
+  Formulare speichern nur Felder, die im POST stehen (nie Felder anderer Seiten überschreiben).
+- Betreiber-Konsole `/plattform` (eigene Env-Anmeldung).
 - `flask init-db` migriert eine Einzelklub-DB idempotent (`migrations_mt.py`). `flask create-club`, `flask list-clubs`,
   CLI-Befehle mit `--club <slug>`.
 - Nicht je Klub: Telegram-Bot, SMTP, Stripe, Anthropic-Key (plattformweit). KI-Verbrauch wird je Klub gezählt.

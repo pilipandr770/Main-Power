@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "partials/_macros.html" import input, textarea, check, flashes, loop_svg with context %}
+{% set pname = cfg.PLATFORM_NAME %}
+{% block title %}{{ pname }} — Die eigene Community-Plattform für deinen Klub{% endblock %}
+{% block description %}Eigenes Branding, KI-Matching, Termine, Einladungen und ein Assistent, der zu deinem Klub passt. Du konfigurierst, wir betreiben.{% endblock %}
+{% block body %}
+<a class="sr-only" href="#inhalt">Zum Inhalt springen</a>
+<header class="site-head">
+  <div class="wrap">
+    <a class="logo" href="{{ url_for('public.platform_home') }}" aria-label="{{ pname }} Startseite">{{ loop_svg() }}<span>{{ pname }}</span></a>
+    <nav class="site-nav" aria-label="Hauptnavigation">
+      <a class="hide-m" href="#funktionen">Funktionen</a>
+      <a class="hide-m" href="#ablauf">So startest du</a>
+      <a class="hide-m" href="#tarife">Tarife</a>
+      <a class="btn btn-sm" href="#anfrage">Klub anfragen</a>
+    </nav>
+  </div>
+</header>
+<main id="inhalt">
+  <div class="wrap">{{ flashes() }}</div>
+
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="tag ember">Für Business-Klubs, Verbände und Netzwerke</p>
+        <h1 class="mt-s">Deine eigene Community-Plattform. In Tagen statt Monaten.</h1>
+        <p class="lead">Mitglieder, Termine, KI-Matching und ein Assistent mit dem Namen deines Klubs — in deinem Design, auf deiner Adresse. Du gestaltest, wir betreiben.</p>
+        <div class="row mt-m">
+          <a class="btn" href="#anfrage">Klub anfragen</a>
+          {% if demo_url %}<a class="btn btn-ghost" href="{{ demo_url }}">Demo-Klub ansehen</a>{% else %}<a class="btn btn-ghost" href="#funktionen">Funktionen ansehen</a>{% endif %}
+        </div>
+        <p class="small muted mt-m mb-0">Datenschutz nach DSGVO, KI nach EU-KI-Verordnung, Daten jedes Klubs strikt getrennt.</p>
+      </div>
+      <div class="hero-photos pf-scenes">
+        <canvas class="scene tall" data-scene="sphere" role="img" aria-label="Animierte 3D-Darstellung: ein Netz aus verbundenen Menschen"></canvas>
+        <canvas class="scene sq" data-scene="orbit" data-phase="1" role="img" aria-label="Animierte 3D-Darstellung: Mitglieder um ein gemeinsames Zentrum"></canvas>
+        <canvas class="scene sq" data-scene="lattice" data-phase="2" role="img" aria-label="Animierte 3D-Darstellung: wachsendes Gitter"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="funktionen">
+    <div class="wrap">
+      <h2>Alles, was ein Klub braucht</h2>
+      <p class="muted maxw">Jeder Klub bekommt dieselben starken Funktionen für seine Mitglieder — und gibt ihnen sein eigenes Gesicht.</p>
+      <div class="grid grid-3 mt-l">
+        <div class="panel"><h3>Dein Auftritt</h3><p class="muted mb-0">Name, Logo, Farben, Startseite, Impressum und Texte stellst du selbst ein. Eigene Domain oder Adresse unter unserer Plattform.</p></div>
+        <div class="panel"><h3>KI-Matching</h3><p class="muted mb-0">Die KI liest Bedarf und Angebot und schlägt Mitgliedern Menschen vor, die ihnen wirklich weiterhelfen, mit Begründung und Gesprächseinstieg.</p></div>
+        <div class="panel"><h3>Dein Assistent</h3><p class="muted mb-0">Ein Chatbot mit dem Namen deiner Wahl beantwortet Fragen zu Terminen und Klub. Du pflegst sein Wissen und seine Tonalität.</p></div>
+        <div class="panel"><h3>Termine und Zahlungen</h3><p class="muted mb-0">Formate, Anmeldung, bezahlte Termine, Erinnerungen am Vortag mit Vorbereitung: wen die Person treffen sollte.</p></div>
+        <div class="panel"><h3>Mitglieder aufnehmen</h3><p class="muted mb-0">Offen, mit Freigabe oder nur mit Einladung. Einladungslinks per E-Mail, eigene Fragen für dein Netzwerk.</p></div>
+        <div class="panel"><h3>Einblick für die Leitung</h3><p class="muted mb-0">Auswertung zu Bedarf und Angebot, Themenideen für die nächsten Treffen, Profil-Vollständigkeit. Ohne private Angaben einzelner Personen.</p></div>
+        <div class="panel"><h3>Sicher und datenschutzkonform</h3><p class="muted mb-0">Getrennte Daten je Klub, Zwei-Faktor-Anmeldung, Einwilligungen mit Nachweis, Datenexport und Löschung für Mitglieder.</p></div>
+        <div class="panel"><h3>Mitglieder-Tarife</h3><p class="muted mb-0">Kostenloser Basis-Tarif plus optionale Abos mit mehr KI-Funktionen. Dein Klub beteiligt sich an den Einnahmen.</p></div>
+        <div class="panel"><h3>Zusatzangebote</h3><p class="muted mb-0">Markt-Panel, Website-Checks und Gesetzes-Suche für Mitglieder: Leistungen, die deinen Klub attraktiver machen.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="ablauf">
+    <div class="wrap">
+      <h2>So startest du</h2>
+      <ol class="steps mt-l">
+        <li><h3>Anfragen</h3><p class="muted">Du erzählst uns kurz von deinem Klub. Wir melden uns innerhalb von zwei Werktagen.</p></li>
+        <li><h3>Wir richten ein</h3><p class="muted">Dein Klub ist mit Startvorlage, Formaten und Assistent angelegt. Du bekommst einen Link, um dein Passwort festzulegen.</p></li>
+        <li><h3>Du gestaltest</h3><p class="muted">Logo, Farben, Texte, Impressum, Assistent und Registrierung stellst du in deinem eigenen Admin-Bereich ein. Eine Checkliste führt dich.</p></li>
+        <li><h3>Mitglieder einladen</h3><p class="muted">Per E-Mail-Einladung oder offener Registrierung. Ab jetzt matcht die KI deine Community.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="tarife">
+    <div class="wrap">
+      <h2>Tarife für Klubs</h2>
+      <p class="muted maxw">Monatlich kündbar. Preise zzgl. gesetzlicher Umsatzsteuer. Mitglieder-Abos und Zusatzpakete laufen separat über Stripe.</p>
+      <div class="grid grid-3 mt-l">
+        {% for p in plans %}
+        <div class="panel">
+          <h3 class="mb-0">{{ p.name }}</h3><p class="small muted">{{ p.tagline }}</p>
+          <p><b class="plan-price">{{ '%.0f'|format(p.price_cents / 100) }} €</b><span class="small muted"> / Monat zzgl. MwSt.</span></p>
+          <ul class="small plan-list">{% for f in p.feature_lines %}<li>{{ f }}</li>{% endfor %}</ul>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="small muted mt-m">Für den Start gibt es einen betreuten Pilot ohne Abrechnung. Sprich uns an.</p>
+    </div>
+  </section>
+
+  <section class="section" id="anfrage">
+    <div class="wrap split">
+      <div>
+        <h2>Klub anfragen</h2>
+        <p class="muted">Erzähl uns kurz, was du vorhast. Wir richten deinen Klub ein und zeigen dir, wie du ihn gestaltest. Unverbindlich.</p>
+        <p class="small muted">Deine Angaben nutzen wir ausschließlich, um dir zu antworten. Mehr dazu in den <a href="{{ url_for('public.privacy') }}">Datenschutzhinweisen</a>.</p>
+      </div>
+      {% if request.args.get('danke') %}
+      <div class="panel" role="status"><h3>Danke für deine Anfrage!</h3><p class="muted mb-0">Wir melden uns in der Regel innerhalb von zwei Werktagen per E-Mail bei dir. Du hast eine Bestätigung im Postfach.</p></div>
+      {% else %}
+      <form method="post" action="{{ url_for('public.club_request') }}" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        {{ input("club_name", "Name deines Klubs", form.get("club_name"), errors=errors, required=True) }}
+        <div class="grid grid-2">
+          {{ input("contact_name", "Dein Name", form.get("contact_name"), errors=errors, required=True, autocomplete="name") }}
+          {{ input("email", "E-Mail", form.get("email"), type="email", errors=errors, required=True, autocomplete="email") }}
+        </div>
+        <div class="grid grid-2">
+          {{ input("city", "Stadt / Region (optional)", form.get("city")) }}
+          <div class="field"><label for="f-size">Größe (optional)</label><select id="f-size" name="size"><option value="">—</option>{% for k, l in sizes.items() %}<option value="{{ k }}"{% if form.get('size') == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+        </div>
+        {{ textarea("message", "Was soll dein Klub können? (optional)", form.get("message"), rows=4) }}
+        {{ check("consent_privacy", "Ich bin einverstanden, dass ihr meine Angaben zur Bearbeitung meiner Anfrage verarbeitet.", form.get("consent_privacy"), errors) }}
+        <button class="btn" type="submit">Anfrage senden</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+</main>
+<footer class="site-foot">
+  <div class="wrap row between">
+    <div><b class="bone">{{ pname }}</b><br>Betrieben von {{ cfg.PLATFORM_OPERATOR }}</div>
+    <div class="row">
+      <a href="{{ url_for('public.impressum') }}">Impressum</a>
+      <a href="{{ url_for('public.privacy') }}">Datenschutz</a>
+      <a href="{{ url_for('public.cookies') }}">Cookies</a>
+    </div>
+  </div>
+</footer>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/scenes.js') }}" defer></script>{% endblock %}

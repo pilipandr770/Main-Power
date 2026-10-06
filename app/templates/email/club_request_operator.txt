@@ -1,0 +1,11 @@
+Neue Klub-Anfrage über die Plattform-Startseite:
+
+Klub: {{ req.club_name }}
+Kontakt: {{ req.contact_name }} <{{ req.email }}>
+{% if req.city %}Ort: {{ req.city }}
+{% endif %}{% if req.size %}Größe: {{ sizes[req.size] }}
+{% endif %}{% if req.message %}
+Nachricht:
+{{ req.message }}
+{% endif %}
+Bearbeiten und Klub anlegen: {{ link }}

@@ -1,0 +1,41 @@
+{% extends "admin/_layout.html" %}
+{% block page_title %}Zahlungen{% endblock %}
+{% macro euro(cents) -%}{{ '%.2f'|format((cents or 0) / 100)|replace('.', ',') }} €{%- endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>Zahlungen</h1><p class="muted mb-0">Einnahmen in deinem Klub auf einen Blick. Den Klub-Tarif und die KI-Budgets findest du unter <a href="{{ url_for('admin.billing') }}">Tarif</a>.</p></div>
+<span class="tag {{ 'ok' if stripe_on else 'warn' }}">Online-Zahlung {{ 'aktiv' if stripe_on else 'nicht aktiv' }}</span></div>
+
+<div class="kpis mb-l">
+  <div class="kpi"><b>{{ euro(ev_month) }}</b><span>bezahlte Termine, dieser Monat</span></div>
+  <div class="kpi"><b>{{ euro(ev_total) }}</b><span>bezahlte Termine, gesamt</span></div>
+  <div class="kpi"><b>{{ euro(by_kind.get('member_plan', 0)) }}</b><span>Mitglieder-Abos, dieser Monat</span></div>
+  <div class="kpi"><b>{{ euro(by_kind.get('addon', 0)) }}</b><span>Zusatzpakete, dieser Monat</span></div>
+  <div class="kpi"><b>{{ priced }}</b><span>kommende Termine mit Preis{% if reserved %} · {{ reserved }} Reservierungen offen{% endif %}</span></div>
+</div>
+
+<div class="split">
+  <section>
+    <h2>Bezahlte Termine</h2>
+    <div class="table-wrap"><table>
+    <thead><tr><th>Termin</th><th class="num">Zahlungen</th><th class="num">Umsatz</th></tr></thead>
+    <tbody>{% for ev, n, total in event_rows %}<tr><td><a href="{{ url_for('admin.event_attendees', event_id=ev.id) }}">{{ ev.title }}</a><br><span class="small muted">{{ ev|event_date }}</span></td><td class="num">{{ n }}</td><td class="num">{{ euro(total) }}</td></tr>
+    {% else %}<tr><td colspan="3" class="muted">Noch keine bezahlten Termine.</td></tr>{% endfor %}</tbody></table></div>
+    <h2 class="mt-l">Weitere Zahlungseingänge</h2>
+    <div class="table-wrap"><table>
+    <thead><tr><th>Datum</th><th>Art</th><th>Beschreibung</th><th class="num">Betrag</th></tr></thead>
+    <tbody>{% for p in pays %}<tr><td class="nowrap">{{ p.created_at|dt }}</td><td>{{ kinds.get(p.kind, p.kind) }}</td><td class="small">{{ p.description }}</td><td class="num">{{ euro(p.amount_cents) }}</td></tr>
+    {% else %}<tr><td colspan="4" class="muted">Noch keine Zahlungen.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <aside class="stack">
+    <div class="panel">
+      <h3>So funktionieren Zahlungen</h3>
+      <p class="small">Preise legst du pro Termin fest (<a href="{{ url_for('admin.events') }}">Termine</a>). Mitglieder zahlen sicher über Stripe; die Anmeldung wird danach automatisch bestätigt.</p>
+      <p class="small muted mb-0">Ist die Online-Zahlung nicht aktiv, werden Termine reserviert und vor Ort bezahlt. Mitglieder-Abos (Plus, Pro) und Zusatzpakete bucht jede Person unter „Mein Tarif“; dein Klub erhält dafür die vereinbarte Provision.</p>
+    </div>
+    <div class="panel">
+      <h3>Auszahlung an den Klub</h3>
+      <p class="small muted mb-0">Zahlungen für Termine gehen derzeit über das Stripe-Konto der Plattform. Die Verrechnung mit deinem Klub erfolgt gemäß eurer Vereinbarung. Ein eigenes Auszahlungskonto für Klubs ist in Planung.</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}

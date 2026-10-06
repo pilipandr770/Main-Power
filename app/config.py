@@ -88,6 +88,12 @@ class Config:
     DEFAULT_CLUB_DOMAINS = os.environ.get("DEFAULT_CLUB_DOMAINS", "")
     PLATFORM_DOMAIN = os.environ.get("PLATFORM_DOMAIN", "")
     STRICT_HOSTS = _bool("STRICT_HOSTS", False)
+    # Startseite der Plattform für Klub-Betreiber (/fuer-klubs). Hosts in PLATFORM_HOME_HOSTS (kommagetrennt, z. B. die
+    # Hauptdomain) zeigen sie unter "/" statt eines Klubs; die PLATFORM_DOMAIN selbst zählt automatisch dazu.
+    PLATFORM_NAME = os.environ.get("PLATFORM_NAME", "Klub-Plattform")
+    PLATFORM_OPERATOR = os.environ.get("PLATFORM_OPERATOR", "Andrii-IT")
+    PLATFORM_HOME_HOSTS = os.environ.get("PLATFORM_HOME_HOSTS", "")
+    PLATFORM_DEMO_URL = os.environ.get("PLATFORM_DEMO_URL", "")  # Adresse eines Demo-Klubs für den Button auf der Startseite
     # Plattform-Konsole (/plattform): eigene Anmeldung, unabhängig von den Klub-Konten. Leer = Konsole gesperrt.
     PLATFORM_ADMIN_EMAIL = os.environ.get("PLATFORM_ADMIN_EMAIL", "").strip().lower()
     PLATFORM_ADMIN_PASSWORD = os.environ.get("PLATFORM_ADMIN_PASSWORD", "")
@@ -116,3 +122,5 @@ class TestConfig(Config):
     STRIPE_ENABLED = False
     TELEGRAM_BOT_TOKEN = ""
     LAWS_API_URL = ""
+    PLATFORM_DOMAIN = ""            # unabhängig von der lokalen .env (sonst wäre „localhost“ die Plattform-Startseite)
+    PLATFORM_HOME_HOSTS = ""

@@ -1,0 +1,7 @@
+Hallo {{ req.contact_name }},
+
+danke für deine Anfrage für „{{ req.club_name }}“. Wir melden uns in der Regel innerhalb von zwei Werktagen bei dir, richten deinen Klub ein und zeigen dir, wie du ihn gestaltest.
+
+Wenn du in der Zwischenzeit Fragen hast, antworte einfach auf diese E-Mail.
+
+Dein Team von {{ config.PLATFORM_NAME }}

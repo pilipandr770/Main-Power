@@ -39,5 +39,5 @@
     </div>
   </div>
 </footer>
-{% include "partials/_aiko_widget.html" %}
+{% if club.public_assistant == '1' %}{% include "partials/_aiko_widget.html" %}{% endif %}
 {% endblock %}

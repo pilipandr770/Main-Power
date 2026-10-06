@@ -14,7 +14,8 @@ from .. import questionnaire
 from ..extensions import db, limiter
 from ..models import (CONSENT_KINDS, FORMATS, ROLES, SOCIALS, AuditLog, ChatMessage, Consent, Event, IntroRequest,
                       KnowledgeItem, LLMUsage, Notification, Profile, Registration, Service, ServiceInquiry, Setting, User, utcnow)
-from ..services import insights, matching, media, telegram
+from ..services import aiko, insights, matching, media, telegram
+from ..services.llm import llm_enabled
 from ..services.audit import audit
 from ..services.mailer import send_mail
 from ..services.events_sync import sync_events
@@ -653,7 +654,8 @@ def settings():
         f = request.form
         Setting.set("member_events_require_approval", "1" if f.get("member_events_require_approval") else "0")
         Setting.set("auto_invites", "1" if f.get("auto_invites") else "0")
-        Setting.set("aiko_extra_instructions", f.get("aiko_extra_instructions", "").strip()[:4000])
+        if "aiko_extra_instructions" in f:
+            Setting.set("aiko_extra_instructions", f.get("aiko_extra_instructions", "").strip()[:4000])
         Setting.set("telegram_group_title", f.get("telegram_group_title", "").strip()[:120])
         Setting.set("announcement", f.get("announcement", "").strip()[:500])
         audit("settings.save")
@@ -709,11 +711,11 @@ def _slot_set(slot, ref):
 def club_page():
     if request.method == "POST":
         f = request.form
-        values = {k: f.get(k, "") for k in club_settings.TEXT_FIELDS}
-        if values.get("registration") not in club_settings.REG_MODES:
+        values = {k: f.get(k, "") for k in club_settings.TEXT_FIELDS if k in f}
+        if "registration" in values and values["registration"] not in club_settings.REG_MODES:
             values["registration"] = "open"
         values["admin_2fa"] = "1" if f.get("admin_2fa") else "0"
-        if not club_settings.HEX.match(values.get("accent", "")):
+        if "accent" in values and not club_settings.HEX.match(values["accent"]):
             values["accent"] = club_settings.settings()["accent"]
         testimonials = []
         for line in f.get("testimonials", "").splitlines():
@@ -723,7 +725,7 @@ def club_page():
                     testimonials.append({"name": name.strip()[:60], "text": text.strip()[:400]})
         values["testimonials"] = testimonials[:8]
         c = club_settings.settings()
-        old_name, new_name = c["assistant_name"], (values.get("assistant_name") or "").strip()
+        old_name, new_name = c["assistant_name"], (values.get("assistant_name") or c["assistant_name"]).strip()
         for key in ("hero_images", "band_images"):
             items = [dict(i) for i in c[key]]
             for i, item in enumerate(items):
@@ -1102,3 +1104,63 @@ def invite_delete(iid):
     db.session.commit()
     flash("Einladung widerrufen.", "info")
     return redirect(url_for("admin.invites"))
+
+
+# --------------------------------------------------------------------------- KI-Assistent (Chatbot) des Klubs
+@bp.route("/assistent", methods=["GET", "POST"])
+@limiter.limit("30 per hour", methods=["POST"])
+@superadmin_required
+def assistant():
+    """Alles zum Chatbot an einem Ort: Name, Persönlichkeit, Fakten, Anweisungen, öffentlicher Chat, Probefrage."""
+    answer = question = None
+    if request.method == "POST":
+        f = request.form
+        if f.get("action") == "probe":
+            question = f.get("question", "").strip()[:500]
+            if question:
+                answer = aiko.answer_public([{"role": "user", "content": question}])
+        else:
+            c = club_settings.settings()
+            old_name = c["assistant_name"]
+            values = {k: f.get(k, "") for k in ("assistant_name", "about", "assistant_facts")}
+            values["public_assistant"] = "1" if f.get("public_assistant") else "0"
+            new_name = (values["assistant_name"] or old_name).strip() or old_name
+            if not values["assistant_name"].strip():
+                values["assistant_name"] = old_name
+            club_settings.save(values)
+            Setting.set("aiko_extra_instructions", f.get("aiko_extra_instructions", "").strip()[:4000])
+            renamed = _rename_assistant(old_name, new_name) if new_name != old_name else 0
+            audit("assistant.settings", details=f"Name: {new_name}" + (f" ({renamed} Texte)" if renamed else ""))
+            db.session.commit()
+            flash("Einstellungen des Assistenten gespeichert."
+                  + (f" Der neue Name steht jetzt auch in {renamed} Leistungs- und FAQ-Texten." if renamed else ""),
+                  "success")
+            return redirect(url_for("admin.assistant"))
+    return render_template("admin/assistant.html", c=club_settings.settings(), fields=club_settings.TEXT_FIELDS,
+                           extra=Setting.get("aiko_extra_instructions"), answer=answer, question=question,
+                           faq_count=KnowledgeItem.query.filter_by(active=True).count(), ai_on=llm_enabled())
+
+
+# --------------------------------------------------------------------------- Zahlungen
+@bp.route("/zahlungen")
+@superadmin_required
+def payments():
+    """Überblick über Einnahmen im Klub: bezahlte Termine, Mitglieder-Abos, Zusatzpakete."""
+    from ..services import billing as billing_svc
+    now = utcnow()
+    month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    paid = Registration.query.filter(Registration.status == "paid")
+    ev_total = int(paid.with_entities(func.coalesce(func.sum(Registration.amount_cents), 0)).scalar() or 0)
+    ev_month = int(paid.filter(Registration.updated_at >= month)
+                   .with_entities(func.coalesce(func.sum(Registration.amount_cents), 0)).scalar() or 0)
+    rows = (db.session.query(Event, func.count(Registration.id), func.coalesce(func.sum(Registration.amount_cents), 0))
+            .join(Registration, Registration.event_id == Event.id)
+            .filter(Registration.status == "paid").group_by(Event.id).order_by(Event.starts_at.desc()).limit(30).all())
+    reserved = Registration.query.filter(Registration.status.in_(("reserved", "pending_payment"))).count()
+    priced = Event.query.filter(Event.price_cents > 0, Event.status == "published", Event.starts_at >= now).count()
+    pays = Payment.query.order_by(Payment.created_at.desc()).limit(30).all()
+    by_kind = dict(db.session.query(Payment.kind, func.coalesce(func.sum(Payment.amount_cents), 0))
+                   .filter(Payment.created_at >= month).group_by(Payment.kind).all())
+    return render_template("admin/payments.html", ev_total=ev_total, ev_month=ev_month, event_rows=rows, reserved=reserved,
+                           priced=priced, pays=pays, by_kind={k: int(v) for k, v in by_kind.items()},
+                           stripe_on=billing_svc.enabled(), kinds=Payment.KINDS)

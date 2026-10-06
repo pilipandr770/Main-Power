@@ -2,14 +2,14 @@
 {% block page_title %}Klubs{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Klubs</h1><p class="muted mb-0">{{ clubs|length }} Klub{{ 's' if clubs|length != 1 }} auf dieser Installation. Kennzahlen: Mitglieder gesamt, kommende Termine, KI-Verbrauch der letzten 30 Tage.</p></div>
-<a class="btn btn-sm" href="{{ url_for('platform.club_new') }}">Neuen Klub anlegen</a></div>
+<div class="row"><a class="btn btn-ghost btn-sm" href="{{ url_for('platform.requests') }}">Anfragen{% if new_requests %} <span class="badge">{{ new_requests }}</span>{% endif %}</a><a class="btn btn-sm" href="{{ url_for('platform.club_new') }}">Neuen Klub anlegen</a></div></div>
 <div class="table-wrap"><table>
 <thead><tr><th>Klub</th><th>Adresse</th><th>Tarif</th><th class="num">Mitglieder</th><th class="num">Termine</th><th class="num">KI 30 Tage</th><th>Status</th><th></th></tr></thead>
 <tbody>
 {% for c in clubs %}{% set st = stats.get(c.id, {}) %}
 <tr>
   <td><a href="{{ url_for('platform.club_edit', cid=c.id) }}"><b>{{ c.name }}</b></a><br><span class="small muted">{{ c.slug }} · seit {{ c.created_at|dt }}</span></td>
-  <td class="small">{% for d in c.domain_list %}<a href="https://{{ d }}/" rel="noopener" target="_blank">{{ d }}</a><br>{% endfor %}{% if platform_domain %}<a href="https://{{ c.slug }}.{{ platform_domain }}/" rel="noopener" target="_blank">{{ c.slug }}.{{ platform_domain }}</a>{% endif %}{% if not c.domain_list and not platform_domain %}<span class="muted">keine Domain</span>{% endif %}</td>
+  <td class="small">{% set u = club_url(c) %}{% if u %}<a href="{{ u }}/" rel="noopener" target="_blank">{{ u|replace('https://', '')|replace('http://', '') }}</a>{% else %}<span class="tag warn">keine Adresse</span>{% endif %}{% for d in c.domain_list %}{% if u != 'https://' ~ d %}<br><a href="https://{{ d }}/" rel="noopener" target="_blank">{{ d }}</a>{% endif %}{% endfor %}</td>
   <td><span class="tag">{{ c.plan }}</span></td>
   <td class="num">{{ st.members or 0 }}</td>
   <td class="num">{{ st.events or 0 }}</td>

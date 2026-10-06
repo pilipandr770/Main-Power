@@ -14,7 +14,6 @@
     <div class="grid grid-2">{{ field("name") }}{{ field("full_name") }}</div>
     <div class="grid grid-2">{{ field("subtitle") }}{{ field("tagline") }}</div>
     <div class="grid grid-2">{{ field("city") }}{{ input("accent", fields.accent[0], c.accent, type="color") }}</div>
-    {{ field("assistant_name") }}
     <div class="field"><label for="f-registration">{{ fields.registration[0] }}<span class="hint">Wer sich bei {{ c.name }} registrieren darf. Einladungen erstellst du unter „Einladungen“.</span></label>
       <select id="f-registration" name="registration">{% for k, label in reg_modes.items() %}<option value="{{ k }}"{% if k == c.registration %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
     <label class="check"><input type="checkbox" name="admin_2fa" value="1"{% if c.admin_2fa == '1' %} checked{% endif %}><span><b>{{ fields.admin_2fa[0] }}</b><br><span class="muted small">Admin-Konten müssen 2FA einrichten, bevor sie den Admin-Bereich nutzen. Empfohlen.</span></span></label>
@@ -35,8 +34,9 @@
       {% for im in c[key] %}{{ input(key ~ "_alt_" ~ loop.index0, label ~ " " ~ loop.index, im.alt, hint="Für Screenreader") }}{% endfor %}
     {% endfor %}
   </fieldset>
-  <fieldset><legend>KI-Assistenz und Registrierung</legend>
-    {{ field("about") }}{{ field("assistant_facts") }}{{ field("values_label") }}
+  <fieldset><legend>Registrierung</legend>
+    <p class="small muted">Name, Persönlichkeit und Wissen des Chatbots stellst du unter <a href="{{ url_for('admin.assistant') }}">KI-Assistent</a> ein.</p>
+    {{ field("values_label") }}
   </fieldset>
   <fieldset><legend>Termin-Import (optional)</legend>
     <div class="grid grid-2">{{ field("events_sync_url") }}{{ field("events_sync_label") }}</div>

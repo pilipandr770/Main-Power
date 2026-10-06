@@ -950,6 +950,24 @@ class Setting(TenantMixin, db.Model):
             row.value = value
 
 
+class ClubRequest(db.Model):
+    """Anfrage eines künftigen Klubs über die Plattform-Startseite (nicht klubbezogen; Betreiber-Konsole bearbeitet sie)."""
+    __tablename__ = "club_requests"
+    STATUS = {"new": "neu", "approved": "angelegt", "rejected": "abgelehnt"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    club_name = db.Column(db.String(120), nullable=False)
+    contact_name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    city = db.Column(db.String(120), default="")
+    size = db.Column(db.String(30), default="")
+    message = db.Column(db.Text, default="")
+    status = db.Column(db.String(12), default="new", nullable=False, index=True)
+    club_id = db.Column(db.Integer)                      # nach dem Anlegen
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    handled_at = db.Column(db.DateTime)
+
+
 class Invite(TenantMixin, db.Model):
     """Einladung in den Klub (Link mit Token). Pflicht im Modus „nur mit Einladung“, im Modus „mit Freigabe“ überspringt
     sie die Prüfung. Mit E-Mail-Adresse persönlich (gilt nur dafür), ohne Adresse ein Gemeinschaftslink mit max_uses."""

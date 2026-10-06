@@ -97,7 +97,7 @@ def test_mail_sender_uses_club_name_and_reply_to(app, monkeypatch):
 
 def test_renaming_assistant_updates_service_and_faq_texts(client, app):
     admin_login(client)
-    page = client.get("/admin/klub").get_data(as_text=True)
+    page = client.get("/admin/assistent").get_data(as_text=True)
     assert "assistant_name" in page
     with app.app_context(), use_club(default_club()):
         from app.services import club as club_settings
@@ -105,7 +105,8 @@ def test_renaming_assistant_updates_service_and_faq_texts(client, app):
         n_services = Service.query.filter(Service.summary.like("%Aiko%")).count()
         assert n_services >= 1
     values["assistant_name"] = "Mira"
-    r = client.post("/admin/klub", data=values, follow_redirects=True)
+    values["aiko_extra_instructions"] = ""
+    r = client.post("/admin/assistent", data=values, follow_redirects=True)
     assert "Mira" in r.get_data(as_text=True)
     with app.app_context(), use_club(default_club()):
         assert Service.query.filter(Service.summary.like("%Aiko%")).count() == 0

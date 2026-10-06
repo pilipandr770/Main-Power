@@ -16,7 +16,7 @@
       <p class="small muted mb-0">Wie oft Mitglieder Markt-Panel, Website-Checks, Gesetzes-Suche und KI-Chat nutzen können, legt ihr Tarif fest – siehe <a href="{{ url_for('admin.billing') }}">Tarif</a>. Admins sind beim Markt-Panel nicht begrenzt.</p>
     </fieldset>
     <fieldset><legend>{{ club.assistant_name }}</legend>
-      {{ textarea("aiko_extra_instructions", "Zusätzliche Anweisungen", v.aiko_extra_instructions, rows=6, hint="Wird an " ~ club.assistant_name ~ "s Systemanweisung angehängt, z. B. aktuelle Aktionen oder Tonalität. Die KI-VO-/DSGVO-Grundregeln stehen fest im Code und haben immer Vorrang.") }}
+      <p class="small muted mb-0">Name, Anweisungen und Wissen findest du jetzt unter <a href="{{ url_for('admin.assistant') }}">KI-Assistent</a>.</p>
     </fieldset>
     <button class="btn" type="submit">Speichern</button>
   </form>

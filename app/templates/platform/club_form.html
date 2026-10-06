@@ -3,7 +3,8 @@
 {% block page_title %}{{ klub.name if klub else 'Neuer Klub' }}{% endblock %}
 {% block content %}
 <div class="page-head"><div><p class="muted mb-0"><a href="{{ url_for('platform.dashboard') }}">Klubs</a></p><h1>{{ klub.name if klub else 'Neuen Klub anlegen' }}</h1></div></div>
-<form method="post" class="maxw">
+{% if req %}<div class="flash info mb-m">Vorbelegt aus der Anfrage von {{ req.contact_name }} ({{ req.email }}){% if req.message %}: „{{ req.message[:300] }}“{% endif %}</div>{% endif %}
+<form method="post" class="maxw"{% if req %} action="{{ url_for('platform.club_new', anfrage=req.id) }}"{% endif %}>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <fieldset><legend>Klub</legend>
     {{ input("name", "Name", form.get("name") or (klub.name if klub else ""), errors=errors, required=True) }}
@@ -27,7 +28,7 @@
       {{ input("admin_last", "Nachname", form.get("admin_last")) }}
     </div>
     {{ input("admin_email", "E-Mail", form.get("admin_email"), type="email", errors=errors, required=True) }}
-    {{ input("admin_password", "Startpasswort", type="password", errors=errors, required=True, hint="Mindestens 10 Zeichen; bitte nach dem ersten Login ändern lassen.") }}
+    {{ input("admin_password", "Startpasswort (optional)", type="password", errors=errors, hint="Leer lassen: Die Person bekommt per E-Mail einen Link (7 Tage gültig) und legt ihr Passwort selbst fest. Empfohlen.") }}
   </fieldset>
   {% endif %}
   <button class="btn" type="submit">{{ 'Speichern' if klub else 'Klub anlegen' }}</button>

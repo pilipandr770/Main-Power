@@ -6,7 +6,7 @@
   <div class="wrap row between">
     <a class="logo" href="{{ url_for('platform.dashboard') }}"><span>Klub-Plattform <small>Betreiber-Konsole</small></span></a>
     {% if session.get('platform_admin') %}
-    <nav class="row"><a href="{{ url_for('platform.dashboard') }}">Klubs</a><a href="{{ url_for('platform.tariffs') }}">Tarife</a>
+    <nav class="row"><a href="{{ url_for('platform.dashboard') }}">Klubs</a><a href="{{ url_for('platform.requests') }}">Anfragen</a><a href="{{ url_for('platform.tariffs') }}">Tarife</a>
     <form method="post" action="{{ url_for('platform.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn">Abmelden</button></form></nav>
     {% endif %}
   </div>

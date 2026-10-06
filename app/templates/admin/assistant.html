@@ -1,0 +1,37 @@
+{% extends "admin/_layout.html" %}
+{% from "partials/_macros.html" import input, textarea, check with context %}
+{% block page_title %}KI-Assistent{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>KI-Assistent</h1><p class="muted mb-0">Der Chatbot deines Klubs: Er beantwortet Fragen zu Terminen und Klub und gibt Mitgliedern persönliche Empfehlungen.</p></div>
+<span class="tag {{ 'ok' if ai_on else 'warn' }}">{{ 'KI aktiv' if ai_on else 'Demo-Modus ohne KI' }}</span></div>
+<div class="split">
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset><legend>Persönlichkeit</legend>
+      {{ input("assistant_name", fields.assistant_name[0], c.assistant_name, hint="So stellt sich der Chatbot vor. Der Name wird auch in Leistungs- und FAQ-Texten nachgezogen.") }}
+      {{ textarea("about", fields.about[0], c.about, rows=4, hint="Wofür dein Klub steht, in eigenen Worten. Der Assistent beantwortet Fragen daraus.") }}
+    </fieldset>
+    <fieldset><legend>Wissen und Regeln</legend>
+      {{ textarea("assistant_facts", fields.assistant_facts[0], c.assistant_facts, rows=4, hint="Feste Angaben, die der Assistent genau so wiedergibt, z. B. Preise, Orte, Regeln, Ansprechpersonen.") }}
+      {{ textarea("aiko_extra_instructions", "Zusätzliche Anweisungen", extra, rows=5, hint="Tonalität und aktuelle Hinweise, z. B. „duze immer“ oder „weise auf den Sommerabend hin“. Die Regeln der EU-KI-Verordnung gelten immer zuerst und lassen sich nicht aufheben.") }}
+      <p class="small muted">Fragen und Antworten für den Assistenten pflegst du unter <a href="{{ url_for('admin.knowledge') }}">Wissen für {{ c.assistant_name }}</a> ({{ faq_count }} aktive Einträge).</p>
+    </fieldset>
+    <fieldset><legend>Auf deiner Website</legend>
+      <label class="check"><input type="checkbox" name="public_assistant" value="1"{% if c.public_assistant == '1' %} checked{% endif %}><span><b>{{ fields.public_assistant[0] }}</b><br><span class="muted small">Besucher können dem Assistenten Fragen stellen, ohne sich anzumelden. Der Assistent sieht dabei keine Mitgliederdaten. Für Mitglieder bleibt er im Bereich „Aiko fragen“ erhalten.</span></span></label>
+    </fieldset>
+    <button class="btn" type="submit">Speichern</button>
+  </form>
+  <aside class="stack">
+    <div class="panel">
+      <h3>Probefrage</h3>
+      <p class="small muted">So antwortet {{ c.assistant_name }} Besuchern deiner Website, mit den gespeicherten Einstellungen. Zählt zum KI-Budget des Klubs.</p>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="probe">
+        {{ input("question", "Frage", question or "", placeholder="Was kostet ein Termin und wie melde ich mich an?") }}
+        <button class="btn btn-ghost btn-sm">Fragen</button>
+      </form>
+      {% if answer %}<div class="msg assistant mt-m pre">{{ answer }}</div>{% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

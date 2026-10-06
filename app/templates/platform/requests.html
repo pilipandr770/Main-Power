@@ -1,0 +1,20 @@
+{% extends "platform/_layout.html" %}
+{% block page_title %}Anfragen{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Klub-Anfragen</h1><p class="muted mb-0">Eingegangen über die Plattform-Startseite „Für Klubs“.</p></div></div>
+<div class="table-wrap"><table>
+<thead><tr><th>Klub</th><th>Kontakt</th><th>Angaben</th><th>Eingang</th><th>Status</th><th></th></tr></thead>
+<tbody>
+{% for r in rows %}
+<tr>
+  <td><b>{{ r.club_name }}</b>{% if r.city %}<br><span class="small muted">{{ r.city }}</span>{% endif %}</td>
+  <td>{{ r.contact_name }}<br><a class="small" href="mailto:{{ r.email }}">{{ r.email }}</a></td>
+  <td class="small">{% if r.size %}{{ sizes[r.size] }}<br>{% endif %}{{ r.message }}</td>
+  <td class="nowrap small">{{ r.created_at|dt }}</td>
+  <td><span class="tag {{ 'ember' if r.status == 'new' else 'ok' if r.status == 'approved' else '' }}">{{ r.STATUS[r.status] }}</span></td>
+  <td class="nowrap">{% if r.status == 'new' %}<a class="btn btn-sm" href="{{ url_for('platform.club_new', anfrage=r.id) }}">Klub anlegen</a>
+    <form method="post" action="{{ url_for('platform.request_reject', rid=r.id) }}" class="inline" data-confirm="Anfrage ablehnen?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn small">Ablehnen</button></form>{% endif %}</td>
+</tr>
+{% else %}<tr><td colspan="6" class="muted">Noch keine Anfragen.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

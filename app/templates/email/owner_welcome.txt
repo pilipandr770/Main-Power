@@ -1,0 +1,19 @@
+Hallo {{ user.first_name }},
+
+dein Klub „{{ club_name }}“ ist eingerichtet.
+
+1. Passwort festlegen (der Link ist 7 Tage gültig):
+{{ link }}
+
+2. Danach meldest du dich im Admin-Bereich an:
+{{ admin_url }}
+
+Dort führt dich eine Checkliste durch die ersten Schritte: Name und Logo, Impressum, Startseite, Assistent, Registrierung und Einladungen.
+{% if url %}
+Die öffentliche Adresse deines Klubs: {{ url }}
+{% endif %}
+Richte unter „Sicherheit“ gleich die Zwei-Faktor-Anmeldung ein.
+
+Bei Fragen antworte einfach auf diese E-Mail.
+
+Dein Team von {{ config.PLATFORM_NAME }}

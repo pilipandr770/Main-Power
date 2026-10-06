@@ -18,7 +18,7 @@ from werkzeug.security import check_password_hash
 
 from ..club_presets import PRESETS
 from ..extensions import db, limiter
-from ..models import Club, Event, LLMUsage, User, utcnow
+from ..models import Club, ClubRequest, Event, LLMUsage, User, utcnow
 
 bp = Blueprint("platform", __name__)
 SESSION_KEY = "platform_admin"
@@ -101,7 +101,42 @@ def _stats() -> dict[int, dict]:
 def dashboard():
     clubs = Club.query.order_by(Club.id).all()
     return render_template("platform/dashboard.html", clubs=clubs, stats=_stats(),
-                           platform_domain=current_app.config.get("PLATFORM_DOMAIN", ""))
+                           platform_domain=current_app.config.get("PLATFORM_DOMAIN", ""), club_url=_club_url,
+                           new_requests=ClubRequest.query.filter_by(status="new").count())
+
+
+def _club_url(club: Club) -> str:
+    """Öffentliche Adresse eines Klubs oder "" (keine eigene Domain und keine PLATFORM_DOMAIN: nicht erreichbar)."""
+    from ..services import club as club_settings
+    from ..tenancy import default_slug
+    if club.domain_list or (current_app.config.get("PLATFORM_DOMAIN") and club.slug != default_slug()):
+        return club_settings.base_url(club)
+    return current_app.config["BASE_URL"] if club.slug == default_slug() else ""
+
+
+def _slugify(text: str) -> str:
+    import unicodedata
+    t = unicodedata.normalize("NFKD", text.lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss"))
+    t = re.sub(r"[^a-z0-9]+", "-", t.encode("ascii", "ignore").decode()).strip("-")[:40].strip("-")
+    return t if SLUG.match(t) else ""
+
+
+@bp.route("/anfragen")
+@platform_required
+def requests():
+    rows = ClubRequest.query.order_by(ClubRequest.status == "new", ClubRequest.created_at.desc()).limit(200).all()
+    from .public import SIZES
+    return render_template("platform/requests.html", rows=rows, sizes=SIZES)
+
+
+@bp.route("/anfragen/<int:rid>/ablehnen", methods=["POST"])
+@platform_required
+def request_reject(rid):
+    row = db.session.get(ClubRequest, rid) or abort(404)
+    row.status, row.handled_at = "rejected", utcnow()
+    db.session.commit()
+    flash("Anfrage abgelehnt.", "info")
+    return redirect(url_for("platform.requests"))
 
 
 def _validate(form, club: Club | None) -> dict:
@@ -131,26 +166,52 @@ def _validate(form, club: Club | None) -> dict:
 def club_new():
     errors = {}
     form = request.form
+    req = db.session.get(ClubRequest, request.args.get("anfrage", type=int) or 0)
+    if request.method == "GET" and req:  # Vorbelegung aus der Anfrage
+        first, _, last = req.contact_name.partition(" ")
+        form = {"name": req.club_name, "slug": _slugify(req.club_name), "admin_email": req.email, "admin_first": first,
+                "admin_last": last, "contact_email": req.email}
     if request.method == "POST":
         errors = _validate(form, None)
         email = form.get("admin_email", "").strip().lower()
         pw = form.get("admin_password", "")
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             errors["admin_email"] = "Bitte eine gültige E-Mail angeben."
-        if len(pw) < 10:
-            errors["admin_password"] = "Mindestens 10 Zeichen."
+        if pw and len(pw) < 10:
+            errors["admin_password"] = "Mindestens 10 Zeichen — oder leer lassen, dann bekommt die Person einen Link, um es selbst festzulegen."
         preset = form.get("preset") if form.get("preset") in PRESETS else "neutral"
         if not errors:
+            import secrets
             from ..seed import create_club
+            from ..services.mailer import send_mail
+            from ..tenancy import use_club
             domains = ",".join(d.strip().lower() for d in form.get("domains", "").replace(";", ",").split(",") if d.strip())
-            club = create_club(form["slug"].strip().lower(), form["name"].strip(), email, pw,
+            club = create_club(form["slug"].strip().lower(), form["name"].strip(), email, pw or secrets.token_urlsafe(24),
                                admin_first=form.get("admin_first", "").strip() or "Admin",
                                admin_last=form.get("admin_last", "").strip(), domains=domains, preset=preset,
                                demo=bool(form.get("demo")), contact_email=form.get("contact_email", "").strip())
-            flash(f"Klub „{club.name}“ angelegt. Erster Superadmin: {email}.", "success")
+            if req and req.status == "new":
+                req.status, req.club_id, req.handled_at = "approved", club.id, utcnow()
+                db.session.commit()
+            url = _club_url(club)
+            mailed, setup_link = False, ""
+            if not pw:  # Klubleitung legt ihr Passwort selbst fest (Link 7 Tage gültig)
+                from .auth import password_token
+                with use_club(club):
+                    owner = User.query.filter_by(email=email).one()
+                    link = setup_link = f"{url or current_app.config['BASE_URL']}/passwort-neu/{password_token(owner, setup=True)}"
+                    mailed = send_mail(email, f"Dein Klub „{club.name}“ ist eingerichtet", "owner_welcome", user=owner,
+                                       club_name=club.name, url=url, link=link,
+                                       admin_url=(url or current_app.config["BASE_URL"]) + "/admin/")
+            flash(f"Klub „{club.name}“ angelegt. Erste Klubleitung: {email}."
+                  + (f" Adresse: {url}." if url else " Achtung: Der Klub hat noch keine erreichbare Adresse — "
+                     "eigene Domain eintragen oder PLATFORM_DOMAIN setzen.")
+                  + (" Einrichtungslink per E-Mail verschickt." if not pw and mailed else
+                     f" Kein E-Mail-Versand eingerichtet: Gib diesen Einrichtungslink (7 Tage gültig) selbst weiter: {setup_link}"
+                     if not pw else ""), "success")
             return redirect(url_for("platform.dashboard"))
     return render_template("platform/club_form.html", klub=None, errors=errors, form=form, presets=PRESETS,
-                           club_plans=_club_plans())
+                           club_plans=_club_plans(), req=req)
 
 
 @bp.route("/klub/<int:cid>", methods=["GET", "POST"])
@@ -173,7 +234,7 @@ def club_edit(cid):
             flash("Gespeichert.", "success")
             return redirect(url_for("platform.club_edit", cid=club.id))
     return render_template("platform/club_form.html", klub=club, errors=errors, form=form, presets=PRESETS,
-                           club_plans=_club_plans())
+                           club_plans=_club_plans(), req=None)
 
 
 def _club_plans():

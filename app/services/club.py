@@ -41,6 +41,7 @@ TEXT_FIELDS: dict[str, tuple[str, str, int, bool]] = {
     "assistant_name": ("Name der KI-Assistenz", "Aiko", 30, False),
     "registration": ("Registrierung", "open", 10, False),
     "admin_2fa": ("2FA für die Klubleitung verpflichtend", "0", 1, False),
+    "public_assistant": ("Öffentlichen Chat auf der Website anzeigen", "1", 1, False),
     "hero_title": ("Startseite: Überschrift", "Die richtigen Menschen. Zur richtigen Zeit.", 120, False),
     "hero_lead": ("Startseite: Einleitung",
                   "Unser Klub bringt Unternehmer:innen, Selbstständige und Fachleute zusammen. Du erzählst, wo du stehst und "
@@ -145,12 +146,16 @@ def settings() -> ClubView:
 def base_url(club=None) -> str:
     """Öffentliche Adresse eines Klubs (auch ohne Request, z. B. Cron): eigene Domain, sonst <slug>.<PLATFORM_DOMAIN>."""
     from ..tenancy import current_club, default_slug
+    from urllib.parse import urlparse
     club = club or current_club()
     cfg = current_app.config
+    base = urlparse(cfg["BASE_URL"])
+    scheme = base.scheme or "https"                       # Produktion https; lokal http
+    port = f":{base.port}" if base.port and scheme == "http" else ""   # lokal läuft der Server auf einem Port
     if club and club.domain_list:
-        return f"https://{club.domain_list[0]}"
+        return f"{scheme}://{club.domain_list[0]}{port}"
     if club and cfg.get("PLATFORM_DOMAIN") and club.slug != default_slug():
-        return f"https://{club.slug}.{cfg['PLATFORM_DOMAIN']}"
+        return f"{scheme}://{club.slug}.{cfg['PLATFORM_DOMAIN']}{port}"
     return cfg["BASE_URL"].rstrip("/")
 
 
